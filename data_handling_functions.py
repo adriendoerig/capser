@@ -81,7 +81,7 @@ def make_crowding_sets(folder = './crowding_images', image_size=(60,128), n_vali
     print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=50):
+def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=1, n_valid_samples=15, n_test_samples=15):
 
     min_num_images = 50
     num_images = 0
@@ -102,7 +102,7 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
             try:
                 image_data = ndimage.imread(image_file, mode='L').astype(float)
 
-                # pad to the right size if image is small than image_size (image will be in a random place)
+                # pad if image is small than image_size (image will be in a random place)
                 if any(np.less(image_data.shape,image_size)):
                     posX = random.randint(0,max(0,image_size[1]-image_data.shape[1]))
                     posY = random.randint(0, max(0, image_size[0] - image_data.shape[0]))
@@ -129,9 +129,9 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
                     train_labels[num_images] = 1
                 elif 'hexagon' in image_file:
                     train_labels[num_images] = 2
-                elif 'octagon' in image_file:
+                elif 'stars4' in image_file:
                     train_labels[num_images] = 3
-                elif 'star' in image_file:
+                elif 'stars7' in image_file:
                     train_labels[num_images] = 4
                 elif 'line' in image_file:
                     train_labels[num_images] = 5
@@ -147,7 +147,7 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
 
     # check enough images could be processed
     if num_images < min_num_images:
-        raise Exception('Many fewer images than expected: %d < %d' %
+        raise Exception('Much fewer images than expected: %d < %d' %
                         (num_images, min_num_images))
 
     # remove empty entries
