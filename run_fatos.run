@@ -1,0 +1,12 @@
+#!/bin/bash -l
+#SBATCH --nodes=1
+#SBATCH --time=24:0:0
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+
+echo STARTING AT `date`
+module purge
+module load gcc python
+srun python capsnet_shapes_fatos.py
+echo FINISHED at `date`
+
