@@ -18,7 +18,7 @@ np.random.seed(42)
 tf.set_random_seed(42)
 
 # create datasets
-im_size = (100,150)
+im_size = (60,128)
 train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(image_size=im_size)
 
 show_samples = 0
@@ -62,7 +62,7 @@ y = tf.placeholder(shape=[None], dtype=tf.int64, name="y")
 # primary capsules -- The first layer will be composed of 32 maps of 6×6 capsules each,
 # where each capsule will output an 8D activation vector.
 
-kernel_size = 11
+kernel_size = 9
 caps_conv_stride = 2
 caps1_n_maps = 32
 caps1_n_caps = int(caps1_n_maps * ((im_size[0]-2*(kernel_size-1))/2)*((im_size[1]-2*(kernel_size-1))/2))  # number of primary capsules: 2*kernel_size convs, stride = 2 in caps conv layer
@@ -91,7 +91,7 @@ caps1_output = primary_caps_layer(conv1, caps1_n_maps, caps1_n_caps, caps1_n_dim
 
 
 caps2_n_caps = 7 # number of capsules
-caps2_n_dims = 10 # of n dimensions
+caps2_n_dims = 16 # of n dimensions
 
 # it is all taken care of by the function
 caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3, print_shapes=False)
