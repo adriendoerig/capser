@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*- 
 # from https://github.com/ageron/handson-ml/blob/master/extra_capsnets.ipynb
 # video: https://www.youtube.com/watch?v=2Kawrd5szHE&feature=youtu.be
 from __future__ import division, print_function, unicode_literals
@@ -7,7 +9,7 @@ import numpy as np
 import os
 import tensorflow as tf
 from create_sprite import images_to_sprite, invert_grayscale
-from data_handling_functions import make_crowding_sets, make_shape_sets
+from data_handling_functions import make_shape_sets
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     fc_to_fc_caps_layer, caps_prediction, compute_margin_loss, create_masked_decoder_input, \
     decoder_with_mask, compute_reconstruction_loss
@@ -62,9 +64,9 @@ y = tf.placeholder(shape=[None], dtype=tf.int64, name="y")
 # primary capsules -- The first layer will be composed of 32 maps of 6×6 capsules each,
 # where each capsule will output an 8D activation vector.
 
-kernel_size = 11
+kernel_size = 9
 caps_conv_stride = 2
-caps1_n_maps = 32
+caps1_n_maps = 50
 caps1_n_caps = int(caps1_n_maps * ((im_size[0]-2*(kernel_size-1))/2)*((im_size[1]-2*(kernel_size-1))/2))  # number of primary capsules: 2*kernel_size convs, stride = 2 in caps conv layer
 caps1_n_dims = 8
 
@@ -91,7 +93,7 @@ caps1_output = primary_caps_layer(conv1, caps1_n_maps, caps1_n_caps, caps1_n_dim
 
 
 caps2_n_caps = 7 # number of capsules
-caps2_n_dims = 10 # of n dimensions
+caps2_n_dims = 16 # of n dimensions
 
 # it is all taken care of by the function
 caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3, print_shapes=False)
@@ -103,7 +105,7 @@ caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_d
 
 
 caps3_n_caps = 7 # number of capsules
-caps3_n_dims = 8 # of n dimensions
+caps3_n_dims = 16 # of n dimensions
 
 # it is all taken care of by the function
 caps3_output = fc_to_fc_caps_layer(X, caps2_output, caps2_n_caps, caps2_n_dims, caps3_n_caps, caps3_n_dims, rba_rounds=3, print_shapes=False)
@@ -246,11 +248,11 @@ with tf.Session() as sess:
                     feed_dict={X: batch_data,
                                y: batch_labels,
                                mask_with_labels: True})
-                print("\rIteration: {}/{} ({:.1f}%)  Loss: {:.5f}".format(
-                          iteration, n_iterations_per_epoch,
-                          iteration * 100 / n_iterations_per_epoch,
-                          loss_train),
-                      end="")
+                #print("\rIteration: {}/{} ({:.1f}%)  Loss: {:.5f}".format(
+                 #         iteration, n_iterations_per_epoch,
+                  #        iteration * 100 / n_iterations_per_epoch,
+                   #       loss_train),
+                    #  end="")
                 if iteration % 5 == 0:
                     writer.add_summary(summ,epoch*n_iterations_per_epoch+iteration)
                 if iteration == n_iterations_per_epoch and epoch is n_epochs:
@@ -278,15 +280,15 @@ with tf.Session() as sess:
                                    mask_with_labels: True})
                 loss_vals.append(loss_val)
                 acc_vals.append(acc_val)
-                print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
-                          iteration, n_iterations_validation,
-                          iteration * 100 / n_iterations_validation),
-                      end=" " * 10)
+                # print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
+                 #         iteration, n_iterations_validation,
+                  #        iteration * 100 / n_iterations_validation),
+                   #   end=" " * 10)
             loss_val = np.mean(loss_vals)
             acc_val = np.mean(acc_vals)
-            print("\rEpoch: {}  Val accuracy: {:.4f}%  Loss: {:.6f}{}".format(
-                epoch + 1, acc_val * 100, loss_val,
-                " (improved)" if loss_val < best_loss_val else ""))
+            # print("\rEpoch: {}  Val accuracy: {:.4f}%  Loss: {:.6f}{}".format(
+             #   epoch + 1, acc_val * 100, loss_val,
+              #  " (improved)" if loss_val < best_loss_val else ""))
 
             # And save the model if it improved:
             # if loss_val < best_loss_val:
@@ -324,14 +326,14 @@ if do_testing:
                                    mask_with_labels: True})
             loss_tests.append(loss_test)
             acc_tests.append(acc_test)
-            print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
-                      iteration, n_iterations_test,
-                      iteration * 100 / n_iterations_test),
-                  end=" " * 10)
+            #print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
+            #          iteration, n_iterations_test,
+            #          iteration * 100 / n_iterations_test),
+            #      end=" " * 10)
         loss_test = np.mean(loss_tests)
         acc_test = np.mean(acc_tests)
-        print("\rFinal test accuracy: {:.4f}%  Loss: {:.6f}".format(
-            acc_test * 100, loss_test))
+        #print("\rFinal test accuracy: {:.4f}%  Loss: {:.6f}".format(
+         #   acc_test * 100, loss_test))
 
 
 ########################################################################################################################
@@ -421,7 +423,7 @@ tweak_reconstructions = decoder_output_value.reshape(
 
 # plot the tweaked versions!
 for dim in range(caps3_n_caps):
-    print("Tweaking output dimension #{}".format(dim))
+    #print("Tweaking output dimension #{}".format(dim))
     plt.figure(figsize=(n_steps / 1.2, n_samples / 1.5))
     for row in range(n_samples):
         for col in range(n_steps):

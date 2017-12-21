@@ -92,7 +92,7 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
                          dtype=np.float32)
     train_labels = np.zeros(n_repeats*len(image_files), dtype=np.float32)
 
-    print('loading images from '+folder)
+    #print('loading images from '+folder)
 
     for image in image_files:
         image_file = os.path.join(folder, image)
@@ -143,7 +143,8 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
                 num_images = num_images + 1
 
             except (ValueError, IOError, IndexError, OSError):
-                print('Could not read:', image_file, '- it\'s ok, skipping.')
+            	pass
+		   # print('Could not read:', image_file, '- it\'s ok, skipping.')
 
     # check enough images could be processed
     if num_images < min_num_images:
@@ -166,9 +167,9 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
     train_labels = train_labels[n_valid_samples+n_test_samples:]
 
 
-    print('Train set tensor:', train_set.shape)
-    print('Valid set tensor:', valid_set.shape)
-    print('Test set tensor:', test_set.shape)
-    print('Mean:', np.mean(train_set))
-    print('Standard deviation:', np.std(train_set))
+   # print('Train set tensor:', train_set.shape)
+   # print('Valid set tensor:', valid_set.shape)
+   # print('Test set tensor:', test_set.shape)
+   # print('Mean:', np.mean(train_set))
+   # print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels

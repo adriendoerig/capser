@@ -9,7 +9,7 @@ def images_to_sprite(images):
 
     # if images are not square, make them square
     if images.shape[1] != images.shape[2]:
-        print('Images are not square: squaring them for the sprite image')
+       # print('Images are not square: squaring them for the sprite image')
         square_images = np.zeros((images.shape[0],max(images[0,:,:].shape),max(images[0,:,:].shape)))
         for im in range(images.shape[0]):
             square_images[im,:images.shape[1],:images.shape[2]] = images[im,:,:]
