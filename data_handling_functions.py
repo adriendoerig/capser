@@ -81,7 +81,7 @@ def make_crowding_sets(folder = './crowding_images', image_size=(60,128), n_vali
     print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=50):
+def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=144):
 
     min_num_images = 50
     num_images = 0

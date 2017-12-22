@@ -26,7 +26,7 @@ def squash(s, axis=-1, epsilon=1e-7, name=None):
 # takes the first regular convolutional layers' output as input and creates the first capsules
 # returns the flattened output of the primary capsule layer (only works to feed to a FC caps layer)
 def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
-                     conv_kernel_size, conv_strides, conv_padding='valid', conv_activation=tf.nn.relu):
+                     conv_kernel_size, conv_strides, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=False):
     with tf.name_scope('primary_capsules'):
         conv_params = {
             "filters": caps1_n_maps * caps1_n_dims,  # 256 convolutional filters
@@ -38,7 +38,7 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
 
         # we will reshape this to create the capsules
         conv_for_caps = tf.layers.conv2d(conv_output, name="conv2", **conv_params)
-
+        print('shape of conv_for_caps: '+str(conv_for_caps))
         # reshape the second layer to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to keep the
         # [batch,xx,xx,n_feature_maps,caps1_n_dims] so we just flatten it to keep it simple)
         caps1_raw = tf.reshape(conv_for_caps, [-1, caps1_n_caps, caps1_n_dims],
@@ -48,6 +48,8 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
         # squash capsule outputs
         caps1_output = squash(caps1_raw, name="caps1_output")
         tf.summary.histogram('caps1_output',caps1_output)
+        if print_shapes:
+            print('shape of caps1_output: '+str(caps1_output))
 
         return caps1_output
 
