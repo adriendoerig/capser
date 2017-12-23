@@ -35,9 +35,9 @@ if show_samples:
 
 # create sprites and embedding labels from test set for embedding visualization in tensorboard
 sprites = invert_grayscale(images_to_sprite(np.squeeze(test_set)))
-plt.imsave(os.path.join(os.getcwd(), 'capser_1_sprites.png'), sprites, cmap='gray')
+plt.imsave(os.path.join(os.getcwd(), 'capser_1b_sprites.png'), sprites, cmap='gray')
 
-with open(os.path.join(os.getcwd(), 'capser_1_embedding_labels.tsv'), 'w') as f:
+with open(os.path.join(os.getcwd(), 'capser_1b_embedding_labels.tsv'), 'w') as f:
     f.write("Index\tLabel\n")
     for index, label in enumerate(test_labels):
         f.write("%d\t%d\n" % (index, label))
@@ -97,7 +97,7 @@ caps1_output = primary_caps_layer(conv1b, caps1_n_maps, caps1_n_caps, caps1_n_di
 
 
 caps2_n_caps = 8 # number of capsules
-caps2_n_dims = 32 # of n dimensions
+caps2_n_dims = 20 # of n dimensions
 
 # it is all taken care of by the function
 caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3, print_shapes=False)
@@ -108,8 +108,8 @@ caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_d
 ########################################################################################################################
 
 
-LABELS = os.path.join(os.getcwd(), 'capser_1_embedding_labels.tsv')
-SPRITES = os.path.join(os.getcwd(), 'capser_1_sprites.png')
+LABELS = os.path.join(os.getcwd(), 'capser_1b_embedding_labels.tsv')
+SPRITES = os.path.join(os.getcwd(), 'capser_1b_sprites.png')
 embedding_input = tf.reshape(caps2_output,[-1,caps2_n_caps*caps2_n_dims])
 embedding_size = caps2_n_caps*caps2_n_dims
 embedding = tf.Variable(tf.zeros([test_set.shape[0],embedding_size]), name='final_capsules_embedding')
@@ -179,7 +179,7 @@ reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
 
 ### FINAL LOSS & ACCURACY ###
 
-alpha = 0.0005
+alpha = 0.005 # TEN TIMES HIGHER THAN ORIGINAL (original = 0.0005)
 
 with tf.name_scope('total_loss'):
     loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
@@ -206,18 +206,18 @@ saver = tf.train.Saver()
 ########################################################################################################################
 
 
-n_epochs = 50
+n_epochs = 100
 batch_size = 10
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
 n_iterations_validation = valid_set.shape[0] // batch_size
 best_loss_val = np.infty
-checkpoint_path = "./model_capser_1"
+checkpoint_path = "./model_capser_1b"
 
 with tf.Session() as sess:
 
     summary = tf.summary.merge_all()
-    writer = tf.summary.FileWriter('capser_1_logdir',sess.graph)
+    writer = tf.summary.FileWriter('capser_1b_logdir',sess.graph)
     tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
 
     if restore_checkpoint and tf.train.checkpoint_exists(checkpoint_path):
