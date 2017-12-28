@@ -9,16 +9,20 @@ from create_sprite import images_to_sprite, invert_grayscale
 from data_handling_functions import make_shape_sets
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     caps_prediction, compute_margin_loss, create_masked_decoder_input, \
-    decoder_with_mask, compute_reconstruction_loss
+    create_multiple_masked_inputs, decoder_with_mask, each_capsule_decoder_with_mask, \
+    create_capsule_overlay, compute_reconstruction_loss
 
 # reproducibility
 tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
+# choose true to compute a color overlay image of each capsule's decoder
+do_color_image = True
+
 # create datasets
 im_size = (60, 128)
-train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(image_size=im_size, n_repeats=100)
+train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(image_size=im_size, n_repeats=5)
 
 show_samples = 0
 if show_samples:
@@ -35,9 +39,9 @@ if show_samples:
 
 # create sprites and embedding labels from test set for embedding visualization in tensorboard
 sprites = invert_grayscale(images_to_sprite(np.squeeze(test_set)))
-plt.imsave(os.path.join(os.getcwd(), 'capser_1d_sprites.png'), sprites, cmap='gray')
+plt.imsave(os.path.join(os.getcwd(), 'capser_2_sprites.png'), sprites, cmap='gray')
 
-with open(os.path.join(os.getcwd(), 'capser_1d_embedding_labels.tsv'), 'w') as f:
+with open(os.path.join(os.getcwd(), 'capser_2_embedding_labels.tsv'), 'w') as f:
     f.write("Index\tLabel\n")
     for index, label in enumerate(test_labels):
         f.write("%d\t%d\n" % (index, label))
@@ -108,8 +112,8 @@ caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_d
 ########################################################################################################################
 
 
-LABELS = os.path.join(os.getcwd(), 'capser_1d_embedding_labels.tsv')
-SPRITES = os.path.join(os.getcwd(), 'capser_1d_sprites.png')
+LABELS = os.path.join(os.getcwd(), 'capser_2_embedding_labels.tsv')
+SPRITES = os.path.join(os.getcwd(), 'capser_2_sprites.png')
 embedding_input = tf.reshape(caps2_output,[-1,caps2_n_caps*caps2_n_dims])
 embedding_size = caps2_n_caps*caps2_n_dims
 embedding = tf.Variable(tf.zeros([test_set.shape[0],embedding_size]), name='final_capsules_embedding')
@@ -141,36 +145,57 @@ m_plus = 0.9
 m_minus = 0.1
 lambda_ = 0.5
 
-margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
+if do_color_image is False:
+    margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
 
 
 ########################################################################################################################
 # Reconstruction & reconstruction error
 ########################################################################################################################
 
-# create the mask. first, we create a placeholder that will tell the program whether to use the true
-# or the predicted labels
-mask_with_labels = tf.placeholder_with_default(False, shape=(),
-                                               name="mask_with_labels")
+with tf.name_scope('decoder'):
 
-# create the mask
-decoder_input = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims,
-                                            mask_with_labels, print_shapes=False)
+    # create the mask. first, we create a placeholder that will tell the program whether to use the true
+    # or the predicted labels
+    mask_with_labels = tf.placeholder_with_default(False, shape=(),
+                                                   name="mask_with_labels")
+    if do_color_image is False:
 
-# decoder layer sizes
-n_hidden1 = 512
-n_hidden2 = 1024
-n_output = im_size[0] * im_size[1]
+        # create the mask
+        decoder_input = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims,
+                                                    mask_with_labels, print_shapes=False)
 
-# run decoder
-decoder_output = decoder_with_mask(decoder_input,n_hidden1,n_hidden2,n_output)
-decoder_output_image = tf.reshape(decoder_output,[-1, im_size[0], im_size[1],1])
-tf.summary.image('decoder_output',decoder_output_image,6)
+        # decoder layer sizes
+        n_hidden1 = 512
+        n_hidden2 = 1024
+        n_output = im_size[0] * im_size[1]
 
-### RECONSTRUCTION LOSS ###
+        # run decoder
+        decoder_output = decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output)
+        decoder_output_image = tf.reshape(decoder_output,[-1, im_size[0], im_size[1], 1])
+        tf.summary.image('decoder_output',decoder_output_image,6)
 
-reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
+        ### RECONSTRUCTION LOSS ###
 
+        reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
+
+    ### CREATE COLORED RECONSTRUCTION IMAGE: ONE COLOR PER CAPSULE ###
+
+    if do_color_image is True:
+        print('DOING COLOR IS TRUE: COMPUTING ONE COLOR PER CAPSULE, NOT COMPUTING LOSS ETC.')
+        with tf.name_scope('Visualize_colored_capsule_outputs'):
+
+            caps_to_visualize = range(caps2_n_caps)
+            decoder_inputs = create_multiple_masked_inputs(caps_to_visualize, caps2_output, caps2_n_caps, caps2_n_dims,
+                                                           mask_with_labels)
+
+            # run decoder
+            decoder_outputs = each_capsule_decoder_with_mask(decoder_inputs, n_hidden1, n_hidden2, n_output)
+
+            #create overlay image
+            decoder_output_images = tf.reshape(decoder_outputs, [-1, im_size[0], im_size[1], caps_to_visualize])
+            decoder_outputs_overlay = create_capsule_overlay(decoder_output_images,range(caps2_n_caps),im_size)
+            tf.summary.image('decoder_outputs_overlay', decoder_outputs_overlay, min(10,X.shape[0]))
 
 ########################################################################################################################
 # Final loss, accuracy, training operations, init & saver
@@ -181,19 +206,20 @@ reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
 
 alpha = 0.0005
 
-with tf.name_scope('total_loss'):
-    loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
-    tf.summary.scalar('total_loss',loss)
+if do_color_image is False:
+    with tf.name_scope('total_loss'):
+        loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
+        tf.summary.scalar('total_loss',loss)
 
-with tf.name_scope('accuracy'):
-    correct = tf.equal(y, y_pred, name="correct")
-    accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
-    tf.summary.scalar('accuracy',accuracy)
+    with tf.name_scope('accuracy'):
+        correct = tf.equal(y, y_pred, name="correct")
+        accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
+        tf.summary.scalar('accuracy',accuracy)
 
-### TRAINING OPERATIONS ###
+    ### TRAINING OPERATIONS ###
 
-optimizer = tf.train.AdamOptimizer()
-training_op = optimizer.minimize(loss, name="training_op")
+    optimizer = tf.train.AdamOptimizer()
+    training_op = optimizer.minimize(loss, name="training_op")
 
 ### INIT & SAVER ###
 
@@ -212,12 +238,12 @@ restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
 n_iterations_validation = valid_set.shape[0] // batch_size
 best_loss_val = np.infty
-checkpoint_path = "./model_capser_1d"
+checkpoint_path = "./capser_1d files/model_capser_1d"
 
 with tf.Session() as sess:
 
     summary = tf.summary.merge_all()
-    writer = tf.summary.FileWriter('capser_1d_logdir',sess.graph)
+    writer = tf.summary.FileWriter('capser_2_logdir',sess.graph)
     tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
 
     if restore_checkpoint and tf.train.checkpoint_exists(checkpoint_path):
@@ -254,7 +280,7 @@ with tf.Session() as sess:
                     sess.run(assignment, feed_dict={X: test_set,
                                                     y: test_labels,
                                                     mask_with_labels: False})
-                    saver.save(sess, os.path.join('capser_1d_logdir', 'model.ckpt'),
+                    saver.save(sess, os.path.join('capser_2_logdir', 'model.ckpt'),
                                n_epochs * n_iterations_per_epoch)
 
 
@@ -336,104 +362,119 @@ if do_testing:
 
 
 ########################################################################################################################
-# View predictions
+# View predictions or capsule overlay image
 ########################################################################################################################
 
-image_output_dir = './output images/'
+### CAPSULE OVERLAY IMAGE ###
 
-# Now let's make some predictions! We first fix a few images from the test set, then we start a session,
-# restore the trained model, evaluate caps2_output to get the capsule network's output vectors, decoder_output
-# to get the reconstructions, and y_pred to get the class predictions.
-n_samples = 25
+if do_color_image is True:
+    with tf.Session() as sess:
+        saver.restore(sess, checkpoint_path)
+        color_writer = tf.summary.FileWriter('capser_2_color_logdir', sess.graph)
+        decoder_outputs_overlay_result, summ = sess.run(
+                [decoder_outputs_overlay, summary],
+                feed_dict={X: train_set,
+                           y: train_labels})
+        color_writer.add_summary(summ,1)
 
-sample_images = test_set[:n_samples,:,:]
+### PREDICTIONS ###
 
-with tf.Session() as sess:
-    saver.restore(sess, checkpoint_path)
-    caps2_output_value, decoder_output_value, y_pred_value = sess.run(
-            [caps2_output, decoder_output, y_pred],
-            feed_dict={X: sample_images,
-                       y: np.array([], dtype=np.int64)})
+if do_color_image is False:
+    image_output_dir = './output images/capser_2'
 
-# plot images with their reconstruction
-sample_images = sample_images.reshape(-1, im_size[0], im_size[1])
-reconstructions = decoder_output_value.reshape([-1, im_size[0], im_size[1]])
+    # Now let's make some predictions! We first fix a few images from the test set, then we start a session,
+    # restore the trained model, evaluate caps2_output to get the capsule network's output vectors, decoder_output
+    # to get the reconstructions, and y_pred to get the class predictions.
+    n_samples = 25
 
-plt.figure(figsize=(n_samples / 1.5, n_samples / 1.5))
-for index in range(n_samples):
-    plt.subplot(5, 5, index + 1)
-    plt.imshow(sample_images[index], cmap="binary")
-    plt.title("Label:" + str(test_labels[index]))
-    plt.axis("off")
+    sample_images = test_set[:n_samples,:,:]
 
-plt.savefig(image_output_dir+'sample images')
-#plt.show()
+    with tf.Session() as sess:
+        saver.restore(sess, checkpoint_path)
+        caps2_output_value, decoder_output_value, y_pred_value = sess.run(
+                [caps2_output, decoder_output, y_pred],
+                feed_dict={X: sample_images,
+                           y: np.array([], dtype=np.int64)})
 
-plt.figure(figsize=(n_samples / 1.5, n_samples / 1.5))
-for index in range(n_samples):
-    plt.subplot(5, 5, index + 1)
-    plt.title("Predicted:" + str(y_pred_value[index]))
-    plt.imshow(reconstructions[index], cmap="binary")
-    plt.axis("off")
+    # plot images with their reconstruction
+    sample_images = sample_images.reshape(-1, im_size[0], im_size[1])
+    reconstructions = decoder_output_value.reshape([-1, im_size[0], im_size[1]])
 
-plt.savefig(image_output_dir+'sample images reconstructed')
-#plt.show()
+    plt.figure(figsize=(n_samples / 1.5, n_samples / 1.5))
+    for index in range(n_samples):
+        plt.subplot(5, 5, index + 1)
+        plt.imshow(sample_images[index], cmap="binary")
+        plt.title("Label:" + str(test_labels[index]))
+        plt.axis("off")
+
+    plt.savefig(image_output_dir+'sample images')
+    #plt.show()
+
+    plt.figure(figsize=(n_samples / 1.5, n_samples / 1.5))
+    for index in range(n_samples):
+        plt.subplot(5, 5, index + 1)
+        plt.title("Predicted:" + str(y_pred_value[index]))
+        plt.imshow(reconstructions[index], cmap="binary")
+        plt.axis("off")
+
+    plt.savefig(image_output_dir+'sample images reconstructed')
+    #plt.show()
 
 
-########################################################################################################################
-# Interpreting the output vectors
-########################################################################################################################
+    ########################################################################################################################
+    # Interpreting the output vectors
+    ########################################################################################################################
 
 
-# caps2_output is now a numpy array. let's check its shape
-# print('shape of caps2_output np array: '+str(caps2_output_value.shape))
+    # caps2_output is now a numpy array. let's check its shape
+    # print('shape of caps2_output np array: '+str(caps2_output_value.shape))
 
-# Let's create a function that will tweak each of the 16 pose parameters (dimensions) in all output vectors.
-# Each tweaked output vector will be identical to the original output vector, except that one of its pose
-# parameters will be incremented by a value varying from -0.5 to 0.5. By default there will be 11 steps
-# (-0.5, -0.4, ..., +0.4, +0.5). This function will return an array of shape
-# (tweaked pose parameters=16, steps=11, batch size=5, 1, caps2_n_caps, caps2_n_dims, 1):
-def tweak_pose_parameters(output_vectors, min=-0.5, max=0.5, n_steps=11):
-    steps = np.linspace(min, max, n_steps) # -0.25, -0.15, ..., +0.25
-    pose_parameters = np.arange(caps2_n_dims) # 0, 1, ..., 15
-    tweaks = np.zeros([caps2_n_dims, n_steps, 1, 1, 1, caps2_n_dims, 1])
-    tweaks[pose_parameters, :, 0, 0, 0, pose_parameters, 0] = steps
-    output_vectors_expanded = output_vectors[np.newaxis, np.newaxis]
-    return tweaks + output_vectors_expanded
+    # Let's create a function that will tweak each of the 16 pose parameters (dimensions) in all output vectors.
+    # Each tweaked output vector will be identical to the original output vector, except that one of its pose
+    # parameters will be incremented by a value varying from -0.5 to 0.5. By default there will be 11 steps
+    # (-0.5, -0.4, ..., +0.4, +0.5). This function will return an array of shape
+    # (tweaked pose parameters=16, steps=11, batch size=5, 1, caps2_n_caps, caps2_n_dims, 1):
+    def tweak_pose_parameters(output_vectors, min=-0.5, max=0.5, n_steps=11):
+        steps = np.linspace(min, max, n_steps) # -0.25, -0.15, ..., +0.25
+        pose_parameters = np.arange(caps2_n_dims) # 0, 1, ..., 15
+        tweaks = np.zeros([caps2_n_dims, n_steps, 1, 1, 1, caps2_n_dims, 1])
+        tweaks[pose_parameters, :, 0, 0, 0, pose_parameters, 0] = steps
+        output_vectors_expanded = output_vectors[np.newaxis, np.newaxis]
+        return tweaks + output_vectors_expanded
 
-# get a tweaked parameters array for the caps2_output_value array, and reshape (i.e., flattent) it to feed to decoder.
-n_steps = 11
-tweaked_vectors = tweak_pose_parameters(caps2_output_value, n_steps=n_steps)
-tweaked_vectors_reshaped = tweaked_vectors.reshape(
-    [-1, 1, caps2_n_caps, caps2_n_dims, 1])
+    # get a tweaked parameters array for the caps2_output_value array, and reshape (i.e., flattent) it to feed to decoder.
+    n_steps = 11
+    tweaked_vectors = tweak_pose_parameters(caps2_output_value, n_steps=n_steps)
+    tweaked_vectors_reshaped = tweaked_vectors.reshape(
+        [-1, 1, caps2_n_caps, caps2_n_dims, 1])
 
-# feed to decoder
-tweak_labels = np.tile(test_labels[:n_samples], caps2_n_dims * n_steps)
+    # feed to decoder
+    tweak_labels = np.tile(test_labels[:n_samples], caps2_n_dims * n_steps)
 
-# get reconstruction
-with tf.Session() as sess:
-    saver.restore(sess, checkpoint_path)
-    decoder_output_value = sess.run(
-            decoder_output,
-            feed_dict={caps2_output: tweaked_vectors_reshaped,
-                       mask_with_labels: True,
-                       y: tweak_labels})
+    # get reconstruction
+    with tf.Session() as sess:
+        saver.restore(sess, checkpoint_path)
+        decoder_output_value = sess.run(
+                decoder_output,
+                feed_dict={caps2_output: tweaked_vectors_reshaped,
+                           mask_with_labels: True,
+                           y: tweak_labels})
 
-# reshape to make things easier to travel in dimension, n_steps and sample
-tweak_reconstructions = decoder_output_value.reshape(
-        [caps2_n_dims, n_steps, n_samples, im_size[0], im_size[1]])
+    # reshape to make things easier to travel in dimension, n_steps and sample
+    tweak_reconstructions = decoder_output_value.reshape(
+            [caps2_n_dims, n_steps, n_samples, im_size[0], im_size[1]])
 
-# plot the tweaked versions!
-for dim in range(caps2_n_dims):
-    print("Tweaking output dimension #{}".format(dim))
-    plt.figure(figsize=(n_steps / 1.2, n_samples / 1.5))
-    for row in range(n_samples):
-        for col in range(n_steps):
-            plt.subplot(n_samples, n_steps, row * n_steps + col + 1)
-            plt.imshow(tweak_reconstructions[dim, col, row], cmap="binary")
-            plt.axis("off")
-    # plt.show()
-    plt.savefig(image_output_dir + 'tweak dimension' + str(dim))
+    # plot the tweaked versions!
+    for dim in range(caps2_n_dims):
+        print("Tweaking output dimension #{}".format(dim))
+        plt.figure(figsize=(n_steps / 1.2, n_samples / 1.5))
+        for row in range(n_samples):
+            for col in range(n_steps):
+                plt.subplot(n_samples, n_steps, row * n_steps + col + 1)
+                plt.imshow(tweak_reconstructions[dim, col, row], cmap="binary")
+                plt.axis("off")
+        # plt.show()
+        plt.savefig(image_output_dir + 'tweak dimension' + str(dim))
 
 
 

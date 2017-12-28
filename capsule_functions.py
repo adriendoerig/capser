@@ -29,7 +29,7 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
                      conv_kernel_size, conv_strides, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=False):
     with tf.name_scope('primary_capsules'):
         conv_params = {
-            "filters": caps1_n_maps * caps1_n_dims,  # 256 convolutional filters
+            "filters": caps1_n_maps * caps1_n_dims,  # n convolutional filters
             "kernel_size": conv_kernel_size,
             "strides": conv_strides,
             "padding": conv_padding,
@@ -355,9 +355,24 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
 
         return decoder_input
 
+def create_multiple_masked_inputs(caps_to_mask, caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=False):
+
+    with tf.name_scope('create_multiple_masked_decoder_inputs'):
+
+        # create one mask per final capsule
+        decoder_inputs = np.array([])
+        for capsule in caps_to_mask:
+            np.append(decoder_inputs, create_masked_decoder_input(capsule, capsule, caps2_output, caps2_n_caps, caps2_n_dims,
+                                                                 mask_with_labels, print_shapes), axis=2)
+        if print_shapes:
+            print('Shape of decoder input: ' + str(decoder_inputs))
+
+        return decoder_inputs
+
 def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
 
     with tf.name_scope("decoder"):
+
         hidden1 = tf.layers.dense(decoder_input, n_hidden1,
                                   activation=tf.nn.relu,
                                   name="hidden1")
@@ -370,8 +385,49 @@ def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
         return decoder_output
 
 
+# decoder that runs on each capsules separately to create an overlay image
+def each_capsule_decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
+
+    with tf.name_scope('decoder'):
+        def mask_cond(iter,max_iter=decoder_input.shape[2]):
+            return tf.less(iter,max_iter+1,name='mask_cond_iterator')
+
+        def decode_multiple_masks(decoder_input, n_hidden1, n_hidden2, mask_cond):
+            hidden1 = tf.layers.dense(decoder_input, n_hidden1,
+                                      activation=tf.nn.relu,
+                                      name="hidden1")
+            hidden2 = tf.layers.dense(hidden1, n_hidden2,
+                                      activation=tf.nn.relu,
+                                      name="hidden2")
+            decoder_outputs[:,:,mask_cond-1] = tf.layers.dense(hidden2, n_output,
+                                             activation=tf.nn.sigmoid,
+                                             name="decoder_output")
+            return decoder_outputs, tf.add(mask_cond, 1)
+
+        mask_cond = tf.constant(1, name='mask_cond_counter')
+        decoder_outputs, mask_cond = decode_multiple_masks(decoder_input, n_hidden1, n_hidden2, mask_cond)
+
+        return decoder_outputs
+
+
+# images is a batchxheightxwidthxn_caps_to_vizualize array
+def create_capsule_overlay(images, caps_to_visualize, im_size):
+    with tf.name_scope('create_capsule_overlay'):
+        decoder_outputs_overlay = np.zeros(shape=(im_size[0], im_size[1], 3))
+        for cap in caps_to_visualize:
+            color_masks = [[220,76,70],
+                           [196,143,101],
+                           [79,132,196],
+                           [246,209,85],
+                           [237,205,194],
+                           [181,101,167],
+                           [121,199,83],
+                           [210,105,30]]
+            decoder_outputs_overlay += np.reshape(images[:, :, :, cap], images.shape[0]) * color_masks[cap,:]
+        tf.summary.image('decoder_outputs_overlay', decoder_outputs_overlay)
+
 # takes a n*n input and a flat decoder output
-def compute_reconstruction_loss(input,reconstruction):
+def compute_reconstruction_loss(input, reconstruction):
     with tf.name_scope('reconstruction_loss'):
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
         squared_difference = tf.square(X_flat - reconstruction,

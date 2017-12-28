@@ -179,7 +179,7 @@ reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
 
 ### FINAL LOSS & ACCURACY ###
 
-alpha = 0.005 # TEN TIMES HIGHER THAN ORIGINAL (original = 0.0005)
+alpha = 0.0005 # HIGHER THAN ORIGINAL (original = 0.0005)
 
 with tf.name_scope('total_loss'):
     loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
@@ -206,7 +206,7 @@ saver = tf.train.Saver()
 ########################################################################################################################
 
 
-n_epochs = 100
+n_epochs = 50
 batch_size = 10
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size

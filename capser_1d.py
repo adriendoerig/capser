@@ -18,7 +18,7 @@ tf.set_random_seed(42)
 
 # create datasets
 im_size = (60, 128)
-train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(image_size=im_size)
+train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(image_size=im_size, n_repeats=100)
 
 show_samples = 0
 if show_samples:
@@ -35,9 +35,9 @@ if show_samples:
 
 # create sprites and embedding labels from test set for embedding visualization in tensorboard
 sprites = invert_grayscale(images_to_sprite(np.squeeze(test_set)))
-plt.imsave(os.path.join(os.getcwd(), 'capser_1c_sprites.png'), sprites, cmap='gray')
+plt.imsave(os.path.join(os.getcwd(), 'capser_1d_sprites.png'), sprites, cmap='gray')
 
-with open(os.path.join(os.getcwd(), 'capser_1c_embedding_labels.tsv'), 'w') as f:
+with open(os.path.join(os.getcwd(), 'capser_1d_embedding_labels.tsv'), 'w') as f:
     f.write("Index\tLabel\n")
     for index, label in enumerate(test_labels):
         f.write("%d\t%d\n" % (index, label))
@@ -68,13 +68,13 @@ caps_conv_stride = 2
 caps1_n_maps = 8
 # here we need to be careful about the num
 caps1_n_caps = int(caps1_n_maps * ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2)*((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2))  # number of primary capsules: 2*kernel_size convs, stride = 2 in caps conv layer
-caps1_n_dims = 32
+caps1_n_dims = 8
 
 print('caps1_n_maps, feature map size (y,x):')
 print((caps1_n_maps, ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2),((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2)))
 
 conv1_params = {
-    "filters": 256,
+    "filters": 64,
     "kernel_size": conv_kernel_size,
     "strides": 1,
     "padding": "valid",
@@ -108,8 +108,8 @@ caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_d
 ########################################################################################################################
 
 
-LABELS = os.path.join(os.getcwd(), 'capser_1c_embedding_labels.tsv')
-SPRITES = os.path.join(os.getcwd(), 'capser_1c_sprites.png')
+LABELS = os.path.join(os.getcwd(), 'capser_1d_embedding_labels.tsv')
+SPRITES = os.path.join(os.getcwd(), 'capser_1d_sprites.png')
 embedding_input = tf.reshape(caps2_output,[-1,caps2_n_caps*caps2_n_dims])
 embedding_size = caps2_n_caps*caps2_n_dims
 embedding = tf.Variable(tf.zeros([test_set.shape[0],embedding_size]), name='final_capsules_embedding')
@@ -179,7 +179,7 @@ reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
 
 ### FINAL LOSS & ACCURACY ###
 
-alpha = 0.0005 # HIGHER THAN ORIGINAL (original = 0.0005)
+alpha = 0.0005
 
 with tf.name_scope('total_loss'):
     loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
@@ -206,18 +206,18 @@ saver = tf.train.Saver()
 ########################################################################################################################
 
 
-n_epochs = 50
-batch_size = 10
+n_epochs = 5
+batch_size = 65
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
 n_iterations_validation = valid_set.shape[0] // batch_size
 best_loss_val = np.infty
-checkpoint_path = "./model_capser_1c"
+checkpoint_path = "./model_capser_1d"
 
 with tf.Session() as sess:
 
     summary = tf.summary.merge_all()
-    writer = tf.summary.FileWriter('capser_1c_logdir',sess.graph)
+    writer = tf.summary.FileWriter('capser_1d_logdir',sess.graph)
     tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
 
     if restore_checkpoint and tf.train.checkpoint_exists(checkpoint_path):
@@ -248,12 +248,15 @@ with tf.Session() as sess:
                       end="")
                 if iteration % 5 == 0:
                     writer.add_summary(summ,epoch*n_iterations_per_epoch+iteration)
+
                 if iteration == n_iterations_per_epoch and epoch is n_epochs:
-                    # X_batch, y_batch = mnist.validation.next_batch(1024)
-                    sess.run(assignment,feed_dict={X: test_set,
-                                                   y: batch_labels,
-                                                   mask_with_labels: True})
-                    saver.save(sess, os.path.join('capser_logdir_shapes_3layers','model.ckpt'),epoch)
+                    print('Creating embedding')
+                    sess.run(assignment, feed_dict={X: test_set,
+                                                    y: test_labels,
+                                                    mask_with_labels: False})
+                    saver.save(sess, os.path.join('capser_1d_logdir', 'model.ckpt'),
+                               n_epochs * n_iterations_per_epoch)
+
 
             # At the end of each epoch,
             # measure the validation loss and accuracy:
@@ -270,7 +273,7 @@ with tf.Session() as sess:
                         [loss, accuracy],
                         feed_dict={X: batch_data,
                                    y: batch_labels,
-                                   mask_with_labels: True})
+                                   mask_with_labels: False})
                 loss_vals.append(loss_val)
                 acc_vals.append(acc_val)
                 print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
@@ -303,6 +306,7 @@ n_iterations_test = test_set.shape[0] // batch_size
 
 if do_testing:
     with tf.Session() as sess:
+        print('testing')
         saver.restore(sess, checkpoint_path)
 
         loss_tests = []
