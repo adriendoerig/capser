@@ -18,7 +18,7 @@ tf.set_random_seed(42)
 
 # create datasets
 im_size = (60, 128)
-train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(folder='./crowding_images/shapes_simple',image_size=im_size, n_repeats=100)
+train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(folder='./crowding_images/shapes',image_size=im_size, n_repeats=100)
 
 show_samples = 0
 if show_samples:
@@ -100,7 +100,8 @@ caps2_n_caps = 8 # number of capsules
 caps2_n_dims = 8 # of n dimensions
 
 # it is all taken care of by the function
-caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3, print_shapes=False)
+caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
+                                        rba_rounds=3, print_shapes=True)
 
 
 ########################################################################################################################

@@ -38,7 +38,8 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
 
         # we will reshape this to create the capsules
         conv_for_caps = tf.layers.conv2d(conv_output, name="conv2", **conv_params)
-        print('shape of conv_for_caps: '+str(conv_for_caps))
+        if print_shapes:
+            print('shape of conv_for_caps: '+str(conv_for_caps))
         # reshape the second layer to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to keep the
         # [batch,xx,xx,n_feature_maps,caps1_n_dims] so we just flatten it to keep it simple)
         caps1_raw = tf.reshape(conv_for_caps, [-1, caps1_n_caps, caps1_n_dims],
@@ -73,8 +74,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
 
         # tile weights to [batch_size, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
         # i.e. batch_size times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
-        batch_size = tf.shape(input_batch)[
-            0]  # note the cool trick: tf.shape(X) is undefined until we actually fill the placeholder
+        batch_size = tf.shape(input_batch)[0]  # note the cool trick: tf.shape(X) is undefined until we actually fill the placeholder
         W_tiled = tf.tile(W, [batch_size, 1, 1, 1, 1], name="W_tiled")
 
         # tile caps1_output to [batch_size, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
@@ -106,10 +106,10 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
 
         with tf.name_scope('routing_by_agreement'):
 
-            def do_routing_cond(iter,max_iter=rba_rounds):
-                return tf.less(iter,max_iter+1,name='do_routing_cond')
+            def do_routing_cond(caps2_predicted, caps2_output, raw_weights, rba_iter,max_iter=rba_rounds):
+                return tf.less(rba_iter,max_iter+1,name='do_routing_cond')
 
-            def routing_by_agreement(caps2_predicted,raw_weights,rba_iter):
+            def routing_by_agreement(caps2_predicted, caps2_output, raw_weights, rba_iter, max_iter=rba_rounds):
 
                 # Round 1 of RbA
 
@@ -125,11 +125,10 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
                 # squash
                 caps2_rba_output = squash(weighted_sum, axis=-2,
                                               name="caps2_rba_output")
-                tf.summary.histogram('rba_1', caps2_rba_output)
 
                 # check shape
                 if print_shapes:
-                    print('shape of caps2_output after after RbA round ' + str(rba_iter) + ': '  + str(caps2_rba_output))
+                    print('shape of caps2_output after after RbA round: '  + str(caps2_rba_output))
 
                 # to measure agreement, we just compute dot products between predictions and actual activations.
                 # to do so, we will again use tf.matmul and tiling
@@ -139,7 +138,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
 
                 # check shape
                 if print_shapes:
-                    print('shape of TILED caps2_output after RbA round ' + str(rba_iter) + ': ' + str(caps2_rba_output_tiled))
+                    print('shape of TILED caps2_output after RbA round: ' + str(caps2_rba_output_tiled))
 
                 # comput agreement is simple now
                 agreement = tf.matmul(caps2_predicted, caps2_rba_output_tiled,
@@ -149,17 +148,18 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
                 raw_weights_new = tf.add(raw_weights, agreement,
                                              name="raw_weights_round_new")
 
-                return caps2_rba_output, raw_weights_new, tf.add(rba_iter,1)
+                return caps2_predicted, caps2_rba_output, raw_weights_new, tf.add(rba_iter,1)
 
             # initialize routing weights
             raw_weights = tf.zeros([batch_size, caps1_n_caps, caps2_n_caps, 1, 1],
                                    dtype=np.float32, name="raw_weights")
 
             rba_iter = tf.constant(1,name='rba_iteration_counter')
-            caps2_predicted, raw_weights, rba_iter = routing_by_agreement(caps2_predicted,raw_weights,rba_iter)
+            caps2_output = tf.zeros(shape=(batch_size, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
+            caps2_predicted, caps2_output, raw_weights, rba_iter = tf.while_loop(do_routing_cond,routing_by_agreement,
+                                                                   [caps2_predicted, caps2_output, raw_weights,rba_iter])
 
-        # This is the caps2 output (we could repeat n times instead of 2)!
-        caps2_output = caps2_predicted
+        # This is the caps2 output!
         tf.summary.histogram('rba_output', caps2_output)
 
         if print_shapes:
@@ -209,10 +209,10 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
 
         with tf.name_scope('routing_by_agreement'):
 
-            def do_routing_cond(iter,max_iter=rba_rounds):
-                return tf.less(iter,max_iter+1,name='do_routing_cond')
+            def do_routing_cond(caps2_predicted, caps2_output, raw_weights, rba_iter, max_iter=rba_rounds):
+                return tf.less(rba_iter, max_iter + 1, name='do_routing_cond')
 
-            def routing_by_agreement(caps2_predicted,raw_weights,rba_iter):
+            def routing_by_agreement(caps2_predicted, caps2_output, raw_weights, rba_iter, max_iter=rba_rounds):
 
                 # Round 1 of RbA
 
@@ -227,12 +227,11 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
 
                 # squash
                 caps2_rba_output = squash(weighted_sum, axis=-2,
-                                              name="caps2_rba_output")
-                tf.summary.histogram('rba_1', caps2_rba_output)
+                                          name="caps2_rba_output")
 
                 # check shape
                 if print_shapes:
-                    print('shape of caps2_output after after RbA round ' + str(rba_iter) + ': '  + str(caps2_rba_output))
+                    print('shape of caps2_output after after RbA round: ' + str(caps2_rba_output))
 
                 # to measure agreement, we just compute dot products between predictions and actual activations.
                 # to do so, we will again use tf.matmul and tiling
@@ -242,7 +241,7 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
 
                 # check shape
                 if print_shapes:
-                    print('shape of TILED caps2_output after RbA round ' + str(rba_iter) + ': ' + str(caps2_rba_output_tiled))
+                    print('shape of TILED caps2_output after RbA round: ' + str(caps2_rba_output_tiled))
 
                 # comput agreement is simple now
                 agreement = tf.matmul(caps2_predicted, caps2_rba_output_tiled,
@@ -250,20 +249,22 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
 
                 # update routing weights based on agreement
                 raw_weights_new = tf.add(raw_weights, agreement,
-                                             name="raw_weights_round_new")
+                                         name="raw_weights_round_new")
 
-                return caps2_rba_output, raw_weights_new, tf.add(rba_iter,1)
+                return caps2_predicted, caps2_rba_output, raw_weights_new, tf.add(rba_iter, 1)
 
             # initialize routing weights
             raw_weights = tf.zeros([batch_size, caps1_n_caps, caps2_n_caps, 1, 1],
                                    dtype=np.float32, name="raw_weights")
 
-            rba_iter = tf.constant(1,name='rba_iteration_counter')
-            caps2_predicted, raw_weights, rba_iter = routing_by_agreement(caps2_predicted,raw_weights,rba_iter)
+            rba_iter = tf.constant(1, name='rba_iteration_counter')
+            caps2_output = tf.zeros(shape=(batch_size, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
+            caps2_predicted, caps2_output, raw_weights, rba_iter = tf.while_loop(do_routing_cond, routing_by_agreement,
+                                                                                 [caps2_predicted, caps2_output,
+                                                                                  raw_weights, rba_iter])
 
-        # This is the caps2 output (we could repeat n times instead of 2)!
-        caps2_output = caps2_predicted
-        tf.summary.histogram('rba_output', caps2_output)
+            # This is the caps2 output!
+            tf.summary.histogram('rba_output', caps2_output)
 
         if print_shapes:
             print('shape of caps2_output after RbA termination: ' + str(caps2_output))
@@ -359,13 +360,17 @@ def create_multiple_masked_inputs(caps_to_mask, caps2_output, caps2_n_caps, caps
 
     with tf.name_scope('create_multiple_masked_decoder_inputs'):
 
-        # create one mask per final capsule
-        decoder_inputs = np.array([])
+        input_list = []
         for capsule in caps_to_mask:
-            np.append(decoder_inputs, create_masked_decoder_input(capsule, capsule, caps2_output, caps2_n_caps, caps2_n_dims,
-                                                                 mask_with_labels, print_shapes), axis=2)
-        if print_shapes:
-            print('Shape of decoder input: ' + str(decoder_inputs))
+            new_input = create_masked_decoder_input(capsule, capsule, caps2_output, caps2_n_caps,
+                                                                   caps2_n_dims, mask_with_labels)
+            if print_shapes:
+                print('capsule number: '+str(capsule))
+                print('Shape of decoder input under construction: ' + str(input_list))
+                print('Shape of next capsule decoder input: ' + str(new_input))
+            input_list.append(new_input)
+
+        decoder_inputs = tf.stack(input_list,axis=2)
 
         return decoder_inputs
 
@@ -386,46 +391,56 @@ def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
 
 
 # decoder that runs on each capsules separately to create an overlay image
-def each_capsule_decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
+def each_capsule_decoder_with_mask(decoder_inputs, n_caps, n_hidden1, n_hidden2, n_output, print_shapes=False):
 
     with tf.name_scope('decoder'):
-        def mask_cond(iter,max_iter=decoder_input.shape[2]):
-            return tf.less(iter,max_iter+1,name='mask_cond_iterator')
 
-        def decode_multiple_masks(decoder_input, n_hidden1, n_hidden2, mask_cond):
-            hidden1 = tf.layers.dense(decoder_input, n_hidden1,
+        output_list = []
+        for capsule in range(n_caps):
+            hidden1 = tf.layers.dense(decoder_inputs[:,:,capsule], n_hidden1,
                                       activation=tf.nn.relu,
-                                      name="hidden1")
+                                      name="hidden1_capsule_"+str(capsule))
             hidden2 = tf.layers.dense(hidden1, n_hidden2,
                                       activation=tf.nn.relu,
-                                      name="hidden2")
-            decoder_outputs[:,:,mask_cond-1] = tf.layers.dense(hidden2, n_output,
-                                             activation=tf.nn.sigmoid,
-                                             name="decoder_output")
-            return decoder_outputs, tf.add(mask_cond, 1)
+                                      name="hidden2_capsule_"+str(capsule))
+            new_output = tf.layers.dense(hidden2, n_output,
+                                         activation=tf.nn.sigmoid,
+                                         name="decoder_output_capsule_"+str(capsule))
+            output_list.append(new_output)
 
-        mask_cond = tf.constant(1, name='mask_cond_counter')
-        decoder_outputs, mask_cond = decode_multiple_masks(decoder_input, n_hidden1, n_hidden2, mask_cond)
+        decoder_outputs = tf.stack(output_list, axis=2)
+
+        if print_shapes:
+            print('capsule number: ' + str(capsule))
+            print('Shape of decoder inputs: ' + str(decoder_inputs))
+            print('Shape of decoder outputs: ' + str(decoder_outputs))
 
         return decoder_outputs
 
 
 # images is a batchxheightxwidthxn_caps_to_vizualize array
-def create_capsule_overlay(images, caps_to_visualize, im_size):
-    with tf.name_scope('create_capsule_overlay'):
-        decoder_outputs_overlay = np.zeros(shape=(im_size[0], im_size[1], 3))
-        for cap in caps_to_visualize:
-            color_masks = [[220,76,70],
-                           [196,143,101],
-                           [79,132,196],
-                           [246,209,85],
-                           [237,205,194],
-                           [181,101,167],
-                           [121,199,83],
-                           [210,105,30]]
-            decoder_outputs_overlay += np.reshape(images[:, :, :, cap], images.shape[0]) * color_masks[cap,:]
-        tf.summary.image('decoder_outputs_overlay', decoder_outputs_overlay)
+def create_capsule_overlay(images, n_images, caps_to_visualize, im_size):
 
+    with tf.name_scope('create_capsule_overlay'):
+
+        decoder_outputs_overlay = np.zeros(shape=(n_images, im_size[0], im_size[1], 3))
+        color_masks = np.array([[220, 76, 70],
+                       [196, 143, 101],
+                       [79, 132, 196],
+                       [246, 209, 85],
+                       [237, 205, 194],
+                       [181, 101, 167],
+                       [121, 199, 83],
+                       [210, 105, 30]])
+        for cap in caps_to_visualize:
+            for rgb in range(3):
+                temp = np.multiply(images[:, :, :, cap], color_masks[cap, rgb])
+                print(temp.shape)
+                print(decoder_outputs_overlay[:,:,:,rgb].shape)
+                decoder_outputs_overlay[:, :, :, rgb] += temp
+        decoder_outputs_overlay[decoder_outputs_overlay>255] = 255
+
+        return decoder_outputs_overlay
 # takes a n*n input and a flat decoder output
 def compute_reconstruction_loss(input, reconstruction):
     with tf.name_scope('reconstruction_loss'):

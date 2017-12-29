@@ -81,7 +81,7 @@ def make_crowding_sets(folder = './crowding_images', image_size=(60,128), n_vali
     print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=144):
+def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=10, print_shapes=False):
 
     min_num_images = 50
     num_images = 0
@@ -165,12 +165,12 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
     train_set = train_set[n_valid_samples+n_test_samples:, :, :]
     train_labels = train_labels[n_valid_samples+n_test_samples:]
 
-
-    print('Train set tensor:', train_set.shape)
-    print('Valid set tensor:', valid_set.shape)
-    print('Test set tensor:', test_set.shape)
-    print('Mean:', np.mean(train_set))
-    print('Standard deviation:', np.std(train_set))
+    if print_shapes:
+        print('Train set tensor:', train_set.shape)
+        print('Valid set tensor:', valid_set.shape)
+        print('Test set tensor:', test_set.shape)
+        print('Mean:', np.mean(train_set))
+        print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
 def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_images', image_size = (60,128), n_repeats=1):

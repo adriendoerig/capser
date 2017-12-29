@@ -74,8 +74,10 @@ caps1_n_maps = 8
 caps1_n_caps = int(caps1_n_maps * ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2)*((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2))  # number of primary capsules: 2*kernel_size convs, stride = 2 in caps conv layer
 caps1_n_dims = 8
 
-print('caps1_n_maps, feature map size (y,x):')
-print((caps1_n_maps, ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2),((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2)))
+print_conv_shapes = 0
+if print_conv_shapes:
+    print('caps1_n_maps, feature map size (y,x):')
+    print((caps1_n_maps, ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2),((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2)))
 
 conv1_params = {
     "filters": 64,
@@ -88,11 +90,10 @@ conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params) # ** means that conv1_
 tf.summary.histogram('1st_conv_layer', conv1)
 conv1b = tf.layers.conv2d(conv1, name="conv1b", **conv1_params) # ** means that conv1_params is a dict {param_name:param_value}
 tf.summary.histogram('1st_b_conv_layer', conv1b)
-print(conv1,conv1b)
 
 # create furst capsule layer
 caps1_output = primary_caps_layer(conv1b, caps1_n_maps, caps1_n_caps, caps1_n_dims,
-                     kernel_size, caps_conv_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=True)
+                     kernel_size, caps_conv_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=False)
 
 
 ########################################################################################################################
@@ -187,15 +188,32 @@ with tf.name_scope('decoder'):
 
             caps_to_visualize = range(caps2_n_caps)
             decoder_inputs = create_multiple_masked_inputs(caps_to_visualize, caps2_output, caps2_n_caps, caps2_n_dims,
-                                                           mask_with_labels)
+                                                           mask_with_labels, print_shapes=False)
+
+            # decoder layer sizes
+            n_hidden1 = 512
+            n_hidden2 = 1024
+            n_output = im_size[0] * im_size[1]
 
             # run decoder
-            decoder_outputs = each_capsule_decoder_with_mask(decoder_inputs, n_hidden1, n_hidden2, n_output)
+            decoder_outputs = each_capsule_decoder_with_mask(decoder_inputs, caps2_n_caps, n_hidden1, n_hidden2,
+                                                             n_output, print_shapes=True)
 
             #create overlay image
-            decoder_output_images = tf.reshape(decoder_outputs, [-1, im_size[0], im_size[1], caps_to_visualize])
-            decoder_outputs_overlay = create_capsule_overlay(decoder_output_images,range(caps2_n_caps),im_size)
-            tf.summary.image('decoder_outputs_overlay', decoder_outputs_overlay, min(10,X.shape[0]))
+            # first we need the batch size and i know no better way than running a session
+            decoder_output_images = tf.reshape(decoder_outputs, shape=([-1, im_size[0], im_size[1], len(caps_to_visualize)]))
+            with tf.Session() as sess:
+                checkpoint_path = "./"
+                saver = tf.train.Saver()
+                saver.restore(sess, checkpoint_path)
+                decoder_output_images_np = sess.run(
+                    decoder_output_images,
+                    feed_dict={X: test_set,
+                               y: test_labels,
+                               mask_with_labels: True})
+            n_images = decoder_output_images_np.shape[0]
+            decoder_outputs_overlay = create_capsule_overlay(decoder_output_images_np, n_images, range(caps2_n_caps), im_size)
+            tf.summary.image('decoder_outputs_overlay', decoder_outputs_overlay, n_images)
 
 ########################################################################################################################
 # Final loss, accuracy, training operations, init & saver
@@ -232,13 +250,13 @@ saver = tf.train.Saver()
 ########################################################################################################################
 
 
-n_epochs = 5
+n_epochs = 1
 batch_size = 65
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
 n_iterations_validation = valid_set.shape[0] // batch_size
 best_loss_val = np.infty
-checkpoint_path = "./capser_1d files/model_capser_1d"
+checkpoint_path = "./"
 
 with tf.Session() as sess:
 
