@@ -157,7 +157,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
             rba_iter = tf.constant(1,name='rba_iteration_counter')
             caps2_output = tf.zeros(shape=(batch_size, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
             caps2_predicted, caps2_output, raw_weights, rba_iter = tf.while_loop(do_routing_cond,routing_by_agreement,
-                                                                   [caps2_predicted, caps2_output, raw_weights,rba_iter])
+                                                                   [caps2_predicted, caps2_output, raw_weights, rba_iter])
 
         # This is the caps2 output!
         tf.summary.histogram('rba_output', caps2_output)

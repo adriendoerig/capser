@@ -81,7 +81,7 @@ def make_crowding_sets(folder = './crowding_images', image_size=(60,128), n_vali
     print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=10, print_shapes=False):
+def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=144, print_shapes=False):
 
     min_num_images = 50
     num_images = 0
@@ -247,6 +247,7 @@ def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_im
 
     # remove empty entries
     image_batch = image_batch[0:num_images, :, :]
+    image_labels = image_labels[0:num_images]
     # add a singleton 4th dimentsion (needed for conv layers
     image_batch = np.expand_dims(image_batch,axis=3)
 

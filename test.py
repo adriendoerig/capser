@@ -1,11 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-a = np.ones((2,3))
-good_size = (5,5)
-b = np.zeros(good_size, dtype='float32')
-b[:a.shape[0], :a.shape[1]] = a
-print(a)
-print(b)
-print(np.less(b.shape,a.shape))
-# print(b)
 
+a = np.array([1, 2, 3, 4, 3, 2, 1])
+
+print(max(a))
+print(np.max(a))
+print(np.argmax(a))

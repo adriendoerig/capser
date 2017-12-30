@@ -18,7 +18,8 @@ tf.set_random_seed(42)
 
 # create datasets
 im_size = (60, 128)
-train_set, train_labels, valid_set, valid_labels, test_set, test_labels = make_shape_sets(folder='./crowding_images/shapes',image_size=im_size, n_repeats=100)
+train_set, train_labels, valid_set, valid_labels, test_set, test_labels \
+    = make_shape_sets(folder='./crowding_images/shapes_simple',image_size=im_size, n_repeats=100)
 
 show_samples = 0
 if show_samples:
@@ -35,9 +36,9 @@ if show_samples:
 
 # create sprites and embedding labels from test set for embedding visualization in tensorboard
 sprites = invert_grayscale(images_to_sprite(np.squeeze(test_set)))
-plt.imsave(os.path.join(os.getcwd(), 'capser_1e_sprites.png'), sprites, cmap='gray')
+plt.imsave(os.path.join(os.getcwd(), './capser_1e_logdir/capser_1e_sprites.png'), sprites, cmap='gray')
 
-with open(os.path.join(os.getcwd(), 'capser_1e_embedding_labels.tsv'), 'w') as f:
+with open(os.path.join(os.getcwd(), './capser_1e_logdir/capser_1e_embedding_labels.tsv'), 'w') as f:
     f.write("Index\tLabel\n")
     for index, label in enumerate(test_labels):
         f.write("%d\t%d\n" % (index, label))
@@ -70,8 +71,9 @@ caps1_n_maps = 8
 caps1_n_caps = int(caps1_n_maps * ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2)*((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2))  # number of primary capsules: 2*kernel_size convs, stride = 2 in caps conv layer
 caps1_n_dims = 8
 
-print('caps1_n_maps, feature map size (y,x):')
-print((caps1_n_maps, ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2),((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2)))
+if False:
+    print('caps1_n_maps, feature map size (y,x):')
+    print((caps1_n_maps, ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2),((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2)))
 
 conv1_params = {
     "filters": 64,
@@ -83,12 +85,11 @@ conv1_params = {
 conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params) # ** means that conv1_params is a dict {param_name:param_value}
 tf.summary.histogram('1st_conv_layer', conv1)
 conv1b = tf.layers.conv2d(conv1, name="conv1b", **conv1_params) # ** means that conv1_params is a dict {param_name:param_value}
-tf.summary.histogram('1st_b_conv_layer', conv1b)
-print(conv1,conv1b)
+tf.summary.histogram('1st_conv_layer_b', conv1b)
 
 # create furst capsule layer
 caps1_output = primary_caps_layer(conv1b, caps1_n_maps, caps1_n_caps, caps1_n_dims,
-                     kernel_size, caps_conv_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=True)
+                     kernel_size, caps_conv_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=False)
 
 
 ########################################################################################################################
@@ -97,11 +98,11 @@ caps1_output = primary_caps_layer(conv1b, caps1_n_maps, caps1_n_caps, caps1_n_di
 
 
 caps2_n_caps = 8 # number of capsules
-caps2_n_dims = 8 # of n dimensions
+caps2_n_dims = 10 # of n dimensions
 
 # it is all taken care of by the function
 caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
-                                        rba_rounds=3, print_shapes=True)
+                                        rba_rounds=3, print_shapes=False)
 
 
 ########################################################################################################################
@@ -109,8 +110,8 @@ caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_d
 ########################################################################################################################
 
 
-LABELS = os.path.join(os.getcwd(), 'capser_1e_embedding_labels.tsv')
-SPRITES = os.path.join(os.getcwd(), 'capser_1e_sprites.png')
+LABELS = os.path.join(os.getcwd(), './capser_1e_logdir/capser_1e_embedding_labels.tsv')
+SPRITES = os.path.join(os.getcwd(), './capser_1e_logdir/capser_1e_sprites.png')
 embedding_input = tf.reshape(caps2_output,[-1,caps2_n_caps*caps2_n_dims])
 embedding_size = caps2_n_caps*caps2_n_dims
 embedding = tf.Variable(tf.zeros([test_set.shape[0],embedding_size]), name='final_capsules_embedding')
@@ -207,13 +208,13 @@ saver = tf.train.Saver()
 ########################################################################################################################
 
 
-n_epochs = 5
-batch_size = 65
+n_epochs = 10
+batch_size = 50
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
 n_iterations_validation = valid_set.shape[0] // batch_size
 best_loss_val = np.infty
-checkpoint_path = "./model_capser_1e"
+checkpoint_path = "./capser_1e_logdir/capser_1e_model.ckpt'"
 
 with tf.Session() as sess:
 
@@ -250,13 +251,12 @@ with tf.Session() as sess:
                 if iteration % 5 == 0:
                     writer.add_summary(summ,epoch*n_iterations_per_epoch+iteration)
 
-                if iteration == n_iterations_per_epoch and epoch is n_epochs:
-                    print('Creating embedding')
+                if iteration == n_iterations_per_epoch and epoch == (n_epochs/2 or n_epochs):
+                    print(' ... final iteration: Creating embedding')
                     sess.run(assignment, feed_dict={X: test_set,
                                                     y: test_labels,
                                                     mask_with_labels: False})
-                    saver.save(sess, os.path.join('capser_1e_logdir', 'model.ckpt'),
-                               n_epochs * n_iterations_per_epoch)
+                    saver.save(sess, checkpoint_path)
 
             # At the end of each epoch,
             # measure the validation loss and accuracy:
@@ -338,12 +338,13 @@ if do_testing:
 # View predictions
 ########################################################################################################################
 
-image_output_dir = './output images/capser_1e'
+image_output_dir = './output_images/capser_1e/'
+
 
 # Now let's make some predictions! We first fix a few images from the test set, then we start a session,
 # restore the trained model, evaluate caps2_output to get the capsule network's output vectors, decoder_output
 # to get the reconstructions, and y_pred to get the class predictions.
-n_samples = 25
+n_samples = 16
 
 sample_images = test_set[:n_samples,:,:]
 
@@ -433,6 +434,3 @@ for dim in range(caps2_n_dims):
             plt.axis("off")
     # plt.show()
     plt.savefig(image_output_dir + 'tweak dimension' + str(dim))
-
-
-
