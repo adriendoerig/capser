@@ -37,7 +37,7 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
         }
 
         # we will reshape this to create the capsules
-        conv_for_caps = tf.layers.conv2d(conv_output, name="conv2", **conv_params)
+        conv_for_caps = tf.layers.conv2d(conv_output, name="conv_for_caps", **conv_params)
         if print_shapes:
             print('shape of conv_for_caps: '+str(conv_for_caps))
         # reshape the second layer to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to keep the
