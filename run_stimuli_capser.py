@@ -16,9 +16,12 @@ tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
+# stimulus type to run
+stim_type = 'square'
+
 # create datasets
 im_size = (60, 128)
-image_batch, image_labels = make_stimuli(stim_type='square', offset='left', n_repeats=2)
+image_batch, image_labels = make_stimuli(stim_type=stim_type, offset='left', n_repeats=1)
 
 # placeholder for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -72,7 +75,7 @@ caps1_output = primary_caps_layer(conv1b, caps1_n_maps, caps1_n_caps, caps1_n_di
 
 
 caps2_n_caps = 8 # number of capsules
-caps2_n_dims = 8 # of n dimensions
+caps2_n_dims = 16 # of n dimensions
 
 # it is all taken care of by the function
 caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3, print_shapes=False)
@@ -105,11 +108,13 @@ with tf.name_scope('decoder'):
 # Start the session, restore model to get caps2_output and decoder weights
 ########################################################################################################################
 
+
 with tf.Session() as sess:
     # First restore the network
-    model = 'capser_1e'
+    model = 'capser_1e_i'
     model_files = './'+model+'_logdir'
-    checkpoint_path = "./model_capser_1e"
+    checkpoint_path = model_files+"/"+model+"_model.ckpt"
+    output_image_dir = './output_images/' + model + '/'
     saver = tf.train.Saver()
     saver.restore(sess, checkpoint_path)
     # get caps2_output
@@ -119,7 +124,7 @@ with tf.Session() as sess:
                                        mask_with_labels: True})
 
     n_images = image_batch.shape[0]
-    caps_to_visualize = [0,6] #range(caps2_n_caps)
+    caps_to_visualize = range(caps2_n_caps)
     n_caps_to_visualize = len(caps_to_visualize)
     color_masks = np.array([[220, 76, 70],    # 0: squares, red
                             [196, 143, 101],  # 1: circles, beige
@@ -159,7 +164,9 @@ with tf.Session() as sess:
         plt.subplot(np.ceil(np.sqrt(n_images)), np.ceil(np.sqrt(n_images)), im+1)
         plt.imshow(overlay_images[im,:,:,:])
         plt.axis("off")
+    plt.savefig(output_image_dir + 'capsule overlay image ' + stim_type)
     plt.show()
+
 
     for im in range(n_images):
         plt.figure(figsize=(n_caps_to_visualize / .5, n_caps_to_visualize / .5))
@@ -167,4 +174,5 @@ with tf.Session() as sess:
             plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize)), np.ceil(np.sqrt(n_caps_to_visualize)), cap + 1)
             plt.imshow(decoder_images_all[im, :, :, :, cap])
             plt.axis("off")
+        plt.savefig(output_image_dir + 'all caps images ' + stim_type + str(im))
         plt.show()
