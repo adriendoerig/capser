@@ -390,6 +390,25 @@ def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
         return decoder_output
 
 
+def decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_output):
+
+    with tf.name_scope("decoder"):
+
+        hidden1 = tf.layers.dense(decoder_input, n_hidden1,
+                                  activation=tf.nn.relu,
+                                  name="hidden1")
+        hidden2 = tf.layers.dense(hidden1, n_hidden2,
+                                  activation=tf.nn.relu,
+                                  name="hidden2")
+        hidden3 = tf.layers.dense(hidden2, n_hidden3,
+                                         activation=tf.nn.relu,
+                                         name="hidden3")
+        decoder_output = tf.layers.dense(hidden3, n_output,
+                                         activation=tf.nn.sigmoid,
+                                         name="decoder_output")
+        return decoder_output
+
+
 # decoder that runs on each capsules separately to create an overlay image
 def each_capsule_decoder_with_mask(decoder_inputs, n_caps, n_hidden1, n_hidden2, n_output, print_shapes=False):
 

@@ -1,5 +1,5 @@
 import numpy as np
-from scipy import ndimage
+from scipy import ndimage, misc
 import os
 import random
 
@@ -101,10 +101,15 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
         for rep in range(n_repeats):
             try:
                 image_data = ndimage.imread(image_file, mode='L').astype(float)
+                
+                ### WORK IN PROGRESS
+                resize_factor = np.random.uniform(0.75, 1.0)
+                image_data = misc.imresize(image_data, resize_factor)
+                ### WORK IN PROGRESS
 
                 # pad to the right size if image is small than image_size (image will be in a random place)
                 if any(np.less(image_data.shape,image_size)):
-                    posX = random.randint(0,max(0,image_size[1]-image_data.shape[1]))
+                    posX = random.randint(0,max(0,image_size[1]  - image_data.shape[1]))
                     posY = random.randint(0, max(0, image_size[0] - image_data.shape[0]))
                     padded = np.zeros(image_size, dtype=np.float32)
                     padded[posY:posY+image_data.shape[0], posX:posX+image_data.shape[1]] = image_data

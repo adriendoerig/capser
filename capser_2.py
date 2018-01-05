@@ -9,7 +9,7 @@ from create_sprite import images_to_sprite, invert_grayscale
 from data_handling_functions import make_shape_sets
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     caps_prediction, compute_margin_loss, create_masked_decoder_input, \
-    decoder_with_mask, compute_reconstruction_loss
+    decoder_with_mask, decoder_with_mask_3layers, compute_reconstruction_loss
 
 
 ########################################################################################################################
@@ -25,7 +25,7 @@ tf.set_random_seed(42)
 # directories
 MODEL_NAME = 'capser_2'
 LOGDIR = MODEL_NAME+'_logdir'
-image_output_dir = os.path.join(os.getcwd(), '/output_images/'+MODEL_NAME+'/')
+image_output_dir = 'output_images/'+MODEL_NAME
 
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)
@@ -69,48 +69,59 @@ if show_samples:
 
 # early conv layers
 conv_1_kernel_size = 7
-conv_2_kernel_size = 11
+conv_2_kernel_size = 7
+conv_3_kernel_size = 7
 conv_1_stride = 1
-conv_2_stride = 2
+conv_2_stride = 1
+conv_3_stride = 2
 conv1_params = {
-    "filters": 16,
+    "filters": 64,
     "kernel_size": conv_1_kernel_size,
     "strides": conv_1_stride,
     "padding": "valid",
     "activation": tf.nn.relu,
 }
 conv2_params = {
-    "filters": 64,
+    "filters": 32,
     "kernel_size": conv_2_kernel_size,
     "strides": conv_2_stride,
     "padding": "valid",
     "activation": tf.nn.relu,
 }
+conv3_params = {
+    "filters": 32,
+    "kernel_size": conv_3_kernel_size,
+    "strides": conv_3_stride,
+    "padding": "valid",
+    "activation": tf.nn.relu,
+}
 
 # primary capsules
-conv_caps_kernel_size = 13
+conv_caps_kernel_size = 12
 conv_caps_stride = 2
 caps1_n_maps = 8
 conv1_width = int((im_size[0]-conv_1_kernel_size)/conv_1_stride + 1)
 conv1_height = int((im_size[1]-conv_1_kernel_size)/conv_1_stride + 1)
 conv2_width = int((conv1_width-conv_2_kernel_size)/conv_2_stride + 1)
 conv2_height = int((conv1_height-conv_2_kernel_size)/conv_2_stride + 1)
-caps1_n_caps = int((caps1_n_maps * int((conv2_width-conv_caps_kernel_size)/conv_caps_stride + 1) * int((conv2_height-conv_caps_kernel_size)/conv_caps_stride + 1)))
-print(caps1_n_caps)
-caps1_n_dims = 8
+conv3_width = int((conv2_width-conv_3_kernel_size)/conv_3_stride + 1)
+conv3_height = int((conv2_height-conv_3_kernel_size)/conv_3_stride + 1)
+caps1_n_caps = int((caps1_n_maps * int((conv3_width-conv_caps_kernel_size)/conv_caps_stride + 1) * int((conv3_height-conv_caps_kernel_size)/conv_caps_stride + 1)))
+caps1_n_dims = 16
 
 # output capsules
 caps2_n_caps = 8 # number of capsules
 caps2_n_dims = 10 # of n dimensions
 
 # decoder layer sizes
-n_hidden1 = 512
-n_hidden2 = 1024
+n_hidden1 = 256
+n_hidden2 = 512
+n_hidden3 = 1024
 n_output = im_size[0] * im_size[1]
 
 # training parameters
-n_epochs = 2
-batch_size = 50
+n_epochs = 4
+batch_size = 25
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
 n_iterations_validation = valid_set.shape[0] // batch_size
@@ -131,9 +142,11 @@ conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params) # ** means that conv1_
 tf.summary.histogram('1st_conv_layer', conv1)
 conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params) # ** means that conv1_params is a dict {param_name:param_value}
 tf.summary.histogram('2nd_conv_layer', conv2)
+conv3 = tf.layers.conv2d(conv2, name="conv3", **conv3_params) # ** means that conv1_params is a dict {param_name:param_value}
+tf.summary.histogram('3rd_conv_layer', conv3)
 
-# create furst capsule layer
-caps1_output = primary_caps_layer(conv2, caps1_n_maps, caps1_n_caps, caps1_n_dims,
+# create first capsule layer
+caps1_output = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dims,
                      conv_caps_kernel_size, conv_caps_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=True)
 
 
@@ -168,6 +181,7 @@ if show_sprites:
 
 LABELS = os.path.join(os.getcwd(), LOGDIR+'/'+MODEL_NAME+'_embedding_labels.tsv')
 SPRITES = os.path.join(os.getcwd(), LOGDIR+'/'+MODEL_NAME+'_sprites.png')
+
 embedding_input = tf.reshape(caps2_output,[-1,caps2_n_caps*caps2_n_dims])
 embedding_size = caps2_n_caps*caps2_n_dims
 embedding = tf.Variable(tf.zeros([test_set.shape[0],embedding_size]), name='final_capsules_embedding')
@@ -216,7 +230,7 @@ decoder_input = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_cap
                                             mask_with_labels, print_shapes=False)
 
 # run decoder
-decoder_output = decoder_with_mask(decoder_input,n_hidden1,n_hidden2,n_output)
+decoder_output = decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_output)
 decoder_output_image = tf.reshape(decoder_output,[-1, im_size[0], im_size[1],1])
 tf.summary.image('decoder_output',decoder_output_image,6)
 
@@ -232,7 +246,7 @@ reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
 
 ### FINAL LOSS & ACCURACY ###
 
-alpha = 0.0005
+alpha = 0.0005*(60*128)/(im_size[0]*im_size[1]) # 0.0005 was good for 60*128 images
 
 with tf.name_scope('total_loss'):
     loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
@@ -292,14 +306,14 @@ with tf.Session() as sess:
                           loss_train),
                       end="")
                 if iteration % 5 == 0:
-                    writer.add_summary(summ,epoch*n_iterations_per_epoch+iteration)
+                    writer.add_summary(summ,(epoch-1)*n_iterations_per_epoch+iteration)
 
-                if iteration == n_iterations_per_epoch: # and epoch % 5 == 0:
-                    print(' ... final iteration: Creating embedding')
-                    sess.run(assignment, feed_dict={X: test_set,
-                                                    y: test_labels,
-                                                    mask_with_labels: False})
-                    saver.save(sess, checkpoint_path+'_epoch_'+str(epoch))
+                # if iteration == n_iterations_per_epoch: # and epoch % 5 == 0:
+                #     print(' ... final iteration: Creating embedding')
+                #     sess.run(assignment, feed_dict={X: test_set,
+                #                                     y: test_labels,
+                #                                     mask_with_labels: False})
+                #     saver.save(sess, checkpoint_path+'_epoch_'+str(epoch))
 
             # At the end of each epoch,
             # measure the validation loss and accuracy:
@@ -337,6 +351,22 @@ with tf.Session() as sess:
         # save the model at the end
         save_path = saver.save(sess, checkpoint_path)
         best_loss_val = loss_val
+
+
+########################################################################################################################
+# Embedding
+########################################################################################################################
+
+
+config = tf.ConfigProto(device_count = {'GPU': 0})
+with tf.Session(config=config) as sess:
+	print(' ... final iteration: Creating embedding')
+	saver.restore(sess, checkpoint_path)
+	sess.run(assignment, feed_dict={X: test_set,
+        	                        y: test_labels,
+    	                            mask_with_labels: False})
+	saver.save(sess, checkpoint_path)
+
 
 ########################################################################################################################
 # Testing
@@ -381,7 +411,6 @@ if do_testing:
 # View predictions
 ########################################################################################################################
 
-image_output_dir = './output_images/'+MODEL_NAME+'/'
 
 # Now let's make some predictions! We first fix a few images from the test set, then we start a session,
 # restore the trained model, evaluate caps2_output to get the capsule network's output vectors, decoder_output
@@ -408,7 +437,7 @@ for index in range(n_samples):
     plt.title("Label:" + str(test_labels[index]))
     plt.axis("off")
 
-plt.savefig(image_output_dir+'sample images')
+plt.savefig(image_output_dir+'/sample images')
 #plt.show()
 
 plt.figure(figsize=(n_samples / 1.5, n_samples / 1.5))
@@ -418,7 +447,7 @@ for index in range(n_samples):
     plt.imshow(reconstructions[index], cmap="binary")
     plt.axis("off")
 
-plt.savefig(image_output_dir+'sample images reconstructed')
+plt.savefig(image_output_dir+'/sample images reconstructed')
 #plt.show()
 
 
@@ -475,4 +504,4 @@ for dim in range(caps2_n_dims):
             plt.imshow(tweak_reconstructions[dim, col, row], cmap="binary")
             plt.axis("off")
     # plt.show()
-    plt.savefig(image_output_dir + 'tweak dimension' + str(dim))
+    plt.savefig(image_output_dir + '/tweak dimension' + str(dim))
