@@ -9,7 +9,8 @@ from create_sprite import images_to_sprite, invert_grayscale
 from data_handling_functions import make_stimuli
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     create_masked_decoder_input, create_multiple_masked_inputs, decoder_with_mask, \
-    each_capsule_decoder_with_mask, create_capsule_overlay, compute_reconstruction_loss
+    each_capsule_decoder_with_mask, create_capsule_overlay, compute_reconstruction_loss, \
+    decoder_with_mask_3layers
 
 # reproducibility
 tf.reset_default_graph()
@@ -20,14 +21,71 @@ tf.set_random_seed(42)
 stim_type = 'square'
 
 # create datasets
-im_size = (60, 128)
-image_batch, image_labels = make_stimuli(stim_type=stim_type, offset='left', n_repeats=1)
+im_size = (100, 290)
+image_batch, image_labels = make_stimuli(stim_type=stim_type, offset='left', n_repeats=1, image_size=im_size)
 
 # placeholder for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
 x_image = tf.reshape(X,[-1, im_size[0], im_size[1],1])
 tf.summary.image('input', x_image,6)
 y = tf.placeholder(shape=[None], dtype=tf.int64, name="y")
+
+
+########################################################################################################################
+# Network parameters
+########################################################################################################################
+
+# early conv layers
+conv_1_kernel_size = 7
+conv_2_kernel_size = 7
+conv_3_kernel_size = 7
+conv_1_stride = 1
+conv_2_stride = 1
+conv_3_stride = 2
+conv1_params = {
+    "filters": 64,
+    "kernel_size": conv_1_kernel_size,
+    "strides": conv_1_stride,
+    "padding": "valid",
+    "activation": tf.nn.relu,
+}
+conv2_params = {
+    "filters": 32,
+    "kernel_size": conv_2_kernel_size,
+    "strides": conv_2_stride,
+    "padding": "valid",
+    "activation": tf.nn.relu,
+}
+conv3_params = {
+    "filters": 32,
+    "kernel_size": conv_3_kernel_size,
+    "strides": conv_3_stride,
+    "padding": "valid",
+    "activation": tf.nn.relu,
+}
+
+# primary capsules
+conv_caps_kernel_size = 12
+conv_caps_stride = 2
+caps1_n_maps = 8  # number of capsules at level 1 of capsules
+caps1_n_dims = 16 # number of dimension per capsule
+conv1_width  = int((im_size[0]  -conv_1_kernel_size)/conv_1_stride + 1)
+conv1_height = int((im_size[1]  -conv_1_kernel_size)/conv_1_stride + 1)
+conv2_width  = int((conv1_width -conv_2_kernel_size)/conv_2_stride + 1)
+conv2_height = int((conv1_height-conv_2_kernel_size)/conv_2_stride + 1)
+conv3_width  = int((conv2_width -conv_3_kernel_size)/conv_3_stride + 1)
+conv3_height = int((conv2_height-conv_3_kernel_size)/conv_3_stride + 1)
+caps1_n_caps = int((caps1_n_maps * int((conv3_width-conv_caps_kernel_size)/conv_caps_stride + 1) * int((conv3_height-conv_caps_kernel_size)/conv_caps_stride + 1)))
+
+# output capsules
+caps2_n_caps = 8 # number of capsules
+caps2_n_dims = 16 # of n dimensions ### TRY 50????
+
+# decoder layer sizes
+n_hidden1 = 256
+n_hidden2 = 512
+n_hidden3 = 1024
+n_output = im_size[0] * im_size[1]
 
 
 ########################################################################################################################
@@ -39,34 +97,16 @@ y = tf.placeholder(shape=[None], dtype=tf.int64, name="y")
 # (im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2)*((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2)) capsules each,
 # where each capsule will output an 32D activation vector.
 
-conv_kernel_size = 7
-kernel_size = 9
-caps_conv_stride = 2
-caps1_n_maps = 8
-# here we need to be careful about the num
-caps1_n_caps = int(caps1_n_maps * ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2)*((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2))  # number of primary capsules: 2*kernel_size convs, stride = 2 in caps conv layer
-caps1_n_dims = 8
-
-print_conv_shapes = 0
-if print_conv_shapes:
-    print('caps1_n_maps, feature map size (y,x):')
-    print((caps1_n_maps, ((im_size[0]-2*(conv_kernel_size-1)-(kernel_size-1))/2),((im_size[1]-2*(conv_kernel_size-1)-(kernel_size-1))/2)))
-
-conv1_params = {
-    "filters": 64,
-    "kernel_size": conv_kernel_size,
-    "strides": 1,
-    "padding": "valid",
-    "activation": tf.nn.relu,
-}
 conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params) # ** means that conv1_params is a dict {param_name:param_value}
 tf.summary.histogram('1st_conv_layer', conv1)
-conv1b = tf.layers.conv2d(conv1, name="conv1b", **conv1_params) # ** means that conv1_params is a dict {param_name:param_value}
-tf.summary.histogram('1st_b_conv_layer', conv1b)
+conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params) # ** means that conv1_params is a dict {param_name:param_value}
+tf.summary.histogram('2nd_conv_layer', conv2)
+conv3 = tf.layers.conv2d(conv2, name="conv3", **conv3_params) # ** means that conv1_params is a dict {param_name:param_value}
+tf.summary.histogram('3rd_conv_layer', conv3)
 
-# create furst capsule layer
-caps1_output = primary_caps_layer(conv1b, caps1_n_maps, caps1_n_caps, caps1_n_dims,
-                     kernel_size, caps_conv_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=False)
+# create first capsule layer
+caps1_output = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dims,
+                     conv_caps_kernel_size, conv_caps_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=True)
 
 
 ########################################################################################################################
@@ -74,34 +114,31 @@ caps1_output = primary_caps_layer(conv1b, caps1_n_maps, caps1_n_caps, caps1_n_di
 ########################################################################################################################
 
 
-caps2_n_caps = 8 # number of capsules
-caps2_n_dims = 16 # of n dimensions
-
 # it is all taken care of by the function
-caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3, print_shapes=False)
+caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
+                                        rba_rounds=3, print_shapes=False)
 
 
 ########################################################################################################################
 # Decoder
 ########################################################################################################################
 
+
 with tf.name_scope('decoder'):
 
-    # create the mask. first, we create a placeholder that will tell the program whether to use the true
-    # or the predicted labels
-    mask_with_labels = tf.placeholder_with_default(False, shape=(),
-                                                   name="mask_with_labels")
-    # create the mask
-    decoder_input = create_masked_decoder_input(y, y, caps2_output, caps2_n_caps, caps2_n_dims,
-                                                mask_with_labels, print_shapes=False)
+    # create the mask. first, we create a placeholder that will tell the program whether to use the true or the predicted labels
+    mask_with_labels = tf.placeholder_with_default(False, shape=(), name="mask_with_labels")
 
-    # decoder layer sizes
-    n_hidden1 = 512
-    n_hidden2 = 1024
-    n_output = im_size[0] * im_size[1]
+    # create the mask
+    decoder_input = create_masked_decoder_input(y, y, caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=False)
 
     # run decoder
-    decoder_output = decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output)
+    decoder_output = decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_output)
+    decoder_output_image = tf.reshape(decoder_output,[-1, im_size[0], im_size[1],1])
+    tf.summary.image('decoder_output',decoder_output_image,6)
+
+    # reconstructon loss
+    reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
 
 
 ########################################################################################################################
@@ -111,7 +148,7 @@ with tf.name_scope('decoder'):
 
 with tf.Session() as sess:
     # First restore the network
-    model = 'capser_1e_i'
+    model = 'capser_2'
     model_files = './'+model+'_logdir'
     checkpoint_path = model_files+"/"+model+"_model.ckpt"
     output_image_dir = './output_images/' + model + '/'

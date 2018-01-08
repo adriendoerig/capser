@@ -33,7 +33,7 @@ np.random.seed(42)
 tf.set_random_seed(42)
 
 # directories
-MODEL_NAME = 'capser_2'
+MODEL_NAME = 'capser_2.2'
 LOGDIR = MODEL_NAME+'_logdir'
 image_output_dir = 'output_images/'+MODEL_NAME
 
@@ -49,7 +49,7 @@ if not os.path.exists(image_output_dir):
 
 
 # create datasets
-im_size = (100, 290)
+im_size = (70, 145)
 train_set, train_labels, valid_set, valid_labels, test_set, test_labels \
     = make_shape_sets(folder='./crowding_images/shapes_simple_large',image_size=im_size, n_repeats=1000)
 
@@ -78,12 +78,10 @@ if show_samples:
 ########################################################################################################################
 
 # early conv layers
-conv_1_kernel_size = 7
-conv_2_kernel_size = 7
-conv_3_kernel_size = 7
+conv_1_kernel_size = 5
+conv_2_kernel_size = 5
 conv_1_stride = 1
 conv_2_stride = 1
-conv_3_stride = 2
 conv1_params = {
     "filters": 64,
     "kernel_size": conv_1_kernel_size,
@@ -92,22 +90,15 @@ conv1_params = {
     "activation": tf.nn.relu,
 }
 conv2_params = {
-    "filters": 32,
+    "filters": 64,
     "kernel_size": conv_2_kernel_size,
     "strides": conv_2_stride,
     "padding": "valid",
     "activation": tf.nn.relu,
 }
-conv3_params = {
-    "filters": 32,
-    "kernel_size": conv_3_kernel_size,
-    "strides": conv_3_stride,
-    "padding": "valid",
-    "activation": tf.nn.relu,
-}
 
 # primary capsules
-conv_caps_kernel_size = 12
+conv_caps_kernel_size = 7
 conv_caps_stride = 2
 caps1_n_maps = 8  # number of capsules at level 1 of capsules
 caps1_n_dims = 16 # number of dimension per capsule
@@ -115,12 +106,10 @@ conv1_width  = int((im_size[0]  -conv_1_kernel_size)/conv_1_stride + 1)
 conv1_height = int((im_size[1]  -conv_1_kernel_size)/conv_1_stride + 1)
 conv2_width  = int((conv1_width -conv_2_kernel_size)/conv_2_stride + 1)
 conv2_height = int((conv1_height-conv_2_kernel_size)/conv_2_stride + 1)
-conv3_width  = int((conv2_width -conv_3_kernel_size)/conv_3_stride + 1)
-conv3_height = int((conv2_height-conv_3_kernel_size)/conv_3_stride + 1)
-caps1_n_caps = int((caps1_n_maps * int((conv3_width-conv_caps_kernel_size)/conv_caps_stride + 1) * int((conv3_height-conv_caps_kernel_size)/conv_caps_stride + 1)))
+caps1_n_caps = int((caps1_n_maps * int((conv2_width-conv_caps_kernel_size)/conv_caps_stride + 1) * int((conv2_height-conv_caps_kernel_size)/conv_caps_stride + 1)))
 
 # output capsules
-caps2_n_caps = 8 # number of capsules
+caps2_n_caps = 8  # number of capsules
 caps2_n_dims = 16 # of n dimensions ### TRY 50????
 
 # decoder layer sizes
@@ -130,7 +119,7 @@ n_hidden3 = 1024
 n_output = im_size[0] * im_size[1]
 
 # training parameters
-n_epochs = 35
+n_epochs = 2
 batch_size = 25
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
@@ -152,11 +141,9 @@ conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params) # ** means that conv1_
 tf.summary.histogram('1st_conv_layer', conv1)
 conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params) # ** means that conv1_params is a dict {param_name:param_value}
 tf.summary.histogram('2nd_conv_layer', conv2)
-conv3 = tf.layers.conv2d(conv2, name="conv3", **conv3_params) # ** means that conv1_params is a dict {param_name:param_value}
-tf.summary.histogram('3rd_conv_layer', conv3)
 
 # create first capsule layer
-caps1_output = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dims,
+caps1_output = primary_caps_layer(conv2, caps1_n_maps, caps1_n_caps, caps1_n_dims,
                      conv_caps_kernel_size, conv_caps_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=True)
 
 

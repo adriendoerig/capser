@@ -12,16 +12,6 @@ from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     decoder_with_mask, decoder_with_mask_3layers, compute_reconstruction_loss
 
 
-
-
-
-# CHECK LIGNES 279 - 280 !!!!
-
-
-
-
-
-
 ########################################################################################################################
 # Reproducibility and directories
 ########################################################################################################################
@@ -80,10 +70,8 @@ if show_samples:
 # early conv layers
 conv_1_kernel_size = 7
 conv_2_kernel_size = 7
-conv_3_kernel_size = 7
 conv_1_stride = 1
 conv_2_stride = 1
-conv_3_stride = 2
 conv1_params = {
     "filters": 64,
     "kernel_size": conv_1_kernel_size,
@@ -98,30 +86,25 @@ conv2_params = {
     "padding": "valid",
     "activation": tf.nn.relu,
 }
-conv3_params = {
-    "filters": 32,
-    "kernel_size": conv_3_kernel_size,
-    "strides": conv_3_stride,
-    "padding": "valid",
-    "activation": tf.nn.relu,
-}
 
-# primary capsules
-conv_caps_kernel_size = 12
+# primary capsules (shape-parts)
+conv_caps_kernel_size = 4
 conv_caps_stride = 2
-caps1_n_maps = 8  # number of capsules at level 1 of capsules
-caps1_n_dims = 16 # number of dimension per capsule
+caps1_n_maps = 32  # number of capsules at level 1 of capsules
+caps1_n_dims = 8   # number of dimension per capsule
 conv1_width  = int((im_size[0]  -conv_1_kernel_size)/conv_1_stride + 1)
 conv1_height = int((im_size[1]  -conv_1_kernel_size)/conv_1_stride + 1)
 conv2_width  = int((conv1_width -conv_2_kernel_size)/conv_2_stride + 1)
 conv2_height = int((conv1_height-conv_2_kernel_size)/conv_2_stride + 1)
-conv3_width  = int((conv2_width -conv_3_kernel_size)/conv_3_stride + 1)
-conv3_height = int((conv2_height-conv_3_kernel_size)/conv_3_stride + 1)
-caps1_n_caps = int((caps1_n_maps * int((conv3_width-conv_caps_kernel_size)/conv_caps_stride + 1) * int((conv3_height-conv_caps_kernel_size)/conv_caps_stride + 1)))
+caps1_n_caps = int((caps1_n_maps * int((conv2_width-conv_caps_kernel_size)/conv_caps_stride + 1) * int((conv2_height-conv_caps_kernel_size)/conv_caps_stride + 1)))
 
-# output capsules
-caps2_n_caps = 8 # number of capsules
-caps2_n_dims = 16 # of n dimensions ### TRY 50????
+# intermediate capsules (shapes)
+caps2_n_caps = 8  # number of capsules
+caps2_n_dims = 10 # of n dimensions
+
+# output capsules (shape-groups)
+caps3_n_caps = 8
+caps3_n_dims = 25
 
 # decoder layer sizes
 n_hidden1 = 256
@@ -130,7 +113,7 @@ n_hidden3 = 1024
 n_output = im_size[0] * im_size[1]
 
 # training parameters
-n_epochs = 35
+n_epochs = 4
 batch_size = 25
 restore_checkpoint = True
 n_iterations_per_epoch = train_set.shape[0] // batch_size
@@ -152,11 +135,9 @@ conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params) # ** means that conv1_
 tf.summary.histogram('1st_conv_layer', conv1)
 conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params) # ** means that conv1_params is a dict {param_name:param_value}
 tf.summary.histogram('2nd_conv_layer', conv2)
-conv3 = tf.layers.conv2d(conv2, name="conv3", **conv3_params) # ** means that conv1_params is a dict {param_name:param_value}
-tf.summary.histogram('3rd_conv_layer', conv3)
 
 # create first capsule layer
-caps1_output = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dims,
+caps1_output = primary_caps_layer(conv2, caps1_n_maps, caps1_n_caps, caps1_n_dims,
                      conv_caps_kernel_size, conv_caps_stride, conv_padding='valid', conv_activation=tf.nn.relu, print_shapes=True)
 
 
@@ -167,6 +148,16 @@ caps1_output = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dim
 
 # it is all taken care of by the function
 caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
+                                        rba_rounds=3, print_shapes=False)
+
+
+########################################################################################################################
+# From caps2 to caps3
+########################################################################################################################
+
+
+# it is all taken care of by the function
+caps3_output = fc_to_fc_caps_layer(X, caps2_output, caps2_n_caps, caps2_n_dims, caps3_n_caps, caps3_n_dims,
                                         rba_rounds=3, print_shapes=False)
 
 
@@ -192,7 +183,7 @@ if show_sprites:
 LABELS = os.path.join(os.getcwd(), LOGDIR+'/'+MODEL_NAME+'_embedding_labels.tsv')
 SPRITES = os.path.join(os.getcwd(), LOGDIR+'/'+MODEL_NAME+'_sprites.png')
 
-embedding_input = tf.reshape(caps2_output,[-1,caps2_n_caps*caps2_n_dims])
+embedding_input = tf.reshape(caps3_output,[-1,caps2_n_caps*caps2_n_dims])
 embedding_size = caps2_n_caps*caps2_n_dims
 embedding = tf.Variable(tf.zeros([test_set.shape[0],embedding_size]), name='final_capsules_embedding')
 assignment = embedding.assign(embedding_input)
@@ -210,7 +201,7 @@ embedding_config.sprite.single_image_dim.extend([max(im_size), max(im_size)])
 ########################################################################################################################
 
 
-y_pred = caps_prediction(caps2_output, print_shapes=False)# get index of max probability
+y_pred = caps_prediction(caps3_output, print_shapes=False)# get index of max probability
 
 
 ########################################################################################################################
@@ -223,7 +214,7 @@ m_plus = 0.9
 m_minus = 0.1
 lambda_ = 0.5
 
-margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
+margin_loss = compute_margin_loss(y, caps3_output, caps2_n_caps, m_plus, m_minus, lambda_)
 
 
 ########################################################################################################################
@@ -234,7 +225,7 @@ margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus
 mask_with_labels = tf.placeholder_with_default(False, shape=(), name="mask_with_labels")
 
 # create the mask
-decoder_input = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=False)
+decoder_input = create_masked_decoder_input(y, y_pred, caps3_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=False)
 
 # run decoder
 decoder_output = decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_output)
@@ -286,80 +277,75 @@ with tf.Session() as sess:
     if restore_checkpoint and tf.train.checkpoint_exists(checkpoint_path):
         saver.restore(sess, checkpoint_path)
         print('Checkpoint found, skipping training.')
-        # pass # ATTENTION ENLEVER PASS ICI POUR RECOMMENCER TRAINING DEPUIS ICI
-    # else:    # ATTENTION ENLEVER LE ELSE AUSSI DONC TOUT CE QUI EST DANS CE ELSE SERA DETABE (LE IF DU HAUT SE FERME)
-    init.run()
+        pass
+    else:
+        init.run()
 
-    for epoch in range(1,1+n_epochs):
-        for iteration in range(1, 1+n_iterations_per_epoch):
+        for epoch in range(1,1+n_epochs):
+            for iteration in range(1, 1+n_iterations_per_epoch):
 
-            # get data in the batches
-            offset = (iteration * batch_size) % (train_labels.shape[0] - batch_size)
-            batch_data = train_set[offset:(offset + batch_size), :, :, :]
-            batch_labels = train_labels[offset:(offset + batch_size)]
+                # get data in the batches
+                offset = (iteration * batch_size) % (train_labels.shape[0] - batch_size)
+                batch_data = train_set[offset:(offset + batch_size), :, :, :]
+                batch_labels = train_labels[offset:(offset + batch_size)]
 
-            # Run the training operation and measure the loss:
-            _, loss_train, summ = sess.run(
-                [training_op, loss, summary],
-                feed_dict={X: batch_data,
-                           y: batch_labels,
-                           mask_with_labels: True})
-            print("\rIteration: {}/{} ({:.1f}%)  Loss: {:.5f}".format(
-                      iteration, n_iterations_per_epoch,
-                      iteration * 100 / n_iterations_per_epoch,
-                      loss_train),
-                  end="")
-            if iteration % 5 == 0:
-                writer.add_summary(summ,(epoch-1)*n_iterations_per_epoch+iteration)
-
-            # if iteration == n_iterations_per_epoch: # and epoch % 5 == 0:
-            #     print(' ... final iteration: Creating embedding')
-            #     sess.run(assignment, feed_dict={X: test_set,
-            #                                     y: test_labels,
-            #                                     mask_with_labels: False})
-            #     saver.save(sess, checkpoint_path+'_epoch_'+str(epoch))
-
-        # At the end of each epoch,
-        # measure the validation loss and accuracy:
-        loss_vals = []
-        acc_vals = []
-        for iteration in range(1, n_iterations_validation + 1):
-
-            # get data in the batches
-            offset = (iteration * batch_size) % (valid_labels.shape[0] - batch_size)
-            batch_data = valid_set[offset:(offset + batch_size), :, :, :]
-            batch_labels = valid_labels[offset:(offset + batch_size)]
-
-            loss_val, acc_val = sess.run(
-                    [loss, accuracy],
+                # Run the training operation and measure the loss:
+                _, loss_train, summ = sess.run(
+                    [training_op, loss, summary],
                     feed_dict={X: batch_data,
                                y: batch_labels,
-                               mask_with_labels: False})
-            loss_vals.append(loss_val)
-            acc_vals.append(acc_val)
-            print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
-                      iteration, n_iterations_validation,
-                      iteration * 100 / n_iterations_validation),
-                  end=" " * 10)
-        loss_val = np.mean(loss_vals)
-        acc_val = np.mean(acc_vals)
-        print("\rEpoch: {}  Val accuracy: {:.4f}%  Loss: {:.6f}{}".format(
-            epoch, acc_val * 100, loss_val,
-            " (improved)" if loss_val < best_loss_val else ""))
+                               mask_with_labels: True})
+                print("\rIteration: {}/{} ({:.1f}%)  Loss: {:.5f}".format(
+                          iteration, n_iterations_per_epoch,
+                          iteration * 100 / n_iterations_per_epoch,
+                          loss_train),
+                      end="")
+                if iteration % 5 == 0:
+                    writer.add_summary(summ,(epoch-1)*n_iterations_per_epoch+iteration)
 
-        # And save the model if it improved:
-        # if loss_val < best_loss_val:
-        #     save_path = saver.save(sess, checkpoint_path)
-        #     best_loss_val = loss_val
+                # if iteration == n_iterations_per_epoch: # and epoch % 5 == 0:
+                #     print(' ... final iteration: Creating embedding')
+                #     sess.run(assignment, feed_dict={X: test_set,
+                #                                     y: test_labels,
+                #                                     mask_with_labels: False})
+                #     saver.save(sess, checkpoint_path+'_epoch_'+str(epoch))
 
-    # save the model at the end
-    save_path = saver.save(sess, checkpoint_path)
-    best_loss_val = loss_val
+            # At the end of each epoch,
+            # measure the validation loss and accuracy:
+            loss_vals = []
+            acc_vals = []
+            for iteration in range(1, n_iterations_validation + 1):
 
+                # get data in the batches
+                offset = (iteration * batch_size) % (valid_labels.shape[0] - batch_size)
+                batch_data = valid_set[offset:(offset + batch_size), :, :, :]
+                batch_labels = valid_labels[offset:(offset + batch_size)]
 
+                loss_val, acc_val = sess.run(
+                        [loss, accuracy],
+                        feed_dict={X: batch_data,
+                                   y: batch_labels,
+                                   mask_with_labels: False})
+                loss_vals.append(loss_val)
+                acc_vals.append(acc_val)
+                print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
+                          iteration, n_iterations_validation,
+                          iteration * 100 / n_iterations_validation),
+                      end=" " * 10)
+            loss_val = np.mean(loss_vals)
+            acc_val = np.mean(acc_vals)
+            print("\rEpoch: {}  Val accuracy: {:.4f}%  Loss: {:.6f}{}".format(
+                epoch, acc_val * 100, loss_val,
+                " (improved)" if loss_val < best_loss_val else ""))
 
-    #### LA FIN DU ELSE CEST ICI!!! SI JAMAIS POUR RETABER
+            # And save the model if it improved:
+            # if loss_val < best_loss_val:
+            #     save_path = saver.save(sess, checkpoint_path)
+            #     best_loss_val = loss_val
 
+        # save the model at the end
+        save_path = saver.save(sess, checkpoint_path)
+        best_loss_val = loss_val
 
 
 ########################################################################################################################
@@ -422,7 +408,7 @@ if do_testing:
 
 
 # Now let's make some predictions! We first fix a few images from the test set, then we start a session,
-# restore the trained model, evaluate caps2_output to get the capsule network's output vectors, decoder_output
+# restore the trained model, evaluate caps3_output to get the capsule network's output vectors, decoder_output
 # to get the reconstructions, and y_pred to get the class predictions.
 n_samples = 16
 
@@ -430,8 +416,8 @@ sample_images = test_set[:n_samples,:,:]
 
 with tf.Session() as sess:
     saver.restore(sess, checkpoint_path)
-    caps2_output_value, decoder_output_value, y_pred_value = sess.run(
-            [caps2_output, decoder_output, y_pred],
+    caps3_output_value, decoder_output_value, y_pred_value = sess.run(
+            [caps3_output, decoder_output, y_pred],
             feed_dict={X: sample_images,
                        y: np.array([], dtype=np.int64)})
 
@@ -465,8 +451,8 @@ plt.savefig(image_output_dir+'/sample images reconstructed')
 ########################################################################################################################
 
 
-# caps2_output is now a numpy array. let's check its shape
-# print('shape of caps2_output np array: '+str(caps2_output_value.shape))
+# caps3_output is now a numpy array. let's check its shape
+# print('shape of caps3_output np array: '+str(caps3_output_value.shape))
 
 # Let's create a function that will tweak each of the 16 pose parameters (dimensions) in all output vectors.
 # Each tweaked output vector will be identical to the original output vector, except that one of its pose
@@ -481,9 +467,9 @@ def tweak_pose_parameters(output_vectors, min=-0.5, max=0.5, n_steps=11):
     output_vectors_expanded = output_vectors[np.newaxis, np.newaxis]
     return tweaks + output_vectors_expanded
 
-# get a tweaked parameters array for the caps2_output_value array, and reshape (i.e., flattent) it to feed to decoder.
+# get a tweaked parameters array for the caps3_output_value array, and reshape (i.e., flattent) it to feed to decoder.
 n_steps = 11
-tweaked_vectors = tweak_pose_parameters(caps2_output_value, n_steps=n_steps)
+tweaked_vectors = tweak_pose_parameters(caps3_output_value, n_steps=n_steps)
 tweaked_vectors_reshaped = tweaked_vectors.reshape(
     [-1, 1, caps2_n_caps, caps2_n_dims, 1])
 
@@ -495,7 +481,7 @@ with tf.Session() as sess:
     saver.restore(sess, checkpoint_path)
     decoder_output_value = sess.run(
             decoder_output,
-            feed_dict={caps2_output: tweaked_vectors_reshaped,
+            feed_dict={caps3_output: tweaked_vectors_reshaped,
                        mask_with_labels: True,
                        y: tweak_labels})
 

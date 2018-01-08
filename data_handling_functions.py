@@ -103,7 +103,7 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
                 image_data = ndimage.imread(image_file, mode='L').astype(float)
                 
                 ### WORK IN PROGRESS
-                resize_factor = np.random.uniform(0.75, 1.0)
+                resize_factor = 0.5
                 image_data = misc.imresize(image_data, resize_factor)
                 ### WORK IN PROGRESS
 
@@ -178,12 +178,12 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
         print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_images', image_size = (60,128), n_repeats=1):
+def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_images/test_stimuli_large', image_size = (60,128), n_repeats=1):
 
     min_num_images = 1
     num_images = 0
 
-    folder = folder+'/'+offset+'/'
+    folder = folder+'/'
 
     image_files = os.listdir(folder)
 
@@ -211,10 +211,13 @@ def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_im
                         image_data = padded
 
                     # crop out a random patch if the image is larger than image_size
-                    if any(np.greater(image_data.shape,image_size)):
-                        smallest_img_axim = min(image_data.shape)
-                        rand_number = random.randint(0,max(0,smallest_img_axim-image_size))
-                        image_data = image_data[rand_number:image_size+rand_number,rand_number:image_size+rand_number]
+                    if image_data.shape[0] > image_size[0]:
+                        firstRow = int((image_data.shape[0]-image_size[0])/2)
+                        image_data = image_data[firstRow:firstRow+image_size[0],:]
+                    if image_data.shape[1] > image_size[1]:
+                        firstCol = int((image_data.shape[1]-image_size[1])/2)
+                        image_data = image_data[:,firstCol:firstCol+image_size[1]]
+                    print(image_data.shape)
 
                     # normalize etc.
                     # zero mean, 1 stdev
