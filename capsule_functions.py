@@ -356,23 +356,6 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
 
         return decoder_input
 
-def create_multiple_masked_inputs(caps_to_mask, caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=False):
-
-    with tf.name_scope('create_multiple_masked_decoder_inputs'):
-
-        input_list = []
-        for capsule in caps_to_mask:
-            new_input = create_masked_decoder_input(capsule, capsule, caps2_output, caps2_n_caps,
-                                                                   caps2_n_dims, mask_with_labels)
-            if print_shapes:
-                print('capsule number: '+str(capsule))
-                print('Shape of decoder input under construction: ' + str(input_list))
-                print('Shape of next capsule decoder input: ' + str(new_input))
-            input_list.append(new_input)
-
-        decoder_inputs = tf.stack(input_list,axis=2)
-
-        return decoder_inputs
 
 def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
 
@@ -409,57 +392,6 @@ def decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_
         return decoder_output
 
 
-# decoder that runs on each capsules separately to create an overlay image
-def each_capsule_decoder_with_mask(decoder_inputs, n_caps, n_hidden1, n_hidden2, n_output, print_shapes=False):
-
-    with tf.name_scope('decoder'):
-
-        output_list = []
-        for capsule in range(n_caps):
-            hidden1 = tf.layers.dense(decoder_inputs[:,:,capsule], n_hidden1,
-                                      activation=tf.nn.relu,
-                                      name="hidden1_capsule_"+str(capsule))
-            hidden2 = tf.layers.dense(hidden1, n_hidden2,
-                                      activation=tf.nn.relu,
-                                      name="hidden2_capsule_"+str(capsule))
-            new_output = tf.layers.dense(hidden2, n_output,
-                                         activation=tf.nn.sigmoid,
-                                         name="decoder_output_capsule_"+str(capsule))
-            output_list.append(new_output)
-
-        decoder_outputs = tf.stack(output_list, axis=2)
-
-        if print_shapes:
-            print('capsule number: ' + str(capsule))
-            print('Shape of decoder inputs: ' + str(decoder_inputs))
-            print('Shape of decoder outputs: ' + str(decoder_outputs))
-
-        return decoder_outputs
-
-
-# images is a batchxheightxwidthxn_caps_to_vizualize array
-def create_capsule_overlay(images, n_images, caps_to_visualize, im_size):
-
-    with tf.name_scope('create_capsule_overlay'):
-
-        decoder_outputs_overlay = np.zeros(shape=(n_images, im_size[0], im_size[1], 3))
-        color_masks = np.array([[220, 76, 70],
-                       [196, 143, 101],
-                       [79, 132, 196],
-                       [246, 209, 85],
-                       [237, 205, 194],
-                       [181, 101, 167],
-                       [121, 199, 83],
-                       [210, 105, 30]])
-        for cap in caps_to_visualize:
-            for rgb in range(3):
-                temp = np.multiply(images[:, :, :, cap], color_masks[cap, rgb])
-                print(temp.shape)
-                print(decoder_outputs_overlay[:,:,:,rgb].shape)
-                decoder_outputs_overlay[:, :, :, rgb] += temp
-        decoder_outputs_overlay[decoder_outputs_overlay>255] = 255
-
-        return decoder_outputs_overlay
 # takes a n*n input and a flat decoder output
 def compute_reconstruction_loss(input, reconstruction):
     with tf.name_scope('reconstruction_loss'):
