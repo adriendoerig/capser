@@ -77,7 +77,7 @@ conv1_params = [{
                     "activation": tf.nn.relu,
                 },
                 {   "filters": 64,
-                    "kernel_size": 5,
+                    "kernel_size": 6,
                     "strides": 1,
                     "padding": "valid",
                     "activation": tf.nn.relu,
@@ -91,7 +91,7 @@ conv2_params = [{
                     },
                     {
                         "filters": 64,
-                        "kernel_size": 5,
+                        "kernel_size": 6,
                         "strides": 1,
                         "padding": "valid",
                         "activation": tf.nn.relu,
@@ -100,7 +100,7 @@ conv3_params = [None, None]
 
 # primary capsules
 caps1_n_maps = [8, 8]  # number of capsules at level 1 of capsules
-caps1_n_dims = [16, 16]  # number of dimension per capsule
+caps1_n_dims = [10, 10]  # number of dimension per capsule
 conv_caps_params = [{
                         "filters": caps1_n_maps[0] * caps1_n_dims[0],
                         "kernel_size": 7,
@@ -110,7 +110,7 @@ conv_caps_params = [{
                     },
                     {
                         "filters": caps1_n_maps[1] * caps1_n_dims[1],
-                        "kernel_size": 7,
+                        "kernel_size": 8,
                         "strides": 2,
                         "padding": "valid",
                         "activation": tf.nn.relu,
@@ -118,11 +118,11 @@ conv_caps_params = [{
 
 # output capsules
 caps2_n_caps = [8, 8]  # number of capsules
-caps2_n_dims = [16, 16] # of n dimensions ### TRY 50????
+caps2_n_dims = [10, 16] # of n dimensions ### TRY 50????
 
 # decoder layer sizes
-n_hidden1 = [256, 1024]
-n_hidden2 = [512, 2048]
+n_hidden1 = [1024, 2048]
+n_hidden2 = [2048, 2048]
 n_hidden3 = [None, None]
 n_output = im_size[0] * im_size[1]
 
