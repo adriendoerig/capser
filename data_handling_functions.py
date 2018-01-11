@@ -3,85 +3,7 @@ from scipy import ndimage, misc
 import os
 import random
 
-def make_crowding_sets(folder = './crowding_images', image_size=(60,128), n_valid_samples=16, n_test_samples=25):
-
-    min_num_images = 50
-    num_images = 0
-
-    for offset in ['left', 'right']:
-
-        this_folder = folder + '/' + offset
-        image_files = os.listdir(this_folder)
-
-        if offset is 'left':
-            train_set = np.ndarray(shape=(2*len(image_files), image_size[0], image_size[1]),
-                                 dtype=np.float32)
-            train_labels = np.zeros(2*len(image_files), dtype=np.float32)
-
-        print('loading images from '+this_folder)
-
-        for image in image_files:
-            image_file = os.path.join(this_folder, image)
-            # print('loading '+image_file)
-
-            try:
-                image_data = ndimage.imread(image_file, mode='L').astype(float)
-
-                # pad to the right size if image is small than image_size (image will be in the upper left)
-                if any(np.less(image_data.shape,image_size)):
-                    padded = np.zeros(image_size, dtype=np.float32)
-                    padded[:image_data.shape[0], :image_data.shape[1]] = image_data
-                    image_data = padded
-
-                # crop out a random patch if the image is larger than image_size
-                if any(np.greater(image_data.shape,image_size)):
-                    smallest_img_axim = min(image_data.shape)
-                    rand_number = random.randint(0,max(0,smallest_img_axim-image_size))
-                    image_data = image_data[rand_number:image_size+rand_number,rand_number:image_size+rand_number]
-
-                # normalize etc.
-                # zero mean, 1 stdev
-                image_data = (image_data - np.mean(image_data)) / np.std(image_data)
-
-                # add to training set
-                train_set[num_images, :, :] = image_data
-                num_images = num_images + 1
-
-                if offset is 'left':
-                    train_labels[num_images] = 0
-                else:
-                    train_labels[num_images] = 1
-
-            except (ValueError, IOError, IndexError, OSError):
-                print('Could not read:', image_file, '- it\'s ok, skipping.')
-
-    # check enough images could be processed
-    if num_images < min_num_images:
-        raise Exception('Many fewer images than expected: %d < %d' %
-                        (num_images, min_num_images))
-
-    # remove empty entries
-    train_set = train_set[0:num_images, :, :]
-    # add a singleton 4th dimentsion (needed for conv layers
-    train_set = np.expand_dims(train_set,axis=3)
-
-    perm = np.random.permutation(num_images)
-    train_set = train_set[perm,:,:,:]
-    train_labels = train_labels[perm]
-    valid_set = train_set[:n_valid_samples,:,:,:]
-    valid_labels = train_labels[:n_valid_samples]
-    test_set = train_set[n_valid_samples:n_valid_samples+n_test_samples,:,:,:]
-    test_labels = train_labels[n_valid_samples:n_valid_samples+n_test_samples]
-    # train_set = train_set[n_valid_samples+n_test_samples:, :, :]
-    # train_labels = train_labels[n_valid_samples+n_test_samples:]
-
-
-    print('Train set tensor:', train_set.shape)
-    print('Mean:', np.mean(train_set))
-    print('Standard deviation:', np.std(train_set))
-    return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
-
-def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=144, print_shapes=False):
+def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), resize_factor=1.0, n_repeats=10, n_valid_samples=100, n_test_samples=144, print_shapes=False):
 
     min_num_images = 50
     num_images = 0
@@ -101,11 +23,15 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
         for rep in range(n_repeats):
             try:
                 image_data = ndimage.imread(image_file, mode='L').astype(float)
-                
-                ### WORK IN PROGRESS
-                resize_factor = 0.5
                 image_data = misc.imresize(image_data, resize_factor)
-                ### WORK IN PROGRESS
+
+                # crop out a random patch if the image is larger than image_size
+                if image_data.shape[0] > image_size[0]:
+                    firstRow = int((image_data.shape[0] - image_size[0]) / 2)
+                    image_data = image_data[firstRow:firstRow + image_size[0], :]
+                if image_data.shape[1] > image_size[1]:
+                    firstCol = int((image_data.shape[1] - image_size[1]) / 2)
+                    image_data = image_data[:, firstCol:firstCol + image_size[1]]
 
                 # pad to the right size if image is small than image_size (image will be in a random place)
                 if any(np.less(image_data.shape,image_size)):
@@ -114,12 +40,6 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
                     padded = np.zeros(image_size, dtype=np.float32)
                     padded[posY:posY+image_data.shape[0], posX:posX+image_data.shape[1]] = image_data
                     image_data = padded
-
-                # crop out a random patch if the image is larger than image_size
-                if any(np.greater(image_data.shape,image_size)):
-                    smallest_img_axim = min(image_data.shape)
-                    rand_number = random.randint(0,max(0,smallest_img_axim-image_size))
-                    image_data = image_data[rand_number:image_size+rand_number,rand_number:image_size+rand_number]
 
                 # normalize etc.
                 # zero mean, 1 stdev
@@ -178,7 +98,7 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
         print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_images/test_stimuli_large', image_size = (60,128), n_repeats=1):
+def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_images/test_stimuli_large', image_size = (60,128), resize_factor=1.0, n_repeats=1):
 
     min_num_images = 1
     num_images = 0
@@ -201,6 +121,7 @@ def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_im
             for rep in range(n_repeats):
                 try:
                     image_data = ndimage.imread(image_file, mode='L').astype(float)
+                    image_data = misc.imresize(image_data, resize_factor)
 
                     # pad to the right size if image is small than image_size (image will be in a random place)
                     if any(np.less(image_data.shape,image_size)):
@@ -217,7 +138,6 @@ def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_im
                     if image_data.shape[1] > image_size[1]:
                         firstCol = int((image_data.shape[1]-image_size[1])/2)
                         image_data = image_data[:,firstCol:firstCol+image_size[1]]
-                    print(image_data.shape)
 
                     # normalize etc.
                     # zero mean, 1 stdev
