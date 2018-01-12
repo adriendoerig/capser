@@ -14,7 +14,7 @@ np.random.seed(42)
 tf.set_random_seed(42)
 
 # model name, directory etc.
-MODEL_NAME = 'capser_3_tiny_larger_conv_kernels'
+MODEL_NAME = 'capser_3'
 HOME = './'
 LOGDIR = HOME + MODEL_NAME + '_logdir'
 checkpoint_path = LOGDIR + '/' + MODEL_NAME + "_model.ckpt"
@@ -24,11 +24,11 @@ if not os.path.exists(output_image_dir):
     os.makedirs(output_image_dir)
 
 # stimulus type to run
-stim_type = 'square'
+stim_type = 'vernier'
 
 # create datasets
-im_size = (20, 80)
-image_batch, image_labels = make_stimuli(stim_type=stim_type, offset='left', n_repeats=1, image_size=im_size, resize_factor=1.0)
+im_size = (60, 128)
+image_batch, image_labels = make_stimuli(stim_type=stim_type, n_repeats=1, image_size=im_size, resize_factor=1.0)
 
 # placeholder for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -45,13 +45,13 @@ mask_with_labels = tf.placeholder_with_default(False, shape=(), name="mask_with_
 
 # early conv layers
 conv1_params = {"filters": 64,
-                    "kernel_size": 5,
+                    "kernel_size": 7,
                     "strides": 1,
                     "padding": "valid",
                     "activation": tf.nn.relu,
                 }
 conv2_params = {"filters": 64,
-                        "kernel_size": 3,
+                        "kernel_size": 7,
                         "strides": 1,
                         "padding": "valid",
                         "activation": tf.nn.relu,
@@ -59,17 +59,17 @@ conv2_params = {"filters": 64,
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 3  # number of capsules at level 1 of capsules
+caps1_n_maps = 8  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                        "kernel_size": 4,
+                        "kernel_size": 9,
                         "strides": 2,
                         "padding": "valid",
                         "activation": tf.nn.relu,
                    }
 
 # output capsules
-caps2_n_caps = 3  # number of capsules
+caps2_n_caps = 8  # number of capsules
 caps2_n_dims = 10 # of n dimensions ### TRY 50????
 
 # decoder layer sizes

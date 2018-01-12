@@ -17,7 +17,7 @@ np.random.seed(42)
 tf.set_random_seed(42)
 
 # directories
-MODEL_NAME = 'capser_3_tiny_larger_conv_kernels'
+MODEL_NAME = 'capser_3'
 LOGDIR = './'+MODEL_NAME+'_logdir'
 image_output_dir = 'output_images/'+MODEL_NAME
 
@@ -33,9 +33,9 @@ if not os.path.exists(image_output_dir):
 
 
 # create datasets
-im_size = (20, 80)
+im_size = (60, 128)
 train_set, train_labels, valid_set, valid_labels, test_set, test_labels \
-    = make_shape_sets(folder='./crowding_images/tiny_shapes',image_size=im_size, n_repeats=1000, resize_factor=1.0)
+    = make_shape_sets(folder='./crowding_images/shapes_simple',image_size=im_size, n_repeats=10, resize_factor=1.0)
 
 # placeholders for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -72,13 +72,13 @@ continue_training_from_checkpoint = False
 
 # early conv layers
 conv1_params = {"filters": 64,
-                    "kernel_size": 5,
+                    "kernel_size": 7,
                     "strides": 1,
                     "padding": "valid",
                     "activation": tf.nn.relu,
                 }
 conv2_params = {"filters": 64,
-                        "kernel_size": 3,
+                        "kernel_size": 7,
                         "strides": 1,
                         "padding": "valid",
                         "activation": tf.nn.relu,
@@ -86,17 +86,17 @@ conv2_params = {"filters": 64,
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 3  # number of capsules at level 1 of capsules
+caps1_n_maps = 8  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                        "kernel_size": 4,
+                        "kernel_size": 9,
                         "strides": 2,
                         "padding": "valid",
                         "activation": tf.nn.relu,
                    }
 
 # output capsules
-caps2_n_caps = 3  # number of capsules
+caps2_n_caps = 8  # number of capsules
 caps2_n_dims = 10 # of n dimensions ### TRY 50????
 
 # decoder layer sizes
@@ -111,6 +111,8 @@ with open(LOGDIR+'/'+MODEL_NAME+'_parameters.txt', 'w') as f:
     variables = {key: value for key, value in variables.items()
                  if 'set' not in key}
     f.write(repr(variables))
+print('Parameter values saved.')
+
 
 ########################################################################################################################
 # Create Networks
