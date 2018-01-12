@@ -114,7 +114,7 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
     ####################################################################################################################
 
 
-    alpha = 0.0005 * (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
+    alpha = 0.0005 #* (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
 
     with tf.name_scope('total_loss'):
         loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")

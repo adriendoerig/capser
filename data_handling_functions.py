@@ -61,7 +61,8 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), re
                 elif 'line' in image_file:
                     train_labels[num_images] = 5
                 elif 'vernier' in image_file:
-                    train_labels[num_images] = 6
+                    train_labels[num_images] = 1
+                    print('CAREFUL WITH LABELS WHEN DOING DIFFERENT TYPES OF TASK!')
                 else:
                     raise Exception(image_file+' is a stimulus of unknown class')
 
@@ -98,7 +99,7 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), re
         print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_images/test_stimuli_large', image_size = (60,128), resize_factor=1.0, n_repeats=1):
+def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_images/tiny_stims', image_size = (60,128), resize_factor=1.0, n_repeats=1):
 
     min_num_images = 1
     num_images = 0
@@ -159,7 +160,8 @@ def make_stimuli(stim_type = 'squares', offset = 'left', folder = './crowding_im
                     elif 'line' in image_file:
                         image_labels[num_images] = 5
                     elif 'vernier' in image_file:
-                        image_labels[num_images] = 6
+                        image_labels[num_images] = 1
+                        print('CAREFUL WITH LABELS WHEN DOING DIFFERENT TYPES OF TASK!')
                     else:
                         raise Exception(image_file+' is a stimulus of unknown class')
 
