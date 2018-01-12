@@ -81,7 +81,7 @@ def make_crowding_sets(folder = './crowding_images', image_size=(60,128), n_vali
     print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_repeats=10, n_valid_samples=100, n_test_samples=144, print_shapes=False):
+def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), resize_factor=1.0, n_repeats=10, n_valid_samples=100, n_test_samples=144, print_shapes=False):
 
     min_num_images = 50
     num_images = 0
@@ -101,9 +101,8 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), n_
         for rep in range(n_repeats):
             try:
                 image_data = ndimage.imread(image_file, mode='L').astype(float)
-                
+
                 ### WORK IN PROGRESS
-                resize_factor = 0.5
                 image_data = misc.imresize(image_data, resize_factor)
                 ### WORK IN PROGRESS
 

@@ -18,7 +18,7 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
                                  mask_with_labels, MODEL_NAME=''
                                 ):
 
-
+    print('Capser construction:')
     ####################################################################################################################
     # Early conv layers and first capsules
     ####################################################################################################################
@@ -45,11 +45,13 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
     conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)  # ** means that conv1_params is a dict {param_name:param_value}
     tf.summary.histogram('2nd_conv_layer', conv2)
     if conv3_params == None:
+        print('There are 2 conv layers before the capsules.')
         # create first capsule layer
         caps1_output = primary_caps_layer(conv2, caps1_n_maps, caps1_n_caps, caps1_n_dims,
                                           conv_caps_params["kernel_size"], conv_caps_params["strides"], conv_padding='valid',
                                           conv_activation=tf.nn.relu, print_shapes=False)
     else:
+        print('There are 3 conv layers before the capsules.')
         conv3 = tf.layers.conv2d(conv2, name="conv3", **conv3_params)  # ** means that conv1_params is a dict {param_name:param_value}
         tf.summary.histogram('3rd_conv_layer', conv3)
         # create first capsule layer
@@ -99,8 +101,10 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
                                                 mask_with_labels, print_shapes=False)
     # run decoder
     if n_hidden3 == None:
+        print('Decoder has 2 layers')
         decoder_output = decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output)
     else:
+        print('Decoder has 3 layers')
         decoder_output = decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_output)
 
     decoder_output_image = tf.reshape(decoder_output,[-1, im_size[0], im_size[1],1])
@@ -114,7 +118,7 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
     ####################################################################################################################
 
 
-    alpha = 0.0005 * (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
+    alpha = 0.0005# * (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
 
     with tf.name_scope('total_loss'):
         loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
