@@ -3,7 +3,9 @@ from scipy import ndimage, misc
 import os
 import random
 
-def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), resize_factor=1.0, n_repeats=10, n_valid_samples=100, n_test_samples=144, print_shapes=False):
+
+def make_shape_sets(folder='./crowding_images/shapes', image_size=(60, 128), resize_factor=1.0, n_repeats=10,
+                    n_valid_samples=100, n_test_samples=144, print_shapes=False):
 
     min_num_images = 50
     num_images = 0
@@ -11,7 +13,7 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), re
     image_files = os.listdir(folder)
 
     train_set = np.ndarray(shape=(n_repeats*len(image_files), image_size[0], image_size[1]),
-                         dtype=np.float32)
+                           dtype=np.float32)
     train_labels = np.zeros(n_repeats*len(image_files), dtype=np.float32)
 
     print('loading images from '+folder)
@@ -27,18 +29,18 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), re
 
                 # crop out a random patch if the image is larger than image_size
                 if image_data.shape[0] > image_size[0]:
-                    firstRow = int((image_data.shape[0] - image_size[0]) / 2)
-                    image_data = image_data[firstRow:firstRow + image_size[0], :]
+                    first_row = int((image_data.shape[0] - image_size[0]) / 2)
+                    image_data = image_data[first_row:first_row + image_size[0], :]
                 if image_data.shape[1] > image_size[1]:
-                    firstCol = int((image_data.shape[1] - image_size[1]) / 2)
-                    image_data = image_data[:, firstCol:firstCol + image_size[1]]
+                    first_col = int((image_data.shape[1] - image_size[1]) / 2)
+                    image_data = image_data[:, first_col:first_col + image_size[1]]
 
                 # pad to the right size if image is small than image_size (image will be in a random place)
-                if any(np.less(image_data.shape,image_size)):
-                    posX = random.randint(0,max(0,image_size[1]  - image_data.shape[1]))
-                    posY = random.randint(0, max(0, image_size[0] - image_data.shape[0]))
+                if any(np.less(image_data.shape, image_size)):
+                    pos_x = random.randint(0, max(0, image_size[1] - image_data.shape[1]))
+                    pos_y = random.randint(0, max(0, image_size[0] - image_data.shape[0]))
                     padded = np.zeros(image_size, dtype=np.float32)
-                    padded[posY:posY+image_data.shape[0], posX:posX+image_data.shape[1]] = image_data
+                    padded[pos_y:pos_y+image_data.shape[0], pos_x:pos_x+image_data.shape[1]] = image_data
                     image_data = padded
 
                 # normalize etc.
@@ -61,8 +63,8 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), re
                 elif 'line' in image_file:
                     train_labels[num_images] = 5
                 elif 'vernier' in image_file:
-                    train_labels[num_images] = 1
-                    print('CAREFUL WITH LABELS WHEN DOING DIFFERENT TYPES OF TASK!')
+                    train_labels[num_images] = 6
+                    # print('CAREFUL WITH LABELS WHEN DOING DIFFERENT TYPES OF TASK!')
                 else:
                     raise Exception(image_file+' is a stimulus of unknown class')
 
@@ -79,14 +81,14 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), re
     # remove empty entries
     train_set = train_set[0:num_images, :, :]
     # add a singleton 4th dimentsion (needed for conv layers
-    train_set = np.expand_dims(train_set,axis=3)
+    train_set = np.expand_dims(train_set, axis=3)
 
     perm = np.random.permutation(num_images)
-    train_set = train_set[perm,:,:,:]
+    train_set = train_set[perm, :, :, :]
     train_labels = train_labels[perm]
-    valid_set = train_set[:n_valid_samples,:,:,:]
+    valid_set = train_set[:n_valid_samples, :, :, :]
     valid_labels = train_labels[:n_valid_samples]
-    test_set = train_set[n_valid_samples:n_valid_samples+n_test_samples,:,:,:]
+    test_set = train_set[n_valid_samples:n_valid_samples+n_test_samples, :, :, :]
     test_labels = train_labels[n_valid_samples:n_valid_samples+n_test_samples]
     train_set = train_set[n_valid_samples+n_test_samples:, :, :]
     train_labels = train_labels[n_valid_samples+n_test_samples:]
@@ -99,20 +101,21 @@ def make_shape_sets(folder = './crowding_images/shapes', image_size=(60,128), re
         print('Standard deviation:', np.std(train_set))
     return train_set, train_labels, valid_set, valid_labels, test_set, test_labels
 
-def make_stimuli(stim_type = 'squares', folder = './crowding_images/left', image_size = (60,128), resize_factor=1.0, n_repeats=1):
+
+def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_test', image_size=(60, 128),
+                 resize_factor=1.0, n_repeats=1, print_shapes=False):
 
     min_num_images = 1
     num_images = 0
 
     folder = folder+'/'
-
     image_files = os.listdir(folder)
 
     image_batch = np.ndarray(shape=(n_repeats*len(image_files), image_size[0], image_size[1]),
-                         dtype=np.float32)
+                             dtype=np.float32)
     image_labels = np.zeros(n_repeats*len(image_files), dtype=np.float32)
 
-    print('loading images from '+folder)
+    print('loading ' + stim_type + ' from '+folder)
 
     for image in image_files:
         image_file = os.path.join(folder, image)
@@ -125,20 +128,20 @@ def make_stimuli(stim_type = 'squares', folder = './crowding_images/left', image
                     image_data = misc.imresize(image_data, resize_factor)
 
                     # pad to the right size if image is small than image_size (image will be in a random place)
-                    if any(np.less(image_data.shape,image_size)):
-                        posX = random.randint(0,max(0,image_size[1]-image_data.shape[1]))
-                        posY = random.randint(0, max(0, image_size[0] - image_data.shape[0]))
+                    if any(np.less(image_data.shape, image_size)):
+                        pos_x = random.randint(0, max(0, image_size[1]-image_data.shape[1]))
+                        pos_y = random.randint(0, max(0, image_size[0] - image_data.shape[0]))
                         padded = np.zeros(image_size, dtype=np.float32)
-                        padded[posY:posY+image_data.shape[0], posX:posX+image_data.shape[1]] = image_data
+                        padded[pos_y:pos_y+image_data.shape[0], pos_x:pos_x+image_data.shape[1]] = image_data
                         image_data = padded
 
                     # crop out a random patch if the image is larger than image_size
                     if image_data.shape[0] > image_size[0]:
-                        firstRow = int((image_data.shape[0]-image_size[0])/2)
-                        image_data = image_data[firstRow:firstRow+image_size[0],:]
+                        first_row = int((image_data.shape[0]-image_size[0])/2)
+                        image_data = image_data[first_row:first_row+image_size[0], :]
                     if image_data.shape[1] > image_size[1]:
-                        firstCol = int((image_data.shape[1]-image_size[1])/2)
-                        image_data = image_data[:,firstCol:firstCol+image_size[1]]
+                        first_col = int((image_data.shape[1]-image_size[1])/2)
+                        image_data = image_data[:, first_col:first_col+image_size[1]]
 
                     # normalize etc.
                     # zero mean, 1 stdev
@@ -161,7 +164,7 @@ def make_stimuli(stim_type = 'squares', folder = './crowding_images/left', image
                         image_labels[num_images] = 5
                     elif 'vernier' in image_file:
                         image_labels[num_images] = 6
-                        print('CAREFUL WITH LABELS WHEN DOING DIFFERENT TYPES OF TASK!')
+                        # print('CAREFUL WITH LABELS WHEN DOING DIFFERENT TYPES OF TASK!')
                     else:
                         image_labels[num_images] = 7
 
@@ -178,10 +181,11 @@ def make_stimuli(stim_type = 'squares', folder = './crowding_images/left', image
     # remove empty entries
     image_batch = image_batch[0:num_images, :, :]
     image_labels = image_labels[0:num_images]
-    # add a singleton 4th dimentsion (needed for conv layers
-    image_batch = np.expand_dims(image_batch,axis=3)
+    # add a singleton 4th dimension (needed for conv layers
+    image_batch = np.expand_dims(image_batch, axis=3)
 
-    print('Image batch tensor:', image_batch.shape)
-    print('Mean:', np.mean(image_batch))
-    print('Standard deviation:', np.std(image_batch))
+    if print_shapes:
+        print('Image batch tensor:', image_batch.shape)
+        print('Mean:', np.mean(image_batch))
+        print('Standard deviation:', np.std(image_batch))
     return image_batch, image_labels
