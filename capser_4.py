@@ -5,7 +5,7 @@ from data_handling_functions import make_shape_sets, make_stimuli
 import matplotlib.pyplot as plt
 import os
 from create_sprite import images_to_sprite, invert_grayscale
-
+from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_correct_mean
 
 ########################################################################################################################
 # Parameters
@@ -13,27 +13,27 @@ from create_sprite import images_to_sprite, invert_grayscale
 
 
 # data parameters
-im_folder = './crowding_images/shapes_simple'
+im_folder = './crowding_images/shapes_simple_large'
 im_size = (60, 128)
-n_repeats = 10
-resize_factor = 1.0
+n_repeats = 500
+resize_factor = 0.4
 
 # training parameters
-n_epochs = 50
+n_epochs = 1
 batch_size = 25
 restore_checkpoint = True
-version_to_restore = 7
+version_to_restore = None
 continue_training_from_checkpoint = False
 
 # early conv layers
 conv1_params = {"filters": 64,
-                "kernel_size": 7,
+                "kernel_size": 5,
                 "strides": 1,
                 "padding": "valid",
                 "activation": tf.nn.elu,
                 }
 conv2_params = {"filters": 64,
-                "kernel_size": 7,
+                "kernel_size": 6,
                 "strides": 1,
                 "padding": "valid",
                 "activation": tf.nn.elu,
@@ -44,7 +44,7 @@ conv3_params = None
 caps1_n_maps = 7  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 9,
+                    "kernel_size": 7,
                     "strides": 2,
                     "padding": "valid",
                     "activation": tf.nn.elu,
@@ -53,6 +53,11 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 # output capsules
 caps2_n_caps = 7   # number of capsules
 caps2_n_dims = 10  # of n dimensions ### TRY 50????
+
+# margin loss parameters
+m_plus = .9
+m_minus = .1
+lambda_ = .75
 
 # decoder layer sizes
 n_hidden1 = 512
@@ -86,6 +91,7 @@ else:
     version = version_to_restore
 
 print('#################### MODEL_NAME_VERSION: ' + MODEL_NAME+'_'+str(version) + ' ####################')
+
 LOGDIR = './' + MODEL_NAME + '_logdir/version_' + str(version)
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)
@@ -116,6 +122,7 @@ do_testing = 0
 do_embedding = 0
 do_output_images = 0
 do_color_capsules = 1
+do_vernier_decoding = 1
 
 
 ########################################################################################################################
@@ -159,6 +166,7 @@ if show_samples:
 capser = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv3_params,
                                          caps1_n_maps, caps1_n_dims, conv_caps_params,
                                          caps2_n_caps, caps2_n_dims,
+                                         m_plus, m_minus, lambda_,
                                          n_hidden1, n_hidden2, n_hidden3, n_output,
                                          is_training, mask_with_labels)
 
@@ -219,7 +227,7 @@ with tf.Session() as sess:
 
     if restore_checkpoint and tf.train.checkpoint_exists(checkpoint_path):
         saver.restore(sess, checkpoint_path)
-        print('Checkpoint found, skipping training.')
+        print('Capser checkpoint found, skipping training.')
     if (restore_checkpoint and tf.train.checkpoint_exists(checkpoint_path) and continue_training_from_checkpoint) \
             or not restore_checkpoint or not tf.train.checkpoint_exists(checkpoint_path):
 
@@ -267,7 +275,7 @@ with tf.Session() as sess:
                         feed_dict={X: batch_data,
                                    y: batch_labels,
                                    mask_with_labels: False,
-                                   is_training: False})
+                                   is_training: True})
                 loss_vals.append(loss_val)
                 acc_vals.append(acc_val)
                 print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
@@ -300,7 +308,7 @@ if do_embedding:
         sess.run(assignment, feed_dict={X: test_set,
                                         y: test_labels,
                                         mask_with_labels: False,
-                                        is_training: False})
+                                        is_training: True})
         saver.save(sess, checkpoint_path)
 
 
@@ -330,7 +338,7 @@ if do_testing:
                     feed_dict={X: batch_data,
                                y: batch_labels,
                                mask_with_labels: False,
-                               is_training: False})
+                               is_training: True})
             loss_tests.append(loss_test)
             acc_tests.append(acc_test)
             print("\rEvaluating the model: {}/{} ({:.1f}%)".format(
@@ -362,7 +370,7 @@ if do_output_images:
                 [capser["caps2_output"], capser["decoder_output"], capser["y_pred"]],
                 feed_dict={X: sample_images,
                            y: np.array([], dtype=np.int64),
-                           is_training: False})
+                           is_training: True})
 
     # plot images with their reconstruction
     sample_images = sample_images.reshape(-1, im_size[0], im_size[1])
@@ -426,7 +434,7 @@ if do_output_images:
             feed_dict={capser["caps2_output"]: tweaked_vectors_reshaped,
                        mask_with_labels: True,
                        y: tweak_labels,
-                       is_training: False})
+                       is_training: True})
 
     # reshape to make things easier to travel in dimension, n_steps and sample
     tweak_reconstructions = decoder_output_value.reshape(
@@ -455,79 +463,264 @@ if do_color_capsules:
         # First restore the network
         saver.restore(sess, checkpoint_path)
 
-        stim_types = ['vernier', 'square']#, 'circle', 'hexagon', 'octagon', '4star', '7star', '1irreg', '2irreg']
+        stim_types = ['squares', 'circles', 'hexagons', 'octagons', '4stars', '7stars', 'shortlines', 'mediumlines', 'longlines']
+        for single_stim in range(len(stim_types)):
 
-        for stim_type in stim_types:
-            image_batch, image_labels = make_stimuli(folder='crowding_images/shapes_simple', stim_type=stim_type,
-                                                     n_repeats=1, image_size=im_size, resize_factor=1.0)
+            print('Creating capsule visualizations for : ' + stim_types[single_stim])
 
-            n_images = image_batch.shape[0]
-            caps_to_visualize = range(caps2_n_caps)
-            n_caps_to_visualize = len(caps_to_visualize)
-            color_masks = np.array([[220, 76, 70],    # 0: squares, red
-                                    [196, 143, 101],  # 1: circles, beige
-                                    [79, 132, 196],   # 2: hexagons, blue
-                                    [246, 209, 85],   # 3: octagons, yellow
-                                    [237, 205, 194],  # 4: stars, pale pink
-                                    [181, 101, 167],  # 5: lines, purple
-                                    [121, 199, 83],   # 6: vernier, green
-                                    [210, 105, 30]])  # 7: bonus capsule, orange
+            this_stim_types = ['vernier', stim_types[single_stim]]
 
-            decoder_outputs_all = np.zeros(shape=(n_images, im_size[0]*im_size[1], 3, n_caps_to_visualize))
-            decoder_outputs_overlay = np.zeros(shape=(n_images, im_size[0]*im_size[1], 3))
+            res_path = image_output_dir + '/' + this_stim_types[1]
+            if not os.path.exists(res_path):
+                os.makedirs(res_path)
 
-            done_caps = 0
-            for cap in caps_to_visualize:
-                for rgb in range(3):
-                    this_decoder_output = capser["decoder_output"].eval({X: image_batch,
-                                                                         y: np.ones(image_labels.shape)*cap,
-                                                                         mask_with_labels: True,
-                                                                         is_training: False})
-                    peak_intensity = 1
-                    this_decoder_output = np.divide(this_decoder_output, peak_intensity)
-                    temp = np.multiply(this_decoder_output, color_masks[cap, rgb])
-                    decoder_outputs_all[:, :, rgb, done_caps] = temp
-                    decoder_outputs_overlay[:, :, rgb] += temp
+            for stim_type in this_stim_types:
+                image_batch, image_labels, vernier_labels = make_stimuli(folder='crowding_images/test_stimuli_large',
+                                                         stim_type=stim_type, n_repeats=5, image_size=im_size,
+                                                         resize_factor=resize_factor)
 
-                show_grayscale = 0
-                if show_grayscale:
-                    print(this_decoder_output.shape)
-                    check_image = np.reshape(temp[0, :], [im_size[0], im_size[1]])
-                    plt.imshow(check_image, cmap="binary")
-                    plt.show()
+                if 'irreg' in stim_type:
+                    caps_to_visualize = range(caps2_n_caps)  # to see where the irreg shapes end up
+                else:
+                    caps_to_visualize = [single_stim, 6]  # range(caps2_n_caps)
+                n_caps_to_visualize = len(caps_to_visualize)
 
-                done_caps += 1
+                n_images = image_batch.shape[0]
+                color_masks = np.array([[220, 76, 70],    # 0: squares, red
+                                        [196, 143, 101],  # 1: circles, beige
+                                        [79, 132, 196],   # 2: hexagons, blue
+                                        [246, 209, 85],   # 3: octagons, yellow
+                                        [237, 205, 194],  # 4: stars, pale pink
+                                        [181, 101, 167],  # 5: lines, purple
+                                        [121, 199, 83],   # 6: vernier, green
+                                        [210, 105, 30]])  # 7: bonus capsule, orange
 
-            decoder_outputs_overlay[decoder_outputs_overlay > 255] = 255
+                decoder_outputs_all = np.zeros(shape=(n_images, im_size[0]*im_size[1], 3, n_caps_to_visualize))
+                decoder_outputs_overlay = np.zeros(shape=(n_images, im_size[0]*im_size[1], 3))
 
-            decoder_images_all = np.reshape(decoder_outputs_all, [n_images, im_size[0], im_size[1], 3,
-                                                                  n_caps_to_visualize])
-            overlay_images = np.reshape(decoder_outputs_overlay, [n_images, im_size[0], im_size[1], 3])
+                done_caps = 0
+                for cap in caps_to_visualize:
+                    for rgb in range(3):
+                        this_decoder_output = capser["decoder_output"].eval({X: image_batch,
+                                                                             y: np.ones(image_labels.shape)*cap,
+                                                                             mask_with_labels: True,
+                                                                             is_training: True})
+                        peak_intensity = 255
+                        this_decoder_output = np.divide(this_decoder_output, peak_intensity)
+                        temp = np.multiply(this_decoder_output, color_masks[cap, rgb])
+                        decoder_outputs_all[:, :, rgb, done_caps] = temp
+                        decoder_outputs_overlay[:, :, rgb] += temp
 
-            plt.figure(figsize=(n_images / .5, n_images / .5))
-            for im in range(n_images):
-                plt.subplot(np.ceil(np.sqrt(n_images)), np.ceil(np.sqrt(n_images)), im+1)
-                plt.imshow(overlay_images[im, :, :, :])
-                plt.axis("off")
-            plt.savefig(image_output_dir + '/capsule overlay image ' + stim_type)
-            plt.close()
-            # plt.show()
+                    show_grayscale = 0
+                    if show_grayscale:
+                        print(this_decoder_output.shape)
+                        check_image = np.reshape(temp[0, :], [im_size[0], im_size[1]])
+                        plt.imshow(check_image, cmap="binary")
+                        plt.show()
 
-            for im in range(n_images):
-                plt.figure(figsize=(n_caps_to_visualize / .5, n_caps_to_visualize / .5))
-                plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize)) + 1, np.ceil(np.sqrt(n_caps_to_visualize)), 1)
-                plt.imshow(image_batch[im, :, :, 0], cmap='gray')
-                plt.axis("off")
-                for cap in range(n_caps_to_visualize):
-                    plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize))+1, np.ceil(np.sqrt(n_caps_to_visualize)), cap + 2)
-                    plt.imshow(decoder_images_all[im, :, :, :, cap])
+                    done_caps += 1
+
+                decoder_outputs_overlay[decoder_outputs_overlay > 255] = 255
+
+                decoder_images_all = np.reshape(decoder_outputs_all, [n_images, im_size[0], im_size[1], 3,
+                                                                      n_caps_to_visualize])
+                overlay_images = np.reshape(decoder_outputs_overlay, [n_images, im_size[0], im_size[1], 3])
+
+                plt.figure(figsize=(n_images / .5, n_images / .5))
+                for im in range(n_images):
+                    plt.subplot(np.ceil(np.sqrt(n_images)), np.ceil(np.sqrt(n_images)), im+1)
+                    plt.imshow(overlay_images[im, :, :, :])
                     plt.axis("off")
-                net_prediction = int(capser["y_pred"].eval({X: np.expand_dims(image_batch[im, :, :, :], 0),
-                                                            y: np.expand_dims(image_labels[im], 1),
-                                                            mask_with_labels: False}))
-                num_2_shape = {0: 'squares', 1: 'circles', 2: 'hexagons', 3: 'octagons', 4: 'stars', 5: 'lines',
-                               6: 'vernier', 7: 'bonus capsule'}
-                plt.suptitle('Network prediction: '+num_2_shape[net_prediction])
-                plt.savefig(image_output_dir + '/all caps images ' + stim_type + str(im))
+                plt.savefig(res_path + '/capsule overlay image ' + stim_type)
                 plt.close()
                 # plt.show()
+
+                for im in range(n_images):
+                    plt.figure(figsize=(n_caps_to_visualize / .5, n_caps_to_visualize / .5))
+                    plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize)) + 1, np.ceil(np.sqrt(n_caps_to_visualize)), 1)
+                    plt.imshow(image_batch[im, :, :, 0], cmap='gray')
+                    plt.axis("off")
+                    for cap in range(n_caps_to_visualize):
+                        plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize))+1,
+                                    np.ceil(np.sqrt(n_caps_to_visualize)), cap + 2)
+                        plt.imshow(decoder_images_all[im, :, :, :, cap])
+                        plt.axis("off")
+                    net_prediction = int(capser["y_pred"].eval({X: np.expand_dims(image_batch[im, :, :, :], 0),
+                                                                y: np.expand_dims(image_labels[im], 1),
+                                                                mask_with_labels: False}))
+                    num_2_shape = {0: 'squares', 1: 'circles', 2: 'hexagons', 3: 'octagons', 4: 'stars', 5: 'lines',
+                                   6: 'vernier', 7: 'bonus capsule'}
+                    plt.suptitle('Network prediction: '+num_2_shape[net_prediction])
+                    plt.savefig(res_path + '/all caps images ' + stim_type + str(im))
+                    plt.close()
+                    # plt.show()
+
+########################################################################################################################
+# Determine performance by training a decoder to identify vernier orientation based on the vernier capsule activity
+########################################################################################################################
+
+if do_vernier_decoding:
+
+    decode_capsule = 6
+    batch_size = batch_size
+    n_batches = 2000
+    n_hidden = 512
+    LOGDIR = LOGDIR + '/vernier_decoder'
+    vernier_checkpoint_path = LOGDIR+'/'+MODEL_NAME+'_'+str(version)+"vernier_decoder_model.ckpt"
+    vernier_restore_checkpoint = True
+
+    caps2_output = capser["caps2_output"]
+
+    with tf.variable_scope('decode_vernier'):
+        vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
+        classifier = vernier_classifier(vernier_decoder_input, True, n_hidden, name='vernier_decoder')
+        x_entropy = vernier_x_entropy(classifier, y)
+        correct_mean = vernier_correct_mean(tf.argmax(classifier, axis=1), y)
+        update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        train_op = tf.train.AdamOptimizer(learning_rate=0.000001).minimize(x_entropy,
+                                                                           var_list=tf.get_collection(
+                                                                           tf.GraphKeys.GLOBAL_VARIABLES,
+                                                                           scope='decode_vernier'),
+                                                                           name="training_op")
+
+    vernier_init = tf.variables_initializer(var_list=
+                                            tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'),
+                                            name='vernier_init')
+    summary = tf.summary.merge_all()
+    master_training_op = [train_op, update_batch_norm_ops]
+    vernier_saver = tf.train.Saver()
+
+    ####################################################################################################################
+    # Train decoder on different verniers
+    ####################################################################################################################
+
+    with tf.Session() as sess:
+
+        # First restore the network
+        saver.restore(sess, checkpoint_path)
+        print('Training vernier decoder...')
+        writer = tf.summary.FileWriter(LOGDIR, sess.graph)
+
+        if vernier_restore_checkpoint and tf.train.checkpoint_exists(vernier_checkpoint_path):
+            print('Vernier decoder checkpoint found, will not bother training.')
+            vernier_saver.restore(sess, vernier_checkpoint_path)
+        if (vernier_restore_checkpoint and tf.train.checkpoint_exists(
+                vernier_checkpoint_path) and continue_training_from_checkpoint) \
+                or not vernier_restore_checkpoint or not tf.train.checkpoint_exists(vernier_checkpoint_path):
+
+            vernier_init.run()
+
+            for iteration in range(n_batches):
+
+                # get data in the batches (we repaet batch_size//n times because there are n verniers in the folder
+                batch_data, batch_labels, vernier_labels = make_stimuli(stim_type='vernier',
+                                                            folder='crowding_images/vernier_decoder_train_set_large',
+                                                            n_repeats=batch_size//4, resize_factor=resize_factor)
+
+                if iteration % 5 == 0:
+
+                    # Run the training operation, measure the losses and write summary:
+                    _, summ = sess.run(
+                        [master_training_op, summary],
+                        feed_dict={X: batch_data,
+                                   y: vernier_labels,
+                                   mask_with_labels: False,
+                                   is_training: True})
+                    writer.add_summary(summ, iteration)
+
+                else:
+
+                    # Run the training operation and measure the losses:
+                    _ = sess.run(master_training_op,
+                                 feed_dict={X: batch_data,
+                                            y: vernier_labels,
+                                            mask_with_labels: False,
+                                            is_training: False})
+
+                print("\rIteration: {}/{} ({:.1f}%)".format(
+                    iteration, n_batches,
+                    iteration * 100 / n_batches),
+                    end="")
+
+            # save the model at the end
+            vernier_save_path = vernier_saver.save(sess, vernier_checkpoint_path)
+
+    ####################################################################################################################
+    # Run trained decoder on actual stimuli
+    ####################################################################################################################
+
+    stim_types = ['squares', 'circles', 'hexagons', 'octagons', '4stars', '7stars', 'shortlines', 'mediumlines', 'longlines']
+
+    for i in range(len(stim_types)):
+
+        stim = stim_types[i]
+
+        print('Decoding vernier orientation for : ' + stim)
+
+        res_path = image_output_dir + '/plots'
+        if not os.path.exists(res_path):
+            os.makedirs(res_path)
+
+        with tf.Session() as sess:
+
+            vernier_saver.restore(sess, vernier_checkpoint_path)
+
+            # we will collect correct responses here
+            correct_responses = np.zeros(shape=(3))
+            curr_stims = ['vernier', '_crowd', '_uncrowd']
+
+            for this_stim in range(3):
+
+                n_stimuli = 400
+                n_iter = n_stimuli//batch_size
+
+                for iteration in range(n_iter):
+
+
+                    curr_stim = curr_stims[this_stim]
+
+                    print('--- ' + curr_stim)
+                    # get data
+
+                    batch_data, batch_labels, vernier_labels = make_stimuli(folder='crowding_images/test_images_large/'+stim,
+                                                             stim_type=curr_stim, n_repeats=batch_size, image_size=im_size,
+                                                             resize_factor=resize_factor)
+
+
+                    # Run the training operation and measure the losses:
+                    correct_in_this_batch_all = sess.run(correct_mean,
+                                                         feed_dict={X: batch_data,
+                                                                    y: vernier_labels,
+                                                                    mask_with_labels: False,
+                                                                    is_training: False})
+
+                    correct_responses[this_stim] += np.array(correct_in_this_batch_all)
+
+            percent_correct = correct_responses*100/n_iter
+            print('... testing done.')
+            print('Percent correct for vernier decoders with stimuli: ' + stim)
+            print(percent_correct)
+            print('Writing data and plot')
+            np.save(LOGDIR+'/'+stim+'_percent_correct', percent_correct)
+
+            # PLOT
+            x_labels = ['vernier', 'crowded', 'uncrowded']
+
+            ####### PLOT RESULTS #######
+
+            N = len(x_labels)
+            ind = np.arange(N)  # the x locations for the groups
+            width = 0.25  # the width of the bars
+
+            fig, ax = plt.subplots()
+            plot_color = (0./255, 91./255, 150./255)
+            rects1 = ax.bar(ind, percent_correct, width, color=plot_color)
+
+            # add some text for labels, title and axes ticks, and save figure
+            ax.set_ylabel('Percent correct')
+            # ax.set_title('Vernier decoding from alexnet layers')
+            ax.set_xticks(ind + width / 2)
+            ax.set_xticklabels(x_labels)
+            ax.plot([-0.3, N], [50, 50], 'k--')  # chance level cashed line
+            ax.legend(rects1, ('vernier', '1 ' + stim[:-1], '7 ' + stim))
+            plt.savefig(res_path + '/' + stim + '_uncrowding_plot.png')

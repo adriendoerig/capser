@@ -114,8 +114,10 @@ def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_te
     image_batch = np.ndarray(shape=(n_repeats*len(image_files), image_size[0], image_size[1]),
                              dtype=np.float32)
     image_labels = np.zeros(n_repeats*len(image_files), dtype=np.float32)
+    vernier_labels = np.zeros_like(image_labels)  # 0 = left, 1 = right
 
-    print('loading ' + stim_type + ' from '+folder)
+    if print_shapes:
+        print('loading ' + stim_type + ' from '+folder)
 
     for image in image_files:
         image_file = os.path.join(folder, image)
@@ -146,6 +148,10 @@ def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_te
                     # normalize etc.
                     # zero mean, 1 stdev
                     image_data = (image_data - np.mean(image_data)) / np.std(image_data)
+
+                    if random.randint(1, 100) > 50:
+                        image_data = np.fliplr(image_data)
+                        vernier_labels[num_images] = 1
 
                     # add to training set
                     image_batch[num_images, :, :] = image_data
@@ -181,6 +187,7 @@ def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_te
     # remove empty entries
     image_batch = image_batch[0:num_images, :, :]
     image_labels = image_labels[0:num_images]
+    vernier_labels = vernier_labels[0:num_images]
     # add a singleton 4th dimension (needed for conv layers
     image_batch = np.expand_dims(image_batch, axis=3)
 
@@ -188,4 +195,5 @@ def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_te
         print('Image batch tensor:', image_batch.shape)
         print('Mean:', np.mean(image_batch))
         print('Standard deviation:', np.std(image_batch))
-    return image_batch, image_labels
+
+    return image_batch, image_labels, vernier_labels

@@ -430,3 +430,62 @@ def compute_reconstruction_loss(input, reconstruction):
         reconstruction_loss = tf.reduce_sum(squared_difference,
                                             name="reconstruction_loss")
         return reconstruction_loss
+
+
+# decode vernier orientation from an input
+def vernier_classifier(input, is_training, n_hidden=1024, name=''):
+    with tf.name_scope(name):
+        batch_size = tf.shape(input)[0]
+
+        # find how many units are in this layer to flatten it
+        items_to_multiply = len(np.shape(input)) - 1
+        n_units = 1
+        for i in range(1, items_to_multiply + 1):
+            n_units = n_units * int(np.shape(input)[i])
+
+        flat_input = tf.reshape(input, [batch_size, n_units])
+        tf.summary.histogram('classifier_input_no_bn', flat_input)
+
+        flat_input = tf.contrib.layers.batch_norm(flat_input, center=True, scale=True, is_training=is_training,
+                                                  scope=name + 'input_bn')
+        tf.summary.histogram('classifier_input_bn', flat_input)
+
+        if n_hidden is None:
+            classifier_fc = tf.layers.dense(flat_input, 2, name='classifier_top_fc')
+            # classifier_fc = batch_norm_layer(flat_input, 2, is_training, name='classifier_fc')
+            tf.summary.histogram(name + '_fc', classifier_fc)
+        else:
+            with tf.device('/cpu:0'):
+                classifier_hidden = tf.layers.dense(flat_input, n_hidden, activation=tf.nn.elu,
+                                                    name=name + '_hidden_fc')
+                if is_training:
+                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob = 0.5, name='vernier_fc_dropout')
+                else:
+                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob = 1.0, name='vernier_fc_dropout')
+                # classifier_hidden = batch_norm_layer(flat_input, n_hidden, is_training,
+                # activation=tf.nn.relu, name='classifier_hidden_fc')
+                tf.summary.histogram(name + '_hidden', classifier_hidden)
+            classifier_fc = tf.layers.dense(classifier_hidden, 2, activation=tf.nn.elu, name=name + '_top_fc')
+            # classifier_fc = batch_norm_layer(classifier_hidden, 2, is_training, name='classifier_top_fc')
+            tf.summary.histogram(name + '_fc', classifier_fc)
+
+        classifier_out = tf.nn.softmax(classifier_fc, name='softmax')
+
+        return classifier_out
+
+
+def vernier_x_entropy(prediction_vector, label):
+    with tf.name_scope("x_entropy"):
+        xent = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(
+                logits=prediction_vector, labels=tf.one_hot(label, 2)), name="xent")
+        tf.summary.scalar("xent", xent)
+        return xent
+
+
+def vernier_correct_mean(prediction, label):
+    with tf.name_scope('correct_mean'):
+        correct = tf.equal(prediction, label, name="correct")
+        correct_mean = tf.reduce_mean(tf.cast(correct, tf.float32), name="correct_mean")
+        tf.summary.scalar('correct_mean', correct_mean)
+        return correct_mean

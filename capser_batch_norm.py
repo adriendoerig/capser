@@ -29,6 +29,7 @@ def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
 def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv3_params,
                                     caps1_n_maps, caps1_n_dims, conv_caps_params,
                                     caps2_n_caps, caps2_n_dims,
+                                    m_plus, m_minus, lambda_,
                                     n_hidden1, n_hidden2, n_hidden3, n_output,
                                     is_training, mask_with_labels
                                     ):
@@ -90,11 +91,6 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     ####################################################################################################################
     # Compute the margin loss
     ####################################################################################################################
-
-    # parameters for the margin loss
-    m_plus = 0.9
-    m_minus = 0.1
-    lambda_ = 0.5
 
     margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
 
