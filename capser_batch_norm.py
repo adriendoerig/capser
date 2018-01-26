@@ -73,6 +73,9 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
                                           conv_caps_params["kernel_size"], conv_caps_params["stride"],
                                           conv_padding='valid',
                                           conv_activation=tf.nn.elu, print_shapes=False)
+        caps1_output = tf.contrib.layers.batch_norm(caps1_output, center=True, scale=True, is_training=is_training,
+                                                    scope='caps1_output_bn')
+        tf.summary.histogram('caps_1_output_bn', caps1_output)
 
     ####################################################################################################################
     # From caps1 to caps2
@@ -80,7 +83,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
 
     # it is all taken care of by the function
     caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
-                                            rba_rounds=4, print_shapes=False)
+                                            rba_rounds=2, print_shapes=False)
 
     ####################################################################################################################
     # Estimated class probabilities

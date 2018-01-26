@@ -14,6 +14,8 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 
 # data parameters
 im_folder = './crowding_images/shapes_simple_large'
+caps_visualization_folder = 'crowding_images/test_stimuli_large'  # stimuli for reconstruction images from each capsule
+uncrowding_plot_folder = 'crowding_images/test_images_large/'
 im_size = (60, 128)
 n_repeats = 1500
 resize_factor = 0.5
@@ -22,7 +24,7 @@ resize_factor = 0.5
 n_epochs = 1
 batch_size = 25
 restore_checkpoint = True
-version_to_restore = 0
+version_to_restore = None
 continue_training_from_checkpoint = False
 
 # early conv layers
@@ -42,7 +44,7 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = 7  # number of capsules at level 1 of capsules
-caps1_n_dims = 16  # number of dimension per capsule
+caps1_n_dims = 10  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 7,
                     "strides": 2,
@@ -475,7 +477,7 @@ if do_color_capsules:
                 os.makedirs(res_path)
 
             for stim_type in this_stim_types:
-                image_batch, image_labels, vernier_labels = make_stimuli(folder='crowding_images/test_stimuli_large',
+                image_batch, image_labels, vernier_labels = make_stimuli(folder=caps_visualization_folder,
                                                          stim_type=stim_type, n_repeats=5, image_size=im_size,
                                                          resize_factor=resize_factor)
 
@@ -682,7 +684,7 @@ if do_vernier_decoding:
                     print('--- ' + curr_stim)
                     # get data
 
-                    batch_data, batch_labels, vernier_labels = make_stimuli(folder='crowding_images/test_images_large/'+stim,
+                    batch_data, batch_labels, vernier_labels = make_stimuli(folder=uncrowding_plot_folder + '/' + stim,
                                                              stim_type=curr_stim, n_repeats=batch_size, image_size=im_size,
                                                              resize_factor=resize_factor)
 
