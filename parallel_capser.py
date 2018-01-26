@@ -1,5 +1,5 @@
 import tensorflow as tf
-from capser_general import capser_general_2_caps_layers
+from capser_batch_norm import capser_batch_norm_2_caps_layers
 import numpy as np
 from data_handling_functions import make_shape_sets
 import matplotlib.pyplot as plt
@@ -33,9 +33,9 @@ if not os.path.exists(image_output_dir):
 
 
 # create datasets
-im_size = (70, 145)
+im_size = (60, 128)
 train_set, train_labels, valid_set, valid_labels, test_set, test_labels \
-    = make_shape_sets(folder='./crowding_images/shapes_simple_large',image_size=im_size, n_repeats=10)
+    = make_shape_sets(folder='./crowding_images/shapes_simple_large',image_size=im_size, n_repeats=1000, resize_factor=0.5)
 
 # placeholders for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -65,7 +65,9 @@ if show_samples:
 
 MODEL_NAMES = {
     0: 'CAPSER_ZERO',
-    1: 'CAPSER_ONE'
+    1: 'CAPSER_ONE',
+    2: 'CAPSER_TWO',
+    3: 'CAPSER_THREE'
 }
 
 # early conv layers
@@ -76,31 +78,67 @@ conv1_params = [{
                     "padding": "valid",
                     "activation": tf.nn.relu,
                 },
-                {   "filters": 64,
+                {
+                    "filters": 64,
+                    "kernel_size": 5,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": tf.nn.elu,
+                },
+                {
+                    "filters": 64,
+                    "kernel_size": 6,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": tf.nn.elu,
+                },
+                {
+                    "filters": 64,
+                    "kernel_size": 5,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": tf.nn.elu,
+                 }]
+conv2_params = [{
+                    "filters": 64,
                     "kernel_size": 6,
                     "strides": 1,
                     "padding": "valid",
                     "activation": tf.nn.relu,
+                },
+                {
+                    "filters": 64,
+                    "kernel_size": 6,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": tf.nn.elu,
+                },
+                {
+                    "filters": 64,
+                    "kernel_size": 7,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": tf.nn.elu,
+                },
+                {
+                    "filters": 64,
+                    "kernel_size": 5,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": tf.nn.elu,
                 }]
-conv2_params = [{
-                        "filters": 64,
-                        "kernel_size": 5,
-                        "strides": 1,
-                        "padding": "valid",
-                        "activation": tf.nn.relu,
-                    },
-                    {
-                        "filters": 64,
-                        "kernel_size": 6,
-                        "strides": 1,
-                        "padding": "valid",
-                        "activation": tf.nn.relu,
-                    }]
-conv3_params = [None, None]
+conv3_params = [None, None, None,
+                {
+                    "filters": 64,
+                    "kernel_size": 5,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": tf.nn.elu,
+                }]
 
 # primary capsules
-caps1_n_maps = [8, 8]  # number of capsules at level 1 of capsules
-caps1_n_dims = [10, 10]  # number of dimension per capsule
+caps1_n_maps = [7, 7, 7, 7]  # number of capsules at level 1 of capsules
+caps1_n_dims = [10, 10, 16, 16]  # number of dimension per capsule
 conv_caps_params = [{
                         "filters": caps1_n_maps[0] * caps1_n_dims[0],
                         "kernel_size": 7,
@@ -110,20 +148,37 @@ conv_caps_params = [{
                     },
                     {
                         "filters": caps1_n_maps[1] * caps1_n_dims[1],
-                        "kernel_size": 8,
+                        "kernel_size": 7,
+                        "strides": 2,
+                        "padding": "valid",
+                        "activation": tf.nn.elu,
+                    },
+                    {
+                        "filters": caps1_n_maps[2] * caps1_n_dims[2],
+                        "kernel_size": 9,
                         "strides": 2,
                         "padding": "valid",
                         "activation": tf.nn.relu,
+                    },
+                    {
+                        "filters": caps1_n_maps[3] * caps1_n_dims[3],
+                        "kernel_size": 5,
+                        "strides": 2,
+                        "padding": "valid",
+                        "activation": tf.nn.elu,
                     }]
 
 # output capsules
-caps2_n_caps = [8, 8]  # number of capsules
-caps2_n_dims = [10, 16] # of n dimensions ### TRY 50????
+caps2_n_caps = [7, 7, 7, 7]  # number of capsules
+caps2_n_dims = [10, 10, 16, 16] # of n dimensions ### TRY 50????
+
+# margin loss
+m_plus, m_minus, lambda_ = .9, .1, .5
 
 # decoder layer sizes
-n_hidden1 = [1024, 2048]
-n_hidden2 = [2048, 2048]
-n_hidden3 = [None, None]
+n_hidden1 = [512, 512, 512, 512]
+n_hidden2 = [1024, 1024, 1024, 1024]
+n_hidden3 = [None, None, None, None]
 n_output = im_size[0] * im_size[1]
 
 
@@ -132,24 +187,40 @@ n_output = im_size[0] * im_size[1]
 ########################################################################################################################
 
 with tf.variable_scope(MODEL_NAMES[0]):
-    with tf.device('/cpu:0'):
-        capser_zero = capser_general_2_caps_layers(X, y, im_size, conv1_params[0], conv2_params[0], conv3_params[0],
-                                                   caps1_n_maps[0], caps1_n_dims[0], conv_caps_params[0],
-                                                   caps2_n_caps[0], caps2_n_dims[0],
-                                                   n_hidden1[0], n_hidden2[0], n_hidden3[0], n_output,
-                                                   mask_with_labels,
-                                                   MODEL_NAMES[0])
+    with tf.device('/gpu:0'):
+        capser_zero = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params[0], conv2_params[0], conv3_params[0],
+                                                      caps1_n_maps[0], caps1_n_dims[0], conv_caps_params[0],
+                                                      caps2_n_caps[0], caps2_n_dims[0],
+                                                      m_plus, m_minus, lambda_,
+                                                      n_hidden1[0], n_hidden2[0], n_hidden3[0], n_output,
+                                                      True, mask_with_labels)
 with tf.variable_scope(MODEL_NAMES[1]):
-    with tf.device('/cpu:1'):
-        capser_one = capser_general_2_caps_layers(X, y, im_size, conv1_params[1], conv2_params[1], conv3_params[1],
-                                                   caps1_n_maps[1], caps1_n_dims[1], conv_caps_params[1],
-                                                   caps2_n_caps[1], caps2_n_dims[1],
-                                                   n_hidden1[1], n_hidden2[1], n_hidden3[1], n_output,
-                                                   mask_with_labels,
-                                                   MODEL_NAMES[0])
-
+    with tf.device('/gpu:1'):
+        capser_one = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params[0], conv2_params[0], conv3_params[0],
+                                                     caps1_n_maps[0], caps1_n_dims[0], conv_caps_params[0],
+                                                     caps2_n_caps[0], caps2_n_dims[0],
+                                                     m_plus, m_minus, lambda_,
+                                                     n_hidden1[0], n_hidden2[0], n_hidden3[0], n_output,
+                                                     True, mask_with_labels)
+with tf.variable_scope(MODEL_NAMES[2]):
+    with tf.device('/gpu:2'):
+        capser_two = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params[0], conv2_params[0], conv3_params[0],
+                                                     caps1_n_maps[0], caps1_n_dims[0], conv_caps_params[0],
+                                                     caps2_n_caps[0], caps2_n_dims[0],
+                                                     m_plus, m_minus, lambda_,
+                                                     n_hidden1[0], n_hidden2[0], n_hidden3[0], n_output,
+                                                     True, mask_with_labels)
+with tf.variable_scope(MODEL_NAMES[3]):
+    with tf.device('/gpu:3'):
+        capser_three = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params[0], conv2_params[0], conv3_params[0],
+                                                       caps1_n_maps[0], caps1_n_dims[0], conv_caps_params[0],
+                                                       caps2_n_caps[0], caps2_n_dims[0],
+                                                       m_plus, m_minus, lambda_,
+                                                       n_hidden1[0], n_hidden2[0], n_hidden3[0], n_output,
+                                                       True, mask_with_labels)
 # op to train all networks
-do_training = [capser_zero["training_op"],capser_zero["training_op"]]
+do_training = [capser_zero["training_op"], capser_one["training_op"],
+               capser_two["training_op"], capser_three["training_op"]]
 
 ### SAVER & SUMMARY ###
 

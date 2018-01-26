@@ -31,7 +31,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
                                     caps2_n_caps, caps2_n_dims,
                                     m_plus, m_minus, lambda_,
                                     n_hidden1, n_hidden2, n_hidden3, n_output,
-                                    is_training, mask_with_labels
+                                    is_training, mask_with_labels,
                                     ):
 
     ####################################################################################################################
@@ -66,6 +66,9 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
         caps1_output = primary_caps_layer(conv2, caps1_n_maps, caps1_n_caps, caps1_n_dims,
                                           conv_caps_params["kernel_size"], conv_caps_params["strides"],
                                           conv_padding='valid', conv_activation=tf.nn.elu, print_shapes=False)
+        caps1_output = tf.contrib.layers.batch_norm(caps1_output, center=True, scale=True, is_training=is_training,
+                                                    scope='caps1_output_bn')
+        tf.summary.histogram('caps_1_output_bn', caps1_output)
     else:
         conv3 = batch_norm_conv_layer(conv2, is_training, name='conv3', activation=tf.nn.elu, **conv3_params)
         # create first capsule layer
