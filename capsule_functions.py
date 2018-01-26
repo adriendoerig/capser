@@ -367,12 +367,16 @@ def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
         hidden1 = tf.layers.dense(decoder_input, n_hidden1,
                                   activation=tf.nn.relu,
                                   name="hidden1")
+        tf.summary.histogram('decoder_hidden1', hidden1)
         hidden2 = tf.layers.dense(hidden1, n_hidden2,
                                   activation=tf.nn.relu,
                                   name="hidden2")
+        tf.summary.histogram('decoder_hidden2', hidden2)
         decoder_output = tf.layers.dense(hidden2, n_output,
                                          activation=tf.nn.sigmoid,
                                          name="decoder_output")
+        tf.summary.histogram('decoder_output', decoder_output)
+
         return decoder_output
 
 
@@ -394,10 +398,13 @@ def decoder_with_mask_batch_norm(decoder_input, n_hidden1, n_hidden2, n_output, 
     with tf.name_scope("decoder"):
 
         hidden1 = batch_norm_fc_layer(decoder_input, n_hidden1, phase, name='hidden1', activation=tf.nn.elu)
+        tf.summary.histogram('decoder_hidden1_bn', hidden1)
         hidden2 = batch_norm_fc_layer(hidden1, n_hidden2, phase, name='hidden2', activation=tf.nn.elu)
+        tf.summary.histogram('decoder_hidden2_bn', hidden2)
         decoder_output = tf.layers.dense(hidden2, n_output,
                                          activation=tf.nn.sigmoid,
                                          name="decoder_output")
+        tf.summary.histogram('decoder_output', decoder_output)
 
         return decoder_output
 
@@ -427,7 +434,7 @@ def compute_reconstruction_loss(input, reconstruction):
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
         squared_difference = tf.square(X_flat - reconstruction,
                                        name="squared_difference")
-        reconstruction_loss = tf.reduce_sum(squared_difference,
+        reconstruction_loss = tf.reduce_mean(squared_difference,
                                             name="reconstruction_loss")
         return reconstruction_loss
 

@@ -15,14 +15,14 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 # data parameters
 im_folder = './crowding_images/shapes_simple_large'
 im_size = (60, 128)
-n_repeats = 500
-resize_factor = 0.4
+n_repeats = 1500
+resize_factor = 0.5
 
 # training parameters
 n_epochs = 1
 batch_size = 25
 restore_checkpoint = True
-version_to_restore = None
+version_to_restore = 0
 continue_training_from_checkpoint = False
 
 # early conv layers
@@ -42,7 +42,7 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = 7  # number of capsules at level 1 of capsules
-caps1_n_dims = 8  # number of dimension per capsule
+caps1_n_dims = 16  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 7,
                     "strides": 2,
@@ -52,7 +52,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = 7   # number of capsules
-caps2_n_dims = 10  # of n dimensions ### TRY 50????
+caps2_n_dims = 16  # of n dimensions ### TRY 50????
 
 # margin loss parameters
 m_plus = .9
@@ -72,7 +72,7 @@ n_output = im_size[0] * im_size[1]
 
 
 # directories
-MODEL_NAME = 'capser_4'
+MODEL_NAME = 'capser_4_new'
 LOGDIR = './' + MODEL_NAME + '_logdir/'  # will be redefined below
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)
@@ -121,7 +121,7 @@ tf.set_random_seed(42)
 do_testing = 0
 do_embedding = 0
 do_output_images = 0
-do_color_capsules = 1
+do_color_capsules = 0
 do_vernier_decoding = 1
 
 

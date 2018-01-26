@@ -80,7 +80,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
 
     # it is all taken care of by the function
     caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
-                                            rba_rounds=2, print_shapes=False)
+                                            rba_rounds=4, print_shapes=False)
 
     ####################################################################################################################
     # Estimated class probabilities
@@ -123,7 +123,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     # Final loss, accuracy, training operations, init & saver
     ####################################################################################################################
 
-    alpha = 0.0005  # * (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
+    alpha = 0.005  # * (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
 
     with tf.name_scope('total_loss'):
         loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")
