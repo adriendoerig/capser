@@ -1,19 +1,15 @@
 # a function form of capser to make param changes easy
 from __future__ import division, print_function, unicode_literals
-import matplotlib.pyplot as plt
-import numpy as np
-import os
 import tensorflow as tf
-from create_sprite import images_to_sprite, invert_grayscale
-from data_handling_functions import make_shape_sets
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     caps_prediction, compute_margin_loss, create_masked_decoder_input, \
-    decoder_with_mask, decoder_with_mask_3layers, compute_reconstruction_loss
+    decoder_with_mask, decoder_with_mask_3layers, compute_reconstruction_loss, safe_norm
 
 
 def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv3_params,
                                  caps1_n_maps, caps1_n_dims, conv_caps_params,
                                  caps2_n_caps, caps2_n_dims,
+                                 m_plus, m_minus, lambda_, alpha,
                                  n_hidden1, n_hidden2, n_hidden3, n_output,
                                  mask_with_labels, MODEL_NAME=''
                                 ):
@@ -76,6 +72,10 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
 
     y_pred = caps_prediction(caps2_output, print_shapes=False)# get index of max probability
 
+    # get norms to vizualize them
+    caps_output_norm = tf.squeeze(safe_norm(caps2_output[1, :, :, :], axis=-2, keep_dims=False,
+                                            name="caps2_output_norm"))
+    tf.summary.histogram('Output capsule norms', caps_output_norm)
 
     ########################################################################################################################
     # Compute the margin loss
@@ -83,10 +83,6 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
 
 
     # parameters for the margin loss
-    m_plus = 0.9
-    m_minus = 0.1
-    lambda_ = 0.5
-
     margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
 
 
@@ -114,7 +110,7 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
     ####################################################################################################################
 
 
-    alpha = 0.0005 #* (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
+    # alpha = 0.0005 #* (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
 
     with tf.name_scope('total_loss'):
         loss = tf.add(margin_loss, alpha * reconstruction_loss, name="loss")

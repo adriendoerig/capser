@@ -4,8 +4,9 @@ import os
 import random
 
 
-def make_shape_sets(folder='./crowding_images/shapes', image_size=(60, 128), resize_factor=1.0, n_repeats=10,
-                    n_valid_samples=100, n_test_samples=144, print_shapes=False):
+def make_shape_sets(folder='./crowding_images/shapes', image_size=(60, 128), resize_factor=1.0, resize_scale=0.1,
+                    n_repeats=10, n_valid_samples=100, n_test_samples=144, noise_level=0., circloid_vs_square=False,
+                    print_shapes=False):
 
     min_num_images = 50
     num_images = 0
@@ -25,7 +26,8 @@ def make_shape_sets(folder='./crowding_images/shapes', image_size=(60, 128), res
         for rep in range(n_repeats):
             try:
                 image_data = ndimage.imread(image_file, mode='L').astype(float)
-                image_data = misc.imresize(image_data, resize_factor)
+                this_resize = max(0., min(resize_factor + np.random.normal(0, resize_scale), 1.))
+                image_data = misc.imresize(image_data, this_resize)
 
                 # crop out a random patch if the image is larger than image_size
                 if image_data.shape[0] > image_size[0]:
@@ -43,27 +45,39 @@ def make_shape_sets(folder='./crowding_images/shapes', image_size=(60, 128), res
                     padded[pos_y:pos_y+image_data.shape[0], pos_x:pos_x+image_data.shape[1]] = image_data
                     image_data = padded
 
-                # normalize etc.
+                # normalize, add noise etc.
                 # zero mean, 1 stdev
-                image_data = (image_data - np.mean(image_data)) / np.std(image_data)
+                image_data = image_data+np.random.normal(0, noise_level, size=image_size)
+                # image_data = (image_data - np.mean(image_data)) / np.std(image_data)
 
                 # add to training set
                 train_set[num_images, :, :] = image_data
-
                 if 'square' in image_file:
                     train_labels[num_images] = 0
                 elif 'circle' in image_file:
-                    train_labels[num_images] = 1
+                    if circloid_vs_square:
+                        train_labels[num_images] = 0
+                    else:
+                        train_labels[num_images] = 1
                 elif 'hexagon' in image_file:
-                    train_labels[num_images] = 2
+                    if circloid_vs_square:
+                        train_labels[num_images] = 0
+                    else:
+                        train_labels[num_images] = 2
                 elif 'octagon' in image_file:
-                    train_labels[num_images] = 3
+                    if circloid_vs_square:
+                        train_labels[num_images] = 0
+                    else:
+                        train_labels[num_images] = 3
                 elif 'star' in image_file:
                     train_labels[num_images] = 4
                 elif 'line' in image_file:
                     train_labels[num_images] = 5
                 elif 'vernier' in image_file:
-                    train_labels[num_images] = 6
+                    if circloid_vs_square:
+                        train_labels[num_images] = 1
+                    else:
+                        train_labels[num_images] = 6
                     # print('CAREFUL WITH LABELS WHEN DOING DIFFERENT TYPES OF TASK!')
                 else:
                     raise Exception(image_file+' is a stimulus of unknown class')
@@ -103,7 +117,7 @@ def make_shape_sets(folder='./crowding_images/shapes', image_size=(60, 128), res
 
 
 def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_test', image_size=(60, 128),
-                 resize_factor=1.0, n_repeats=1, print_shapes=False):
+                 resize_factor=1.0, resize_scale=0.1, n_repeats=1, noise_level=0., print_shapes=False):
 
     min_num_images = 1
     num_images = 0
@@ -127,7 +141,8 @@ def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_te
             for rep in range(n_repeats):
                 try:
                     image_data = ndimage.imread(image_file, mode='L').astype(float)
-                    image_data = misc.imresize(image_data, resize_factor)
+                    this_resize = max(0., min(resize_factor + np.random.normal(0, resize_scale), 1.))
+                    image_data = misc.imresize(image_data, this_resize)
 
                     # pad to the right size if image is small than image_size (image will be in a random place)
                     if any(np.less(image_data.shape, image_size)):
@@ -147,6 +162,7 @@ def make_stimuli(stim_type='squares', folder='./crowding_images/shapes_simple_te
 
                     # normalize etc.
                     # zero mean, 1 stdev
+                    image_data = image_data + np.random.normal(0, noise_level, size=image_size)
                     image_data = (image_data - np.mean(image_data)) / np.std(image_data)
 
                     if random.randint(1, 100) > 50:

@@ -1,11 +1,12 @@
 import tensorflow as tf  # we'll import the rest later to avoid polluting the parameter summary file
 from capser_batch_norm import capser_batch_norm_2_caps_layers
+from capser_general import capser_general_2_caps_layers
 import numpy as np
 from data_handling_functions import make_shape_sets, make_stimuli
 import matplotlib.pyplot as plt
 import os
 from create_sprite import images_to_sprite, invert_grayscale
-from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_correct_mean
+from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_correct_mean, safe_norm
 
 ########################################################################################################################
 # Parameters
@@ -13,12 +14,16 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 
 
 # data parameters
-im_folder = './crowding_images/shapes_simple_large'
-caps_visualization_folder = 'crowding_images/test_stimuli_large'  # stimuli for reconstruction images from each capsule
-uncrowding_plot_folder = 'crowding_images/test_images_large/'
+circloid_vs_square = True
+im_folder = './crowding_images/shapes_circloids'
+caps_visualization_folder = 'crowding_images/shapes_simple_test'  # stimuli for reconstruction images from each capsule
+vernier_docoder_train_folder = 'crowding_images/vernier_decoder_train_set_static'
+uncrowding_plot_folder = 'crowding_images/test_images/'
 im_size = (60, 128)
-n_repeats = 1500
-resize_factor = 0.5
+n_repeats = 2000
+noise_level = 10
+resize_factor = 1.
+resize_scale = .1
 
 # training parameters
 n_epochs = 1
@@ -43,8 +48,8 @@ conv2_params = {"filters": 64,
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 7  # number of capsules at level 1 of capsules
-caps1_n_dims = 10  # number of dimension per capsule
+caps1_n_maps = 3  # number of capsules at level 1 of capsules
+caps1_n_dims = 25  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 7,
                     "strides": 2,
@@ -53,13 +58,16 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     }
 
 # output capsules
-caps2_n_caps = 7   # number of capsules
-caps2_n_dims = 16  # of n dimensions ### TRY 50????
+caps2_n_caps = 3   # number of capsules
+caps2_n_dims = 50  # of n dimensions ### TRY 50????
 
 # margin loss parameters
 m_plus = .9
 m_minus = .1
 lambda_ = .75
+
+# accuracy/reconstruction tradeoff
+alpha = 0.
 
 # decoder layer sizes
 n_hidden1 = 512
@@ -120,21 +128,25 @@ tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
-do_testing = 0
-do_embedding = 0
-do_output_images = 0
-do_color_capsules = 0
-do_vernier_decoding = 1
-
+do_all = 1
+if do_all:
+    do_embedding, do_testing, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1, 1
+else:
+    do_embedding = 1
+    do_testing = 0
+    plot_final_norms = 0
+    do_output_images = 0
+    do_color_capsules = 0
+    do_vernier_decoding = 0
 
 ########################################################################################################################
 # Data handling
 ########################################################################################################################
 
-
 # create datasets
 train_set, train_labels, valid_set, valid_labels, test_set, test_labels \
-    = make_shape_sets(folder=im_folder, image_size=im_size, n_repeats=n_repeats, resize_factor=resize_factor)
+    = make_shape_sets(folder=im_folder, image_size=im_size, n_repeats=n_repeats, noise_level=noise_level,
+                      resize_factor=resize_factor, resize_scale=resize_scale, circloid_vs_square=circloid_vs_square)
 
 # placeholders for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -168,7 +180,7 @@ if show_samples:
 capser = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv3_params,
                                          caps1_n_maps, caps1_n_dims, conv_caps_params,
                                          caps2_n_caps, caps2_n_dims,
-                                         m_plus, m_minus, lambda_,
+                                         m_plus, m_minus, lambda_, alpha,
                                          n_hidden1, n_hidden2, n_hidden3, n_output,
                                          is_training, mask_with_labels)
 
@@ -247,8 +259,8 @@ with tf.Session() as sess:
                 batch_labels = train_labels[offset:(offset + batch_size)]
 
                 # Run the training operation and measure the loss:
-                _, loss_train, summ = sess.run(
-                    [do_training, capser["loss"], summary],
+                _, loss_train, summ, caps2_output_eval = sess.run(
+                    [do_training, capser["loss"], summary, capser["caps2_output"]],
                     feed_dict={X: batch_data,
                                y: batch_labels,
                                mask_with_labels: True,
@@ -303,9 +315,9 @@ with tf.Session() as sess:
 if do_embedding:
     config = tf.ConfigProto(device_count={'GPU': 0})
     with tf.Session(config=config) as sess:
-        if do_embedding:
-            tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
-        print(' ... final iteration: Creating embedding')
+        writer = tf.summary.FileWriter(LOGDIR, sess.graph)
+        tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
+        print('Creating embedding')
         saver.restore(sess, checkpoint_path)
         sess.run(assignment, feed_dict={X: test_set,
                                         y: test_labels,
@@ -354,9 +366,56 @@ if do_testing:
 
 
 ########################################################################################################################
-# View predictions
+# Output norms of trained network
 ########################################################################################################################
 
+
+if plot_final_norms:
+
+    n_plots = 25
+    res_path = image_output_dir + '/final_capsule_norms'
+    if not os.path.exists(res_path):
+        os.makedirs(res_path)
+
+    # get norms
+    with tf.Session() as sess:
+        saver.restore(sess, checkpoint_path)
+
+        caps2_output_final, predictions = sess.run([capser["caps2_output"], capser["y_pred"]],
+                                                    feed_dict={X: test_set[:n_plots, :, :, :],
+                                                               y: test_labels[:n_plots],
+                                                               mask_with_labels: True,
+                                                               is_training: True})
+
+        if circloid_vs_square:
+            x_labels = ['squares', 'circloids', 'vernier']
+        else:
+            x_labels = ['squares', 'circles', 'hexagons', 'octagons', 'star', 'line', 'vernier']
+
+        ####### PLOT RESULTS #######
+        for i in range(n_plots):
+            caps_output_norm = tf.squeeze(safe_norm(caps2_output_final[i, :, :, :], axis=-2, keep_dims=False,
+                                                    name="caps2_output_norm")).eval(feed_dict={X: test_set[:n_plots, :, :, :],
+                                                               y: test_labels[:n_plots],
+                                                               mask_with_labels: True,
+                                                               is_training: True})
+            ind = np.arange(len(x_labels))  # the x locations for the groups
+            width = 0.25  # the width of the bars
+
+            fig, ax = plt.subplots()
+            plot_color = (0. / 255, 91. / 255, 150. / 255)
+            rects1 = ax.bar(ind, caps_output_norm, width, color=plot_color)
+
+            # add some text for labels, title and axes ticks, and save figure
+            ax.set_ylabel('Capsule norms')
+            ax.set_title('Predicted : ' + str(predictions[i]) + ', true label : ' + str(test_labels[i]))
+            ax.set_xticks(ind + width / 2)
+            ax.set_xticklabels(x_labels)
+            plt.savefig(res_path + '/stimulus_' + str(i) + '.png')
+
+########################################################################################################################
+# View predictions
+########################################################################################################################
 
 if do_output_images:
     # Now let's make some predictions! We first fix a few images from the test set, then we start a session,
@@ -465,7 +524,12 @@ if do_color_capsules:
         # First restore the network
         saver.restore(sess, checkpoint_path)
 
-        stim_types = ['squares', 'circles', 'hexagons', 'octagons', '4stars', '7stars', 'shortlines', 'mediumlines', 'longlines']
+        if circloid_vs_square:
+            stim_types=['squares', 'circles', 'hexagons', 'octagons']
+        else:
+            stim_types = ['squares', 'circles', 'hexagons', 'octagons', '4stars', '7stars', 'shortlines',
+                          'equallines', 'longlines']#, 'squares_stars', '1irreg', '2irreg']
+
         for single_stim in range(len(stim_types)):
 
             print('Creating capsule visualizations for : ' + stim_types[single_stim])
@@ -478,13 +542,22 @@ if do_color_capsules:
 
             for stim_type in this_stim_types:
                 image_batch, image_labels, vernier_labels = make_stimuli(folder=caps_visualization_folder,
-                                                         stim_type=stim_type, n_repeats=5, image_size=im_size,
-                                                         resize_factor=resize_factor)
+                                                         stim_type=stim_type, n_repeats=8, image_size=im_size,
+                                                         resize_factor=resize_factor, noise_level=noise_level)
 
-                if 'irreg' in stim_type:
-                    caps_to_visualize = range(caps2_n_caps)  # to see where the irreg shapes end up
+                if circloid_vs_square:
+                    caps_to_visualize = range(caps2_n_caps)
                 else:
-                    caps_to_visualize = [single_stim, 6]  # range(caps2_n_caps)
+                    if single_stim < 4:
+                        caps_to_visualize = [single_stim, 6]  # range(caps2_n_caps)
+                    elif 'stars' in stim_types[single_stim]:
+                        caps_to_visualize = [4, 6]
+                    elif 'lines' in stim_types[single_stim]:
+                        caps_to_visualize = [5, 6]  # range(caps2_n_caps)
+                    else:
+                        print('UNKNOWN STIMTYPE FOR CAPSULE IMAGE: DISPLAYING ALL CAPSULES.')
+                        caps_to_visualize = range(caps2_n_caps)  # to see where the irreg shapes end up
+
                 n_caps_to_visualize = len(caps_to_visualize)
 
                 n_images = image_batch.shape[0]
@@ -563,18 +636,23 @@ if do_color_capsules:
 
 if do_vernier_decoding:
 
-    decode_capsule = 6
+    if circloid_vs_square:
+        decode_capsule = 2
+    else:
+        decode_capsule = 6
     batch_size = batch_size
     n_batches = 2000
-    n_hidden = 512
+    n_hidden = 1024
     LOGDIR = LOGDIR + '/vernier_decoder'
     vernier_checkpoint_path = LOGDIR+'/'+MODEL_NAME+'_'+str(version)+"vernier_decoder_model.ckpt"
     vernier_restore_checkpoint = True
 
-    caps2_output = capser["caps2_output"]
+    caps2_output = capser["caps2_output"]  # decode from capsule
+    # decoder_output = capser["decoder_output"]  # decode from reconstruction
 
     with tf.variable_scope('decode_vernier'):
         vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
+        # vernier_decoder_input = decoder_output
         classifier = vernier_classifier(vernier_decoder_input, True, n_hidden, name='vernier_decoder')
         x_entropy = vernier_x_entropy(classifier, y)
         correct_mean = vernier_correct_mean(tf.argmax(classifier, axis=1), y)
@@ -616,8 +694,9 @@ if do_vernier_decoding:
 
                 # get data in the batches (we repaet batch_size//n times because there are n verniers in the folder
                 batch_data, batch_labels, vernier_labels = make_stimuli(stim_type='vernier',
-                                                            folder='crowding_images/vernier_decoder_train_set_large',
-                                                            n_repeats=batch_size//4, resize_factor=resize_factor)
+                                                                        folder=vernier_docoder_train_folder,
+                                                                        n_repeats=batch_size//4, resize_factor=resize_factor,
+                                                                        noise_level=noise_level)
 
                 if iteration % 5 == 0:
 
@@ -637,7 +716,7 @@ if do_vernier_decoding:
                                  feed_dict={X: batch_data,
                                             y: vernier_labels,
                                             mask_with_labels: False,
-                                            is_training: False})
+                                            is_training: True})
 
                 print("\rIteration: {}/{} ({:.1f}%)".format(
                     iteration, n_batches,
@@ -651,7 +730,11 @@ if do_vernier_decoding:
     # Run trained decoder on actual stimuli
     ####################################################################################################################
 
-    stim_types = ['squares', 'circles', 'hexagons', 'octagons', '4stars', '7stars', 'shortlines', 'mediumlines', 'longlines']
+    if circloid_vs_square:
+        stim_types = ['squares', 'circles', 'hexagons', 'octagons']
+    else:
+        stim_types = ['squares', 'circles', 'hexagons', 'octagons', '4stars', '7stars',
+                      'shortlines', 'equallines', 'longlines']#, 'squares_stars']
 
     for i in range(len(stim_types)):
 
@@ -673,7 +756,7 @@ if do_vernier_decoding:
 
             for this_stim in range(3):
 
-                n_stimuli = 400
+                n_stimuli = 100
                 n_iter = n_stimuli//batch_size
 
                 for iteration in range(n_iter):
@@ -686,7 +769,7 @@ if do_vernier_decoding:
 
                     batch_data, batch_labels, vernier_labels = make_stimuli(folder=uncrowding_plot_folder + '/' + stim,
                                                              stim_type=curr_stim, n_repeats=batch_size, image_size=im_size,
-                                                             resize_factor=resize_factor)
+                                                             resize_factor=resize_factor, noise_level=noise_level)
 
 
                     # Run the training operation and measure the losses:
@@ -694,7 +777,7 @@ if do_vernier_decoding:
                                                          feed_dict={X: batch_data,
                                                                     y: vernier_labels,
                                                                     mask_with_labels: False,
-                                                                    is_training: False})
+                                                                    is_training: True})
 
                     correct_responses[this_stim] += np.array(correct_in_this_batch_all)
 

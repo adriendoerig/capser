@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
-
+import matplotlib.pyplot as plt
+import io
 
 # define a safe-norm to avoid infinities and zeros
 def safe_norm(s, axis=-1, epsilon=1e-7, keep_dims=False, name=None):
@@ -434,7 +435,7 @@ def compute_reconstruction_loss(input, reconstruction):
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
         squared_difference = tf.square(X_flat - reconstruction,
                                        name="squared_difference")
-        reconstruction_loss = tf.reduce_mean(squared_difference,
+        reconstruction_loss = tf.reduce_sum(squared_difference,
                                             name="reconstruction_loss")
         return reconstruction_loss
 
@@ -466,9 +467,9 @@ def vernier_classifier(input, is_training, n_hidden=1024, name=''):
                 classifier_hidden = tf.layers.dense(flat_input, n_hidden, activation=tf.nn.elu,
                                                     name=name + '_hidden_fc')
                 if is_training:
-                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob = 0.5, name='vernier_fc_dropout')
+                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=0.5, name='vernier_fc_dropout')
                 else:
-                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob = 1.0, name='vernier_fc_dropout')
+                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=1.0, name='vernier_fc_dropout')
                 # classifier_hidden = batch_norm_layer(flat_input, n_hidden, is_training,
                 # activation=tf.nn.relu, name='classifier_hidden_fc')
                 tf.summary.histogram(name + '_hidden', classifier_hidden)
