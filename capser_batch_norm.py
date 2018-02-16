@@ -15,10 +15,10 @@ def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
                                                  scope=name+'bn')
         tf.summary.histogram(name, conv)
         tf.summary.histogram(name+'_batch_norm', norm_conv)
-    if activation is None:
-        return norm_conv
-    else:
-        return activation(norm_conv)
+        if activation is None:
+            return norm_conv
+        else:
+            return activation(norm_conv)
 
 
 def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv3_params,
@@ -95,7 +95,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     # Compute the margin loss
     ####################################################################################################################
 
-    margin_loss = 1000*compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
+    margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
 
     ####################################################################################################################
     # Reconstruction & reconstruction error

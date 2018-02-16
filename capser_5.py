@@ -1,8 +1,7 @@
-import tensorflow as tf  # we'll import the rest later to avoid polluting the parameter summary file
+import tensorflow as tf
 from capser_batch_norm import capser_batch_norm_2_caps_layers
 from batchMaker import StimMaker
 import numpy as np
-from data_handling_functions import make_shape_sets, make_stimuli
 import matplotlib.pyplot as plt
 import os
 from create_sprite import images_to_sprite, invert_grayscale
@@ -14,12 +13,12 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 
 
 # data parameters
-im_size = (100, 200)
-shape_size = 25
+im_size = (70, 140)
+shape_size = 19
 bar_width = 2
 noise_level = 10
-shape_types = [1, 2, 6, 7, 9]  # see batchMaker.drawShape for number-shape correspondences
-group_last_shapes = 2          # attributes the same label to the last n shapeTypes
+shape_types = [1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
+group_last_shapes = 1       # attributes the same label to the last n shapeTypes
 label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
@@ -56,8 +55,8 @@ conv2_params = {"filters": 64,
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 3  # number of capsules at level 1 of capsules
-caps1_n_dims = 25  # number of dimension per capsule
+caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
+caps1_n_dims = 10  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 7,
                     "strides": 2,
@@ -66,8 +65,8 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     }
 
 # output capsules
-caps2_n_caps = len(shape_types)  # number of capsules
-caps2_n_dims = 25                # of n dimensions
+caps2_n_caps = len(label_to_shape)  # number of capsules
+caps2_n_dims = 16                   # of n dimensions
 
 # margin loss parameters
 m_plus = .9
@@ -75,7 +74,7 @@ m_minus = .1
 lambda_ = .75
 
 # accuracy/reconstruction tradeoff
-alpha = 0.
+alpha = 0.0001
 
 # decoder layer sizes
 n_hidden1 = 512
@@ -142,8 +141,8 @@ if do_all:
 else:
     do_embedding = 0
     plot_final_norms = 0
-    do_output_images = 0
-    do_color_capsules = 0
+    do_output_images = 1
+    do_color_capsules = 1
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -255,40 +254,38 @@ with tf.Session() as sess:
             batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes)
 
             # Run the training operation and measure the loss:
-            _, loss_train, summ, caps2_output_eval = sess.run(
-                [do_training, capser["loss"], summary, capser["caps2_output"]],
+            _, loss_train, summ, margin_loss, reconstruction_loss = sess.run(
+                [do_training, capser["loss"], summary, capser["margin_loss"], capser["reconstruction_loss"]],
                 feed_dict={X: batch_data,
                            y: batch_labels,
                            mask_with_labels: True,
                            is_training: True})
-            print("\rBatch: {}/{} ({:.1f}%)  Loss: {:.5f}".format(
+            print("\rBatch: {}/{} ({:.1f}%)  Margin loss: {:.5f}  Reconstruction loss: {:.5f}  Total loss: {:.5f}".format(
                       batch, n_batches,
                       batch * 100 / n_batches,
-                      loss_train),
+                      margin_loss, reconstruction_loss, loss_train),
                   end="")
             if batch % 5 == 0:
                 writer.add_summary(summ, batch)
 
+    saver.save(sess, checkpoint_path)
 
 ########################################################################################################################
 # Embedding & model saving
 ########################################################################################################################
 
-
-    if do_embedding:
-
+if do_embedding:
+    config = tf.ConfigProto(device_count={'GPU': 0})
+    with tf.Session(config=config) as sess:
+        writer = tf.summary.FileWriter(LOGDIR, sess.graph)
         tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
-
-        config = tf.ConfigProto(device_count={'GPU': 0})
-
         print('Creating embedding')
+        saver.restore(sess, checkpoint_path)
         sess.run(assignment, feed_dict={X: embedding_set,
                                         y: embedding_labels,
                                         mask_with_labels: False,
                                         is_training: True})
-
-    # save the model at the end
-    saver.save(sess, checkpoint_path)
+        saver.save(sess, checkpoint_path)
 
 
 ########################################################################################################################
@@ -347,6 +344,11 @@ if do_output_images:
     # Now let's make some predictions! We first fix a few images from the test set, then we start a session,
     # restore the trained model, evaluate caps2_output to get the capsule network's output vectors, decoder_output
     # to get the reconstructions, and y_pred to get the class predictions.
+
+    res_path = image_output_dir + '/reconstructions'
+    if not os.path.exists(res_path):
+        os.makedirs(res_path)
+
     n_samples = 10
 
     # get a batch
@@ -373,7 +375,7 @@ if do_output_images:
         plt.title("Label:" + str(batch_labels[index]))
         plt.axis("off")
 
-    plt.savefig(image_output_dir+'/reconstructions/sample images')
+    plt.savefig(res_path+'/sample images')
     # plt.show()
 
     plt.figure(figsize=(n_samples / 1.5, n_samples / 1.5))
@@ -383,7 +385,7 @@ if do_output_images:
         plt.imshow(reconstructions[index], cmap="binary")
         plt.axis("off")
 
-    plt.savefig(image_output_dir+'/reconstructions/sample images reconstructed')
+    plt.savefig(res_path+'/sample images reconstructed')
     # plt.show()
 
     ####################################################################################################################
@@ -392,6 +394,10 @@ if do_output_images:
 
     # caps2_output is now a numpy array. let's check its shape
     # print('shape of caps2_output np array: '+str(caps2_output_value.shape))
+
+    res_path = image_output_dir + '/parameter_teaks'
+    if not os.path.exists(res_path):
+        os.makedirs(res_path)
 
     # Let's create a function that will tweak each of the n pose parameters (dimensions) in all output vectors.
     # Each tweaked output vector will be identical to the original output vector, except that one of its pose
@@ -440,7 +446,7 @@ if do_output_images:
                 plt.imshow(tweak_reconstructions[dim, col, row], cmap="binary")
                 plt.axis("off")
         # plt.show()
-        plt.savefig(image_output_dir + 'parameter_tweaks/tweak dimension' + str(dim))
+        plt.savefig(res_path + '/tweak dimension' + str(dim))
 
 
 ########################################################################################################################
