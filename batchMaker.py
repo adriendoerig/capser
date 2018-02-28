@@ -16,9 +16,11 @@ class StimMaker:
         self.barHeight = int(shapeSize/3.3-barWidth/2)
         self.offsetHeight = 0
 
+
     def setShapeSize(self, shapeSize):
 
         self.shapeSize = shapeSize
+
 
     def drawSquare(self):
 
@@ -36,6 +38,7 @@ class StimMaker:
 
         return patch
 
+
     def drawCircle(self):
 
         resizeFactor = 1.1
@@ -51,6 +54,7 @@ class StimMaker:
                     patch[row, col] = 254.0
 
         return patch
+
 
     def drawPolygon(self, nSides, phi):
 
@@ -75,6 +79,7 @@ class StimMaker:
         patch[rr, cc] = 0.0
 
         return patch
+
 
     def drawStar(self, nTips, ratio, phi):
 
@@ -104,6 +109,7 @@ class StimMaker:
         patch[rr, cc] = 0.0
 
         return patch
+
 
     def drawIrreg(self, nSidesRough, repeatShape):
 
@@ -142,6 +148,7 @@ class StimMaker:
 
         return patch
 
+
     def drawStuff(self, nLines):
 
         patch  = numpy.zeros((self.shapeSize, self.shapeSize))
@@ -153,6 +160,7 @@ class StimMaker:
             patch[rr, cc] = 254.0
 
         return patch
+
 
     def drawVernier(self, offset=None):
 
@@ -173,6 +181,7 @@ class StimMaker:
         fullPatch[firstRow:firstRow+patch.shape[0], firstCol:firstCol+patch.shape[1]] = patch
 
         return fullPatch
+
 
     def drawShape(self, shapeID, offset=None):
 
@@ -199,6 +208,7 @@ class StimMaker:
 
         return patch
 
+
     def drawStim(self, vernier, shapeMatrix, offset=None):
 
         image        = numpy.zeros(self.imSize)
@@ -220,7 +230,7 @@ class StimMaker:
 
                     firstRow = row*(self.shapeSize + critDist)
                     firstCol = col*(self.shapeSize + critDist)
-                    patch[firstRow:firstRow+self.shapeSize, firstCol:firstCol+self.shapeSize] = self.drawShape(shapeMatrix[row,col])
+                    patch[firstRow:firstRow+self.shapeSize, firstCol:firstCol+self.shapeSize] = self.drawShape(shapeMatrix[row,col], offset)
 
         if vernier:
 
@@ -235,11 +245,13 @@ class StimMaker:
 
         return image
 
+
     def plotStim(self, vernier, shapeMatrix):
 
         plt.figure()
         plt.imshow(self.drawStim(vernier, shapeMatrix))
         plt.show()
+
 
     def makeBatch(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1):
 
@@ -266,6 +278,7 @@ class StimMaker:
 
         return batchImages, batchLabels
 
+
     def makeVernierBatch(self, batchSize, noiseLevel=0.0):
 
         batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
@@ -280,6 +293,7 @@ class StimMaker:
         batchImages        = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
 
         return batchImages, batchLabels
+
 
     def makeConfigBatch(self, batchSize, configMatrix, noiseLevel=0.0):
 
@@ -297,20 +311,63 @@ class StimMaker:
         return batchImages, vernierLabels
 
 
-    def showBatch(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1):
+    def makeBatchWithShape(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1):
 
-        batchImages, batchLabels = self.makeBatch(batchSize, shapeTypes, noiseLevel, group_last_shapes)
-        print(batchImages.shape)
+        # group_last_types attributes the same label to the last n shapeTypes
+        shapeLabels = numpy.arange(1, len(shapeTypes) + 1)
+        shapeLabels[-group_last_shapes:] = shapeLabels[-group_last_shapes]
+        batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
+        batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
+        batchShapes = numpy.ndarray(shape=(batchSize, self.shapeSize, self.shapeSize), dtype=numpy.float32)
 
         for n in range(batchSize):
-            plt.figure()
-            plt.imshow(batchImages[n, :, :, 0])
-            plt.title(batchLabels[n])
-            plt.show()
+
+            if not n % 4:
+                offset = random.randint(0, 1)
+                batchImages[n, :, :] = self.drawStim(False, shapeMatrix=[0], offset=offset) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                batchShapes[n, :, :] = self.drawVernier(offset=offset)
+                batchLabels[n] = 0
+
+            else:
+                thisType = random.randint(0, len(shapeTypes) - 1)
+                shapeType = shapeTypes[thisType]
+                shapeConfig = shapeType * numpy.ones((random.randint(1, 3), random.randint(1, 7)))
+                batchImages[n, :, :] = self.drawStim(0, shapeConfig) + numpy.random.normal(0, noiseLevel,
+                                                                                           size=self.imSize)
+                batchShapes[n, :, :] = self.drawShape(shapeType)
+                batchLabels[n] = shapeLabels[thisType]
+
+        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
+        batchShapes = numpy.expand_dims(batchShapes, -1)  # need to a a fourth dimension for tensorflow
+
+        return batchImages, batchLabels, batchShapes
+
+
+    def showBatch(self, batchSize, shapeTypes, showPatch=False, noiseLevel=0.0, group_last_shapes=1):
+
+        if showPatch:
+            batchImages, batchLabels, batchShapes = self.makeBatchWithShape(batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1)
+
+            for n in range(batchSize):
+                plt.figure()
+                plt.imshow(batchImages[n, :, :, 0])
+                plt.title(batchLabels[n])
+                plt.show()
+                plt.imshow(batchShapes[n, :, :])
+                plt.title('Single shape from previous stimulus')
+                plt.show()
+        else:
+            batchImages, batchLabels = self.makeBatch(batchSize, shapeTypes, noiseLevel, group_last_shapes)
+
+            for n in range(batchSize):
+                plt.figure()
+                plt.imshow(batchImages[n, :, :, 0])
+                plt.title(batchLabels[n])
+                plt.show()
 
 
 if __name__ == "__main__":
 
     rufus = StimMaker((100, 200), 25, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [1, 2, 6, 7, 9], 10.0, 2)
+    rufus.showBatch(20, [1, 2, 6, 7, 9], showPatch=True, noiseLevel=10.0, group_last_shapes=2)

@@ -6,8 +6,7 @@ import io
 # define a safe-norm to avoid infinities and zeros
 def safe_norm(s, axis=-1, epsilon=1e-7, keep_dims=False, name=None):
     with tf.name_scope(name, default_name="safe_norm"):
-        squared_norm = tf.reduce_sum(tf.square(s), axis=axis,
-                                     keep_dims=keep_dims)
+        squared_norm = tf.reduce_sum(tf.square(s), axis=axis, keep_dims=keep_dims)
         return tf.sqrt(squared_norm + epsilon)
 
 
@@ -16,8 +15,7 @@ def safe_norm(s, axis=-1, epsilon=1e-7, keep_dims=False, name=None):
 # would fuck up the gradients etc.
 def squash(s, axis=-1, epsilon=1e-7, name=None):
     with tf.name_scope(name, default_name="squash"):
-        squared_norm = tf.reduce_sum(tf.square(s), axis=axis,
-                                     keep_dims=True)
+        squared_norm = tf.reduce_sum(tf.square(s), axis=axis, keep_dims=True)
         safe_norm_squash = tf.sqrt(squared_norm + epsilon)
         squash_factor = squared_norm / (1. + squared_norm)
         unit_vector = s / safe_norm_squash
@@ -394,18 +392,18 @@ def batch_norm_fc_layer(x, n_out, phase, name='', activation=None):
         return activation(h2)
 
 
-def decoder_with_mask_batch_norm(decoder_input, n_hidden1, n_hidden2, n_output, phase):
+def decoder_with_mask_batch_norm(decoder_input, n_hidden1, n_hidden2, n_output, phase, name=''):
 
-    with tf.name_scope("decoder"):
+    with tf.name_scope(name+"decoder"):
 
-        hidden1 = batch_norm_fc_layer(decoder_input, n_hidden1, phase, name='hidden1', activation=tf.nn.elu)
-        tf.summary.histogram('decoder_hidden1_bn', hidden1)
-        hidden2 = batch_norm_fc_layer(hidden1, n_hidden2, phase, name='hidden2', activation=tf.nn.elu)
-        tf.summary.histogram('decoder_hidden2_bn', hidden2)
+        hidden1 = batch_norm_fc_layer(decoder_input, n_hidden1, phase, name=name+'hidden1', activation=tf.nn.elu)
+        tf.summary.histogram(name+'_hidden1_bn', hidden1)
+        hidden2 = batch_norm_fc_layer(hidden1, n_hidden2, phase, name=name+'hidden2', activation=tf.nn.elu)
+        tf.summary.histogram(name+'_hidden2_bn', hidden2)
         decoder_output = tf.layers.dense(hidden2, n_output,
                                          activation=tf.nn.sigmoid,
-                                         name="decoder_output")
-        tf.summary.histogram('decoder_output', decoder_output)
+                                         name=name+"_output")
+        tf.summary.histogram(name+'_output', decoder_output)
 
         return decoder_output
 
@@ -428,6 +426,40 @@ def decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_
                                          name="decoder_output")
         return decoder_output
 
+
+def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_output_norms, primary_caps_decoder_n_hidden1,
+                                   primary_caps_decoder_n_hidden2, primary_caps_decoder_n_output,
+                                   is_training):
+
+    with tf.variable_scope('primary_capsule_decoder'):
+
+        highest_norm_capsule = tf.argmax(caps1_output_norms, axis=1, output_type=tf.int32)
+
+        decoder_input_primary_caps = [caps1_output[0, highest_norm_capsule[0], :]]
+        # this is messy but it's the only way I found to flexibly deal with batch size
+        for i in range(1, 15):
+            decoder_input_primary_caps = tf.concat([decoder_input_primary_caps,
+                                                    [caps1_output[i, highest_norm_capsule[i], :]]], axis=0)
+
+        # add label to capsule inputs (the decoder needs to know which capsule type it is decoding from in order to
+        # create different outputs for different capsule types. Otherwise it just ends up with the capsule's activities
+        # and has no way to figure out which shape to draw).
+        # Let's create the reconstruction labels. It should be equal to 1.0 for the target class, and 0.0 for the
+        # other classes, for each instance in the batch.
+
+        decoder_input_primary_caps = tf.concat([tf.transpose([tf.cast(labels, tf.float32)]), decoder_input_primary_caps], axis=1)
+
+        decoder_output_primary_caps = decoder_with_mask_batch_norm(decoder_input_primary_caps,
+                                                                   primary_caps_decoder_n_hidden1,
+                                                                   primary_caps_decoder_n_hidden2,
+                                                                   primary_caps_decoder_n_output,
+                                                                   phase=is_training, name='primary_decoder')
+
+        decoder_output_image_primary_caps = tf.reshape(decoder_output_primary_caps,
+                                                       [-1, tf.shape(shape_patch)[1], tf.shape(shape_patch)[2], 1])
+        tf.summary.image('decoder_output', decoder_output_image_primary_caps, 6)
+
+        return decoder_output_primary_caps, highest_norm_capsule[0]
 
 # takes a n*n input and a flat decoder output
 def compute_reconstruction_loss(input, reconstruction):
