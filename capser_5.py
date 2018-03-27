@@ -34,8 +34,8 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
 
 # training parameters
 n_batches = 2000
-batch_size = 15
-primary_caps_decoder = True
+batch_size = 20
+primary_caps_decoder = False
 restore_checkpoint = True
 version_to_restore = None
 continue_training_from_checkpoint = False
@@ -57,7 +57,7 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = 10  # number of dimension per capsule
+caps1_n_dims = 2  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 5,
                     "strides": 2,
@@ -67,7 +67,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 16                   # of n dimensions
+caps2_n_dims = 30                   # of n dimensions
 
 # margin loss parameters
 m_plus = .9
@@ -75,7 +75,8 @@ m_minus = .1
 lambda_ = .75
 
 # accuracy/reconstruction tradeoff
-alpha = 0.0001
+alpha = .1
+rescale_error = True  # rescale reconstruction loss to be similar for large and small stimuli
 
 # decoder layer sizes
 primary_caps_decoder_n_hidden1 = 512
@@ -140,12 +141,12 @@ tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
-do_all = 1
+do_all = 0
 if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
     do_embedding = 0
-    plot_final_norms = 0
+    plot_final_norms = 1
     do_output_images = 1
     do_color_capsules = 1
     do_vernier_decoding = 1
@@ -201,7 +202,7 @@ capser = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_para
                                          primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                                          caps2_n_caps, caps2_n_dims,
                                          m_plus, m_minus, lambda_, alpha,
-                                         output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output,
+                                         output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, rescale_error,
                                          is_training, mask_with_labels,
                                          primary_caps_decoder, shape_patch)
 
@@ -305,7 +306,7 @@ with tf.Session() as sess:
             if batch % 5 == 0:
                 writer.add_summary(summ, batch)
 
-    saver.save(sess, checkpoint_path)
+        saver.save(sess, checkpoint_path)
 
 ########################################################################################################################
 # Embedding & model saving

@@ -27,7 +27,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
                                     primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                                     caps2_n_caps, caps2_n_dims,
                                     m_plus, m_minus, lambda_, alpha,
-                                    output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output,
+                                    output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output, rescale_error,
                                     is_training, mask_with_labels,
                                     primary_caps_decoder=False, shape_patch=0
                                     ):
@@ -37,7 +37,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     ####################################################################################################################
 
     # batch_normalize input
-    X = tf.contrib.layers.batch_norm(X, center=True, scale=True, is_training=is_training, scope='input_bn')
+    X_batch_normed = tf.contrib.layers.batch_norm(X, center=True, scale=True, is_training=is_training, scope='input_bn')
     if primary_caps_decoder:
         shape_patch = tf.contrib.layers.batch_norm(shape_patch, center=True, scale=True, is_training=is_training,
                                                    scope='shape_patch_bn')
@@ -60,7 +60,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
                             int((conv3_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
 
     # create early conv layers
-    conv1 = batch_norm_conv_layer(X, is_training, name='conv1', **conv1_params)
+    conv1 = batch_norm_conv_layer(X_batch_normed, is_training, name='conv1', **conv1_params)
     conv2 = batch_norm_conv_layer(conv1, is_training, name='conv2', **conv2_params)
     if conv3_params is None:
         # create first capsule layer
@@ -164,7 +164,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
 
     # reconstruction loss
-    output_caps_reconstruction_loss = compute_reconstruction_loss(X, decoder_output_output_caps)
+    output_caps_reconstruction_loss = compute_reconstruction_loss(X, X_batch_normed, decoder_output_output_caps, rescale=rescale_error)
 
     ####################################################################################################################
     # Final loss, accuracy, training operations, init & saver

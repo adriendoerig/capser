@@ -311,6 +311,7 @@ class StimMaker:
         return batchImages, vernierLabels
 
 
+    # this returns the batch along with patches for each image (e.g. a square patch if the image is made of squares)
     def makeBatchWithShape(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1):
 
         # group_last_types attributes the same label to the last n shapeTypes
