@@ -103,7 +103,7 @@ def capser_general_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv
     tf.summary.image('decoder_output',decoder_output_image,6)
 
     # reconstructon loss
-    reconstruction_loss = compute_reconstruction_loss(X,decoder_output)
+    reconstruction_loss, squared_differences = compute_reconstruction_loss(X,decoder_output)
 
     ####################################################################################################################
     # Final loss, accuracy, training operations, init & saver

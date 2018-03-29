@@ -163,7 +163,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
 
     # reconstruction loss
-    output_caps_reconstruction_loss, squared_difference_sum = compute_reconstruction_loss(X, decoder_output_output_caps, rescale=rescale_error)
+    output_caps_reconstruction_loss = compute_reconstruction_loss(X, decoder_output_output_caps, loss_type='squared_difference')
 
     ####################################################################################################################
     # Final loss, accuracy, training operations, init & saver

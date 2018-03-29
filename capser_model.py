@@ -27,7 +27,7 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                  primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                  caps2_n_caps, caps2_n_dims,
                  m_plus, m_minus, lambda_, alpha,
-                 output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output, rescale_error,
+                 output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output, reconstruction_loss_type,
                  is_training, mask_with_labels,
                  primary_caps_decoder=False, shape_patch=0
                  ):
@@ -168,7 +168,7 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
     tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
 
     # reconstruction loss
-    output_caps_reconstruction_loss = compute_reconstruction_loss(X, decoder_output_output_caps, rescale=rescale_error)
+    output_caps_reconstruction_loss, squared_differences = compute_reconstruction_loss(X, decoder_output_output_caps, loss_type=reconstruction_loss_type)
 
 
     ####################################################################################################################

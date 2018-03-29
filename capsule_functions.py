@@ -462,28 +462,90 @@ def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_outp
         return decoder_output_primary_caps, highest_norm_capsule[0]
 
 # takes a n*n input and a flat decoder output
-def compute_reconstruction_loss(input, reconstruction, rescale=False):
+def compute_reconstruction_loss(input, reconstruction, loss_type='squared_difference'):
 
     with tf.name_scope('reconstruction_loss'):
 
+        used_loss = 'sparse'
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
-        squared_difference = tf.square(X_flat - reconstruction,
-                                       name="squared_difference")
-        if rescale:  # rescale to have errors of the same scale for large and small stimuli
+        squared_difference = tf.square(X_flat - reconstruction, name="squared_difference")
+        sparsity_constant = 5
+        rescale_constant = 100000
+        threshold = 0
+        threshold_constant = 100000
+
+        if loss_type is 'squared_difference':
+            reconstruction_loss = tf.reduce_sum(squared_difference,  name="reconstruction_loss")
+
+        elif loss_type is 'sparse':
+            reconstruction_loss = tf.reduce_sum(squared_difference, name="reconstruction_loss")
+            reconstruction_loss = tf.add(reconstruction_loss, sparsity_constant * tf.reduce_sum(tf.square(reconstruction)), name='sparsity_constraint')
+
+        elif loss_type is 'rescale':  # rescale to have errors of the same scale for large and small stimuli
             squared_difference_sum = tf.reduce_sum(squared_difference, axis=1, name="squared_difference_sum")
             scales = tf.reduce_sum(X_flat, axis=1, name='scales')
-            diff_rescale = 100000 * squared_difference_sum / scales
-            reconstruction_loss = tf.reduce_sum(diff_rescale,
-                                          name="reconstruction_loss")
-        else:
-            reconstruction_loss = tf.reduce_sum(squared_difference,
-                                            name="reconstruction_loss")
+            diff_rescale = rescale_constant * squared_difference_sum / scales
+            reconstruction_loss = tf.reduce_sum(diff_rescale, name="reconstruction_loss")
 
-        reconstruction_loss = tf.add(reconstruction_loss, .5*tf.reduce_sum(tf.square(reconstruction)), name='sparsity_constraint')
-        print('CAREFUL I ADDED A SPARSITY LOSS TO RECONSTRUCTION ERROR')
+        elif loss_type is 'threshold':
+            template = tf.maximum(X_flat, reconstruction, name='template')
 
+            def apply_threshold(input, threshold):
+                with tf.name_scope('apply_threshold'):
+                    cond = tf.less(input, threshold*tf.ones(tf.shape(input)))
+                    out = tf.where(cond, tf.zeros(tf.shape(input)), input)
 
-        return reconstruction_loss
+                    return out
+
+            template = apply_threshold(template, threshold)
+            n_above_threshold = tf.count_nonzero(template, dtype=tf.float32)
+            thresholded_squared_difference = tf.multiply(squared_difference, template)
+            reconstruction_loss = tf.reduce_sum(thresholded_squared_difference, name="reconstruction_loss")/n_above_threshold*threshold_constant
+
+        elif loss_type is 'plot_all':
+            reconstruction_loss_square_diff = tf.reduce_sum(squared_difference, name="reconstruction_loss_square_diff")
+            tf.summary.scalar('reconstruction_loss_square_diff', reconstruction_loss_square_diff)
+
+            reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
+            sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction))
+            tf.summary.scalar('sparsity_loss', sparsity_loss)
+            reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
+            tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
+
+            squared_difference_sum = tf.reduce_sum(squared_difference, axis=1, name="squared_difference_sum")
+            scales = tf.reduce_sum(X_flat, axis=1, name='scales')
+            diff_rescale = rescale_constant * squared_difference_sum / scales
+            reconstruction_loss_rescale = tf.reduce_sum(diff_rescale, name="reconstruction_loss")
+            tf.summary.scalar('reconstruction_loss_rescale', reconstruction_loss_rescale)
+
+            threshold = 0
+            template = tf.maximum(X_flat, reconstruction, name='template')
+            def apply_threshold(input, threshold):
+                with tf.name_scope('apply_threshold'):
+                    cond = tf.less(input, threshold * tf.ones(tf.shape(input)))
+                    out = tf.where(cond, tf.zeros(tf.shape(input)), input)
+
+                    return out
+            template = apply_threshold(template, threshold)
+            n_above_threshold = tf.count_nonzero(template, dtype=tf.float32)
+            thresholded_squared_difference = tf.multiply(squared_difference, template)
+            reconstruction_loss_threshold = tf.reduce_sum(thresholded_squared_difference, name="reconstruction_loss") / n_above_threshold * threshold_constant
+            tf.summary.scalar('reconstruction_loss_threshold', reconstruction_loss_threshold)
+
+            if used_loss is 'squared_difference':
+                reconstruction_loss = reconstruction_loss_square_diff
+                stimuli_square_differences = tf.reduce_sum(squared_difference, axis=1, name="square_diff_for_each_stimulus")
+            elif used_loss is 'sparse':
+                reconstruction_loss = reconstruction_loss_sparse
+                stimuli_square_differences = tf.reduce_sum(squared_difference + sparsity_constant * tf.reduce_sum(tf.square(reconstruction)), axis=1, name="sparse_square_diff_for_each_stimulus")
+            elif used_loss is 'rescale':
+                reconstruction_loss = reconstruction_loss_rescale
+                stimuli_square_differences = diff_rescale
+            elif used_loss is 'threshold':
+                reconstruction_loss = reconstruction_loss_threshold
+                stimuli_square_differences = tf.reduce_sum(thresholded_squared_difference, axis=1, name="square_diff_for_each_stimulus")
+
+        return reconstruction_loss, stimuli_square_differences
 
 
 # decode vernier orientation from an input
