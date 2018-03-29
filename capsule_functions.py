@@ -462,21 +462,27 @@ def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_outp
         return decoder_output_primary_caps, highest_norm_capsule[0]
 
 # takes a n*n input and a flat decoder output
-def compute_reconstruction_loss(input, input_normalized, reconstruction, rescale=False):
+def compute_reconstruction_loss(input, reconstruction, rescale=False):
+
     with tf.name_scope('reconstruction_loss'):
+
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
-        X_flat_normalized = tf.reshape(input_normalized, [-1, tf.shape(reconstruction)[1]], name="X_flat")
-        squared_difference = tf.square(X_flat_normalized - reconstruction,
+        squared_difference = tf.square(X_flat - reconstruction,
                                        name="squared_difference")
         if rescale:  # rescale to have errors of the same scale for large and small stimuli
             squared_difference_sum = tf.reduce_sum(squared_difference, axis=1, name="squared_difference_sum")
-            scales = tf.sqrt(tf.reduce_sum(X_flat, axis=1), name='scales')
-            diff_rescale = squared_difference_sum / scales
+            scales = tf.reduce_sum(X_flat, axis=1, name='scales')
+            diff_rescale = 100000 * squared_difference_sum / scales
             reconstruction_loss = tf.reduce_sum(diff_rescale,
                                           name="reconstruction_loss")
         else:
             reconstruction_loss = tf.reduce_sum(squared_difference,
                                             name="reconstruction_loss")
+
+        reconstruction_loss = tf.add(reconstruction_loss, .5*tf.reduce_sum(tf.square(reconstruction)), name='sparsity_constraint')
+        print('CAREFUL I ADDED A SPARSITY LOSS TO RECONSTRUCTION ERROR')
+
+
         return reconstruction_loss
 
 

@@ -1,5 +1,5 @@
 import tensorflow as tf
-from capser_batch_norm import capser_batch_norm_2_caps_layers
+from capser_model import capser_model
 from batchMaker import StimMaker
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,11 +13,13 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 
 
 # data parameters
+fixed_stim_position = None
+normalize_images = True
 im_size = (70, 140)
 shape_size = 19
 bar_width = 2
-noise_level = 10
-shape_types = [1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
+noise_level = 0  # 10
+shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
 label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
@@ -33,33 +35,37 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
                                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 2000
-batch_size = 20
-primary_caps_decoder = False
+n_batches = 10000
+batch_size = 5
 restore_checkpoint = True
 version_to_restore = None
 continue_training_from_checkpoint = False
 
 # early conv layers
-conv1_params = {"filters": 64,
-                "kernel_size": 5,
+conv1_params = {"filters": 32,
+                "kernel_size": 3,
                 "strides": 1,
                 "padding": "valid",
                 "activation": tf.nn.elu,
                 }
-conv2_params = {"filters": 64,
-                "kernel_size": 6,
+conv2_params = {"filters": 32,
+                "kernel_size": 3,
                 "strides": 1,
                 "padding": "valid",
                 "activation": tf.nn.elu,
                 }
-conv3_params = None
+conv3_params = {"filters": 32,
+                "kernel_size": 4,
+                "strides": 1,
+                "padding": "valid",
+                "activation": tf.nn.elu,
+                }
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = 2  # number of dimension per capsule
+caps1_n_dims = 4  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 5,
+                    "kernel_size": 12,
                     "strides": 2,
                     "padding": "valid",
                     "activation": tf.nn.elu,
@@ -75,17 +81,19 @@ m_minus = .1
 lambda_ = .75
 
 # accuracy/reconstruction tradeoff
-alpha = .1
-rescale_error = True  # rescale reconstruction loss to be similar for large and small stimuli
+alpha = .0001
+rescale_error = False  # rescale reconstruction loss to be similar for large and small stimuli
 
 # decoder layer sizes
+primary_caps_decoder = False
 primary_caps_decoder_n_hidden1 = 512
 primary_caps_decoder_n_hidden2 = 1024
 primary_caps_decoder_n_hidden3 = None
+primary_caps_decoder_n_output = shape_size**2
+
 output_caps_decoder_n_hidden1 = 512
 output_caps_decoder_n_hidden2 = 1024
 output_caps_decoder_n_hidden3 = None
-primary_caps_decoder_n_output = shape_size**2
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 
 
@@ -158,9 +166,9 @@ else:
 # create sample dataset (we need it to create adequately sized networks)
 if primary_caps_decoder:
     batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types,
-                                                                            noise_level, group_last_shapes)
+                                                                            noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
 else:
-    batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes)
+    batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
 
 # placeholders for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -168,7 +176,7 @@ x_image = tf.reshape(X, [-1, im_size[0], im_size[1], 1])
 tf.summary.image('input', x_image, 6)
 y = tf.placeholder(shape=[None], dtype=tf.int64, name="y")
 if primary_caps_decoder:
-    shape_patch = tf.placeholder_with_default(tf.zeros(shape=(1,shape_size, shape_size, 1)),
+    shape_patch = tf.placeholder_with_default(tf.zeros(shape=(1, shape_size, shape_size, 1)),
                                               shape=[None, shape_size, shape_size, 1], name="shape_patch")
     tf.summary.image('shape_patch', shape_patch, 6)
 else:
@@ -197,14 +205,14 @@ if show_samples:
 ########################################################################################################################
 
 
-capser = capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv3_params,
-                                         caps1_n_maps, caps1_n_dims, conv_caps_params,
-                                         primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
-                                         caps2_n_caps, caps2_n_dims,
-                                         m_plus, m_minus, lambda_, alpha,
-                                         output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, rescale_error,
-                                         is_training, mask_with_labels,
-                                         primary_caps_decoder, shape_patch)
+capser = capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
+                      caps1_n_maps, caps1_n_dims, conv_caps_params,
+                      primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
+                      caps2_n_caps, caps2_n_dims,
+                      m_plus, m_minus, lambda_, alpha,
+                      output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, rescale_error,
+                      is_training, mask_with_labels,
+                      primary_caps_decoder, shape_patch)
 
 # op to train all networks
 do_training = capser["training_op"]
@@ -219,9 +227,9 @@ if do_embedding:
     if primary_caps_decoder:
         embedding_data, embedding_labels, embedding_patches = stim_maker.makeBatchWithShape(144, shape_types,
                                                                                             noise_level,
-                                                                                            group_last_shapes)
+                                                                                            group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     else:
-        embedding_data, embedding_labels = stim_maker.makeBatch(144, shape_types, noise_level, group_last_shapes)
+        embedding_data, embedding_labels = stim_maker.makeBatch(144, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     # create sprites and embedding labels from test set for embedding visualization in tensorboard
     sprites = invert_grayscale(images_to_sprite(np.squeeze(embedding_data)))
     plt.imsave(LOGDIR+'/'+MODEL_NAME+'_'+str(version)+'_sprites.png', sprites, cmap='gray')
@@ -276,9 +284,9 @@ with tf.Session() as sess:
             # get new batch
             if primary_caps_decoder:
                 batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types,
-                                                                                        noise_level, group_last_shapes)
+                                                                                        noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
             else:
-                batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes)
+                batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
 
             # Run the training operation and measure the loss:
             if primary_caps_decoder:
@@ -345,9 +353,9 @@ if plot_final_norms:
         # get a batch
         if primary_caps_decoder:
             batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types,
-                                                                                    noise_level, group_last_shapes)
+                                                                                    noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
         else:
-            batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes)
+            batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
 
         caps2_output_final, predictions = sess.run([capser["caps2_output"], capser["y_pred"]],
                                                     feed_dict={X: batch_data[:n_plots, :, :, :],
@@ -391,14 +399,14 @@ if do_output_images:
     if not os.path.exists(res_path):
         os.makedirs(res_path)
 
-    n_samples = 10
+    n_samples = 5
 
     # get a batch
     if primary_caps_decoder:
         batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types,
-                                                                                noise_level, group_last_shapes)
+                                                                                noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     else:
-        batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes)
+        batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
 
     sample_images = batch_data[:n_samples, :, :]
 
@@ -522,7 +530,7 @@ if do_color_capsules:
             for stim in range(3):
 
                 # get a few copies of the current stimulus
-                batch_data, vernier_labels = stim_maker.makeConfigBatch(n_trials, stim_matrices[stim], noise_level)
+                batch_data, vernier_labels = stim_maker.makeConfigBatch(n_trials, stim_matrices[stim], noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
 
                 # choose which capsules to sizualize
                 caps_to_visualize = None
@@ -658,7 +666,7 @@ if do_vernier_decoding:
             for batch in range(n_batches):
 
                 # get a vernier batch
-                vernier_data, vernier_labels = stim_maker.makeVernierBatch(batch_size, noise_level)
+                vernier_data, vernier_labels = stim_maker.makeVernierBatch(batch_size, noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
 
                 if batch % 5 == 0:
 
@@ -720,7 +728,7 @@ if do_vernier_decoding:
                     curr_stim = stim_matrices[this_stim]
 
                     # get a batch of the current stimulus
-                    batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noise_level)
+                    batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
 
 
                     # Run the training operation and measure the losses:

@@ -22,24 +22,25 @@ def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
             return activation(norm_conv)
 
 
-def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, conv3_params,
-                                    caps1_n_maps, caps1_n_dims, conv_caps_params,
-                                    primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
-                                    caps2_n_caps, caps2_n_dims,
-                                    m_plus, m_minus, lambda_, alpha,
-                                    output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output, rescale_error,
-                                    is_training, mask_with_labels,
-                                    primary_caps_decoder=False, shape_patch=0
-                                    ):
+def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
+                 caps1_n_maps, caps1_n_dims, conv_caps_params,
+                 primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
+                 caps2_n_caps, caps2_n_dims,
+                 m_plus, m_minus, lambda_, alpha,
+                 output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output, rescale_error,
+                 is_training, mask_with_labels,
+                 primary_caps_decoder=False, shape_patch=0
+                 ):
+
 
     ####################################################################################################################
     # Early conv layers and first capsules
     ####################################################################################################################
 
-    # batch_normalize input
-    if primary_caps_decoder:
-        shape_patch = tf.contrib.layers.batch_norm(shape_patch, center=True, scale=True, is_training=is_training,
-                                                   scope='shape_patch_bn')
+
+    # this model assumes that the input images are already normalized, so we don't do any normaolization here
+    # batch_normalize input anyways to see if it helps to have more homogeneous batches, on top of having normalized images
+    # X = tf.contrib.layers.batch_norm(X, center=True, scale=True, is_training=is_training, scope='input_bn')
 
     # sizes, etc.
     conv1_width = int((im_size[0] - conv1_params["kernel_size"])/conv1_params["strides"] + 1)
@@ -59,7 +60,8 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
                             int((conv3_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
 
     # create early conv layers
-    conv1 = batch_norm_conv_layer(X, is_training, name='conv1', **conv1_params)
+    conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)  # ** means that conv1_params is a dict {param_name:param_value}
+    # tf.summary.histogram('1st_conv_layer', conv1)
     conv2 = batch_norm_conv_layer(conv1, is_training, name='conv2', **conv2_params)
     if conv3_params is None:
         # create first capsule layer
@@ -67,15 +69,11 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
                                           conv_caps_params["kernel_size"], conv_caps_params["strides"],
                                           conv_padding='valid', conv_activation=tf.nn.elu, print_shapes=False)
     else:
-        conv3 = batch_norm_conv_layer(conv2, is_training, name='conv3', activation=tf.nn.elu, **conv3_params)
+        conv3 = batch_norm_conv_layer(conv2, is_training, name='conv3', **conv3_params)
         # create first capsule layer
         caps1_output = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dims,
-                                          conv_caps_params["kernel_size"], conv_caps_params["stride"],
-                                          conv_padding='valid',
-                                          conv_activation=tf.nn.elu, print_shapes=False)
-        caps1_output = tf.contrib.layers.batch_norm(caps1_output, center=True, scale=True, is_training=is_training,
-                                                    scope='caps1_output_bn')
-        tf.summary.histogram('caps_1_output_bn', caps1_output)
+                                          conv_caps_params["kernel_size"], conv_caps_params["strides"],
+                                          conv_padding='valid', conv_activation=tf.nn.elu, print_shapes=False)
 
     # display a histogram of primary capsule norms
     caps1_output_norms = safe_norm(caps1_output, axis=-1, keep_dims=False, name="primary_capsule_norms")
@@ -90,9 +88,9 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     if primary_caps_decoder:
 
         decoder_output_primary_caps, highest_norm_capsule = primary_capsule_reconstruction(shape_patch, y, caps1_output, caps1_output_norms,
-                                                                     primary_caps_decoder_n_hidden1,
-                                                                     primary_caps_decoder_n_hidden2,
-                                                                     primary_caps_decoder_n_output, is_training)
+                                                                                           primary_caps_decoder_n_hidden1,
+                                                                                           primary_caps_decoder_n_hidden2,
+                                                                                           primary_caps_decoder_n_output, is_training)
         print(decoder_output_primary_caps, shape_patch)
 
         primary_caps_reconstruction_loss = compute_reconstruction_loss(shape_patch, decoder_output_primary_caps)
@@ -110,30 +108,37 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     # From caps1 to caps2
     ####################################################################################################################
 
+
     # it is all taken care of by the function
     caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
                                             rba_rounds=2, print_shapes=False)
 
     # get norms to vizualize them
-    caps2_output_norm = tf.squeeze(safe_norm(caps2_output[1, :, :, :], axis=-2, keep_dims=False,
-                                            name="caps2_output_norm"))
+    caps2_output_norm = tf.squeeze(safe_norm(caps2_output[0, :, :, :], axis=-2, keep_dims=False,
+                                             name="caps2_output_norm"))
     tf.summary.histogram('Output capsule norms', caps2_output_norm)
+
 
     ####################################################################################################################
     # Estimated class probabilities
     ####################################################################################################################
 
+
     y_pred = caps_prediction(caps2_output, print_shapes=False)  # get index of max probability
+
 
     ####################################################################################################################
     # Compute the margin loss
     ####################################################################################################################
 
+
     margin_loss = compute_margin_loss(y, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_)
+
 
     ####################################################################################################################
     # Reconstruction & reconstruction error
     ####################################################################################################################
+
 
     # create the mask
     decoder_input_output_caps = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims,
@@ -163,13 +168,13 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
     tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
 
     # reconstruction loss
-    output_caps_reconstruction_loss, squared_difference_sum = compute_reconstruction_loss(X, decoder_output_output_caps, rescale=rescale_error)
+    output_caps_reconstruction_loss = compute_reconstruction_loss(X, decoder_output_output_caps, rescale=rescale_error)
+
 
     ####################################################################################################################
     # Final loss, accuracy, training operations, init & saver
     ####################################################################################################################
 
-    # alpha = 0.0005  # * (60 * 128) / (im_size[0] * im_size[1])  # 0.0005 was good for 60*128 images
 
     with tf.name_scope('total_loss'):
         loss = tf.add(margin_loss, alpha * output_caps_reconstruction_loss, name="loss")
@@ -182,7 +187,7 @@ def capser_batch_norm_2_caps_layers(X, y, im_size, conv1_params, conv2_params, c
 
     # TRAINING OPERATIONS #
 
-    optimizer = tf.train.AdamOptimizer()
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.0005)
     update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # for batch norm
     loss_training_op = optimizer.minimize(loss, name="training_op")
     training_op = [loss_training_op, update_batch_norm_ops]
