@@ -19,9 +19,12 @@ im_size = (30, 140)
 shape_size = 19
 bar_width = 2
 noise_level = 0  # 10
-shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 1, 2]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles'}
+# shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
+# group_last_shapes = 1       # attributes the same label to the last n shapeTypes
+# label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
@@ -35,45 +38,49 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 25000
+n_batches = 40000
 batch_size = 5
+conv_batch_norm = False
+decoder_batch_norm = False
 restore_checkpoint = True
-version_to_restore = None
+version_to_restore = 9
 continue_training_from_checkpoint = False
 
-# early conv layers
+# conv layers
+activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
                 "kernel_size": 4,
                 "strides": 1,
                 "padding": "valid",
-                "activation": tf.nn.elu,
+                "activation": activation_function,
                 }
 conv2_params = {"filters": 32,
                 "kernel_size": 4,
                 "strides": 1,
                 "padding": "valid",
-                "activation": tf.nn.elu,
+                "activation": activation_function,
                 }
 conv3_params = {"filters": 32,
                 "kernel_size": 4,
                 "strides": 1,
                 "padding": "valid",
-                "activation": tf.nn.elu,
+                "activation": activation_function,
                 }
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = 4  # number of dimension per capsule
+caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 12,
                     "strides": 2,
                     "padding": "valid",
-                    "activation": tf.nn.elu,
+                    "activation": activation_function,
                     }
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
 caps2_n_dims = 8                    # of n dimensions
+rba_rounds = 3
 
 # margin loss parameters
 m_plus = .9
@@ -158,9 +165,9 @@ if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
     do_embedding = 0
-    plot_final_norms = 0
+    plot_final_norms = 1
     do_output_images = 0
-    do_color_capsules = 1
+    do_color_capsules = 0
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -213,11 +220,11 @@ if show_samples:
 capser = capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                       caps1_n_maps, caps1_n_dims, conv_caps_params,
                       primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
-                      caps2_n_caps, caps2_n_dims,
+                      caps2_n_caps, caps2_n_dims, rba_rounds,
                       m_plus, m_minus, lambda_, alpha,
                       output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, reconstruction_loss_type,
                       is_training, mask_with_labels,
-                      primary_caps_decoder, shape_patch)
+                      primary_caps_decoder, shape_patch, conv_batch_norm, decoder_batch_norm)
 
 # op to train all networks
 do_training = capser["training_op"]
@@ -280,6 +287,7 @@ with tf.Session() as sess:
             or not restore_checkpoint or not tf.train.checkpoint_exists(checkpoint_path):
 
         writer = tf.summary.FileWriter(LOGDIR, sess.graph)
+
         init.run()
 
         for batch in range(n_batches):
@@ -626,19 +634,19 @@ if do_vernier_decoding:
 
     decode_capsule = 0
     batch_size = batch_size
-    n_batches = 1000
-    n_hidden = 1024
+    n_batches = 50000
+    n_hidden = 2048
     LOGDIR = LOGDIR + '/vernier_decoder'
     vernier_checkpoint_path = LOGDIR+'/'+MODEL_NAME+'_'+str(version)+"vernier_decoder_model.ckpt"
-    vernier_restore_checkpoint = True
+    vernier_restore_checkpoint = False
     vernier_continue_training_from_checkpoint = False
 
     caps2_output = capser["caps2_output"]  # decode from capsule
-    # decoder_output = capser["decoder_output_output_caps"]  # decode from reconstruction
+    decoder_output = capser["decoder_output_output_caps"]  # decode from reconstruction
 
     with tf.variable_scope('decode_vernier'):
-        vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
-        # vernier_decoder_input = decoder_output
+        # vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
+        vernier_decoder_input = decoder_output
         classifier = vernier_classifier(vernier_decoder_input, True, n_hidden, name='vernier_decoder')
         x_entropy = vernier_x_entropy(classifier, y)
         correct_mean = vernier_correct_mean(tf.argmax(classifier, axis=1), y)

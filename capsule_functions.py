@@ -549,7 +549,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
 
 # decode vernier orientation from an input
-def vernier_classifier(input, is_training, n_hidden=1024, name=''):
+def vernier_classifier(input, is_training, n_hidden=1024, name='', batch_norm=False, dropout=False):
     with tf.name_scope(name):
         batch_size = tf.shape(input)[0]
 
@@ -562,9 +562,10 @@ def vernier_classifier(input, is_training, n_hidden=1024, name=''):
         flat_input = tf.reshape(input, [batch_size, n_units])
         tf.summary.histogram('classifier_input_no_bn', flat_input)
 
-        flat_input = tf.contrib.layers.batch_norm(flat_input, center=True, scale=True, is_training=is_training,
-                                                  scope=name + 'input_bn')
-        tf.summary.histogram('classifier_input_bn', flat_input)
+        if batch_norm:
+            flat_input = tf.contrib.layers.batch_norm(flat_input, center=True, scale=True, is_training=is_training,
+                                                      scope=name + 'input_bn')
+            tf.summary.histogram('classifier_input_bn', flat_input)
 
         if n_hidden is None:
             classifier_fc = tf.layers.dense(flat_input, 2, name='classifier_top_fc')
@@ -574,7 +575,7 @@ def vernier_classifier(input, is_training, n_hidden=1024, name=''):
             with tf.device('/cpu:0'):
                 classifier_hidden = tf.layers.dense(flat_input, n_hidden, activation=tf.nn.elu,
                                                     name=name + '_hidden_fc')
-                if is_training:
+                if is_training and dropout:
                     classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=0.5, name='vernier_fc_dropout')
                 else:
                     classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=1.0, name='vernier_fc_dropout')
