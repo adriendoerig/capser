@@ -13,13 +13,15 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 
 
 # data parameters
-fixed_stim_position = None
-normalize_images = True
-im_size = (30, 140)
-shape_size = 19
-bar_width = 2
-noise_level = 0  # 10
-shape_types = [0, 1, 2]  # see batchMaker.drawShape for number-shape correspondences
+fixed_stim_position = None  # put top left corner of all stimuli at fixed_position
+normalize_images = True     # make each image mean=0, std=1
+max_rows, max_cols = 1, 7   # max number of rows, columns of shape grids
+vernier_grids = True        # if true, verniers come in grids like other shapes. Only single verniers otherwise.
+im_size = (30, 140)         # guess what this does
+shape_size = 19             # size of a single shape in pixels
+bar_width = 2               # thickness of elements' bars
+noise_level = 0  # 10       # add noise
+shape_types = [0, 1, 2]     # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
 label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles'}
 # shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
@@ -38,12 +40,14 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 40000
-batch_size = 5
+n_batches = 10000
+batch_size = 20
 conv_batch_norm = False
 decoder_batch_norm = False
+
+# saving/loading parameters
 restore_checkpoint = True
-version_to_restore = 9
+version_to_restore = None
 continue_training_from_checkpoint = False
 
 # conv layers
@@ -66,6 +70,7 @@ conv3_params = {"filters": 32,
                 "padding": "valid",
                 "activation": activation_function,
                 }
+# conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
@@ -80,16 +85,23 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
 caps2_n_dims = 8                    # of n dimensions
-rba_rounds = 3
+rba_rounds = 5
 
 # margin loss parameters
 m_plus = .9
 m_minus = .1
 lambda_ = .75
 
-# accuracy/reconstruction tradeoff
-alpha = .0001
-reconstruction_loss_type = 'plot_all'  # 'squared_difference', 'sparse', 'rescale', 'threshold' or 'plot_all'
+# optional loss to the primary capsules
+primary_caps_loss = True
+alpha_primary = 1
+m_plus_primary = .9
+m_minus_primary = .1
+lambda_primary = .75
+
+# choose reconstruction loss type and alpha
+alpha_reconstruction = .0001
+reconstruction_loss_type = 'sparse'  # 'squared_difference', 'sparse', 'rescale', 'threshold' or 'plot_all'
 if reconstruction_loss_type is 'plot_all':
     return_n_elements = True
 else:
@@ -178,9 +190,9 @@ else:
 if primary_caps_decoder:
     batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
 elif reconstruction_loss_type is 'plot_all':
-    batch_data, batch_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position, return_n_elements=return_n_elements)
+    batch_data, batch_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position, return_n_elements=return_n_elements)
 else:
-    batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
+    batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
 # placeholders for input images and labels
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -221,10 +233,11 @@ capser = capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                       caps1_n_maps, caps1_n_dims, conv_caps_params,
                       primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                       caps2_n_caps, caps2_n_dims, rba_rounds,
-                      m_plus, m_minus, lambda_, alpha,
+                      m_plus, m_minus, lambda_, alpha_reconstruction,
+                      m_plus_primary, m_minus_primary, lambda_primary, alpha_primary,
                       output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, reconstruction_loss_type,
                       is_training, mask_with_labels,
-                      primary_caps_decoder, shape_patch, conv_batch_norm, decoder_batch_norm)
+                      primary_caps_decoder, primary_caps_loss, shape_patch, conv_batch_norm, decoder_batch_norm)
 
 # op to train all networks
 do_training = capser["training_op"]
@@ -239,7 +252,7 @@ if do_embedding:
     if primary_caps_decoder:
         embedding_data, embedding_labels, embedding_patches = stim_maker.makeBatchWithShape(144, shape_types,  noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     else:
-        embedding_data, embedding_labels = stim_maker.makeBatch(144, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
+        embedding_data, embedding_labels = stim_maker.makeBatch(144, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
     # create sprites and embedding labels from test set for embedding visualization in tensorboard
     sprites = invert_grayscale(images_to_sprite(np.squeeze(embedding_data)))
     plt.imsave(LOGDIR+'/'+MODEL_NAME+'_'+str(version)+'_sprites.png', sprites, cmap='gray')
@@ -296,43 +309,29 @@ with tf.Session() as sess:
             if primary_caps_decoder:
                 batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
             elif reconstruction_loss_type is 'plot_all':
-                batch_data, batch_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position, return_n_elements=return_n_elements)
+                batch_data, batch_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position, return_n_elements=return_n_elements)
             else:
-                batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
+                batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
             # Run the training operation and measure the loss:
             if primary_caps_decoder:
-                _, _, loss_train, summ, margin_loss, reconstruction_loss, highest_primary_capsule = sess.run(
-                    [do_training, capser["train_op_primary_decoder"], capser["loss"], summary,
-                     capser["margin_loss"], capser["output_caps_reconstruction_loss"], capser["highest_norm_capsule"]],
+                _, _, loss_train, summ,     highest_primary_capsule = sess.run(
+                    [do_training, capser["train_op_primary_decoder"], capser["loss"], summary, capser["highest_norm_capsule"]],
                     feed_dict={X: batch_data,
                                y: batch_labels,
                                mask_with_labels: True,
                                is_training: True,
                                shape_patch: batch_patches})
                 print(' highest_norm_capsule[0] = ' + str(highest_primary_capsule ))
-
-            elif reconstruction_loss_type is 'plot_all':
-                _, squared_differences, loss_train, summ, margin_loss, reconstruction_loss = sess.run(
-                    [do_training, capser["squared_differences"], capser["loss"], summary,
-                     capser["margin_loss"], capser["output_caps_reconstruction_loss"]],
-                    feed_dict={X: batch_data,
-                               y: batch_labels,
-                               mask_with_labels: True,
-                               is_training: True})
-                print(' -- Stimulus : ' + str(n_elements) + ' ' + label_to_shape[batch_labels[-1]] + ', reconstruction loss: ' + str(squared_differences[-1]))
-
             else:
-                _, loss_train, summ, margin_loss, reconstruction_loss = sess.run(
-                    [do_training, capser["loss"], summary, capser["margin_loss"], capser["output_caps_reconstruction_loss"]],
+                _, loss_train, summ = sess.run(
+                    [do_training, capser["loss"], summary],
                     feed_dict={X: batch_data,
                                y: batch_labels,
                                mask_with_labels: True,
                                is_training: True})
-            print("\rBatch: {}/{} ({:.1f}%)  Margin loss: {:.5f}  Reconstruction loss: {:.5f}  Total loss: {:.5f}".format(
-                      batch, n_batches,
-                      batch * 100 / n_batches,
-                      margin_loss, reconstruction_loss*alpha, loss_train),
-                  end="")
+
+            print("\rBatch: {}/{} ({:.1f}%) Total loss: {:.5f}".format(batch, n_batches, batch * 100 / n_batches, loss_train), end="")
+
             if batch % 25 == 0:
                 writer.add_summary(summ, batch)
 
@@ -374,10 +373,9 @@ if plot_final_norms:
 
         # get a batch
         if primary_caps_decoder:
-            batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types,
-                                                                                    noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
+            batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
         else:
-            batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
+            batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
         caps2_output_final, predictions = sess.run([capser["caps2_output"], capser["y_pred"]],
                                                     feed_dict={X: batch_data[:n_plots, :, :, :],
@@ -427,7 +425,7 @@ if do_output_images:
     if primary_caps_decoder:
         batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     else:
-        batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
+        batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
     sample_images = batch_data[:n_samples, :, :]
 
@@ -634,7 +632,7 @@ if do_vernier_decoding:
 
     decode_capsule = 0
     batch_size = batch_size
-    n_batches = 50000
+    n_batches = 10000
     n_hidden = 2048
     LOGDIR = LOGDIR + '/vernier_decoder'
     vernier_checkpoint_path = LOGDIR+'/'+MODEL_NAME+'_'+str(version)+"vernier_decoder_model.ckpt"

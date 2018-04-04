@@ -291,7 +291,7 @@ class StimMaker:
         return batchImages, batchLabels
 
 
-    def makeBatch(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, normalize=False, fixed_position=None, return_n_elements=False):
+    def makeBatch(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, max_rows=3, max_cols=7, vernier_grids=False, normalize=False, fixed_position=None, return_n_elements=False):
 
         # group_last_types attributes the same label to the last n shapeTypes
         shapeLabels = numpy.arange(len(shapeTypes))
@@ -299,19 +299,43 @@ class StimMaker:
         batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
         batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
 
-        for n in range(batchSize):
+        if vernier_grids:  # verniers come in grids, like all other shapes.
 
-            thisType = random.randint(0, len(shapeTypes)-1)
-            shapeType = shapeTypes[thisType]
-            nRows = random.randint(1, 1)
-            nCols = random.randint(1, 7)
-            shapeConfig = shapeType*numpy.ones((nRows, nCols))
-            batchImages[n, :, :] = self.drawStim(0, shapeConfig, fixed_position=fixed_position, offset=random.randint(0, 1), offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-            if normalize:
-                batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
-            batchLabels[n] = shapeLabels[thisType]
+            for n in range(batchSize):
 
-        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
+                thisType = random.randint(0, len(shapeTypes)-1)
+                shapeType = shapeTypes[thisType]
+                nRows = random.randint(1, max_rows)
+                nCols = random.randint(1, max_cols)
+                shapeConfig = shapeType*numpy.ones((nRows, nCols))
+                batchImages[n, :, :] = self.drawStim(0, shapeConfig, fixed_position=fixed_position, offset=random.randint(0, 1), offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                if normalize:
+                    batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
+                batchLabels[n] = shapeLabels[thisType]
+
+            batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
+
+        else:  # if vernier_grids is false, the vernier stimuli always comprise a single vernier
+
+            for n in range(batchSize):
+
+                if random.uniform(0, 1) < 0.25:
+                    batchImages[n, :, :] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                    batchLabels[n] = 0
+
+                else:
+                    thisType = random.randint(0, len(shapeTypes) - 1)
+                    shapeType = shapeTypes[thisType]
+                    nRows = random.randint(1, max_rows)
+                    nCols = random.randint(1, max_cols)
+                    shapeConfig = shapeType*numpy.ones((nRows, nCols))
+                    batchImages[n, :, :] = self.drawStim(0, shapeConfig, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                    if normalize:
+                        batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(
+                            batchImages[n, :, :])
+                    batchLabels[n] = shapeLabels[thisType]
+
+            batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
 
         if return_n_elements is True:
             return batchImages, batchLabels, nRows*nCols  # returns the number of elements in the last stimulus of the batch

@@ -40,19 +40,26 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
         conv_for_caps = tf.layers.conv2d(conv_output, name="conv_for_caps", **conv_params)
         if print_shapes:
             print('shape of conv_for_caps: '+str(conv_for_caps))
-        # reshape the second layer to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to keep
-        # the [batch,xx,xx,n_feature_maps,caps1_n_dims] so we just flatten it to keep it simple)
-        caps1_raw = tf.reshape(conv_for_caps, [-1, caps1_n_caps, caps1_n_dims],
-                               name="caps1_raw")
+
+        # in case we want to force the network to use a certain primary capsule map to represent certain shapes, we must
+        # conserve all the map dimensions (we don't care about spatial position)
+        caps_per_map = tf.cast(caps1_n_caps / caps1_n_maps, dtype=tf.int32, name='caps_per_map')
+        caps1_raw_with_maps = tf.reshape(conv_for_caps, [-1, caps1_n_maps, caps_per_map, caps1_n_dims], name="caps1_raw_with_maps")
+
+        # reshape the output to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to
+        # keep the [batch,xx,xx,n_feature_maps,caps1_n_dims] so we just flatten it to keep it simple)
+        caps1_raw = tf.reshape(conv_for_caps, [-1, caps1_n_caps, caps1_n_dims], name="caps1_raw")
         tf.summary.histogram('caps1_raw', caps1_raw)
 
         # squash capsule outputs
         caps1_output = squash(caps1_raw, name="caps1_output")
+        caps1_output_with_maps = squash(caps1_raw_with_maps, name="caps1_output_with_maps")
         tf.summary.histogram('caps1_output', caps1_output)
         if print_shapes:
             print('shape of caps1_output: '+str(caps1_output))
+            print('shape of caps1_output_with_maps: ' + str(caps1_output_with_maps))
 
-        return caps1_output
+        return caps1_output, caps1_output_with_maps
 
 
 # takes a (flattened) primary capsule layer caps1 output as input and creates a new fully connected capsule layer caps2
@@ -287,20 +294,28 @@ def caps_prediction(caps2_output, print_shapes=False):
         return y_pred
 
 
-def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_):
+def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_, print_shapes=False):
     with tf.name_scope('margin_loss'):
         # the T in the margin equation can be computed easily
         T = tf.one_hot(labels, depth=caps2_n_caps, name="T")
+        if print_shapes:
+            print('shape of output margin loss function -- T: ' + str(T))
 
         # the norms of the last capsules are taken as output probabilities
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keep_dims=True,
                                       name="caps2_output_norm")
+        if print_shapes:
+            print('shape of output margin loss function -- caps2_output_norm: ' + str(caps2_output_norm))
 
         # present and absent errors go into the loss
         present_error_raw = tf.square(tf.maximum(0., m_plus - caps2_output_norm),
                                       name="present_error_raw")
+        if print_shapes:
+            print('shape of output margin loss function -- present_error_raw: ' + str(present_error_raw))
         present_error = tf.reshape(present_error_raw, shape=(-1, caps2_n_caps),
                                    name="present_error")  # there is a term for each of the caps2ncaps possible outputs
+        if print_shapes:
+            print('shape of output margin loss function -- present_error: ' + str(present_error))
         absent_error_raw = tf.square(tf.maximum(0., caps2_output_norm - m_minus),
                                      name="absent_error_raw")
         absent_error = tf.reshape(absent_error_raw, shape=(-1, caps2_n_caps),
@@ -309,7 +324,53 @@ def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lam
         # compute the margin loss
         L = tf.add(T * present_error, lambda_ * (1.0 - T) * absent_error,
                    name="L")
+        if print_shapes:
+            print('shape of output margin loss function -- L: ' + str(L))
         margin_loss = tf.reduce_mean(tf.reduce_sum(L, axis=1), name="margin_loss")
+        tf.summary.scalar('margin_loss_output', margin_loss)
+
+        return margin_loss
+
+
+def compute_primary_caps_loss(labels, caps1_output_with_maps, caps1_n_caps, caps1_n_maps,  m_plus_primary, m_minus_primary, lambda_primary, print_shapes=False):
+
+    # this loss will penalize capsules activated in the wrong map
+
+    with tf.name_scope('primary_caps_loss'):
+        # the T in the margin equation can be computed easily
+        T = tf.one_hot(labels, depth=caps1_n_maps, name="T")
+        if print_shapes:
+            print('shape of primary caps loss function -- T: ' + str(T))
+
+        # the norms of the capsules
+        caps1_output_norm = safe_norm(caps1_output_with_maps, axis=-1, keep_dims=False, name="caps1_output_norm")
+        tf.summary.histogram('primary_capsule_norms_map_0', caps1_output_norm[0, 0, :])
+        if print_shapes:
+            print('shape of primary caps loss function -- caps1_output_norm: ' + str(caps1_output_norm))
+        # we see these norms as one vector per class and squash thwm + take the norm (i.e., if many capsules are active
+        # for a given class, this class has a high norm. We wish the irrelevant classes to have low norms.
+        caps1_output_squash = squash(caps1_output_norm, axis=-1, name='caps1_output_squash')
+        tf.summary.histogram('primary_capsule_squash', caps1_output_squash[0, 0, :])
+        if print_shapes:
+            print('shape of primary caps loss function -- caps1_output_squash: ' + str(caps1_output_squash))
+        caps1_output_class_norm = safe_norm(caps1_output_squash, axis=-1, keep_dims=False, name="caps1_output_class_norm")
+        tf.summary.histogram('primary_capsule_class_norms', caps1_output_class_norm[0, :])
+        if print_shapes:
+            print('shape of primary caps loss function -- caps1_output_class_norm: ' + str(caps1_output_class_norm))
+
+        # present and absent errors go into the loss
+        present_error = tf.square(tf.maximum(0., m_plus_primary - caps1_output_class_norm), name="present_error")
+        absent_error = tf.square(tf.maximum(0., caps1_output_class_norm - m_minus_primary), name="absent_error")
+        if print_shapes:
+            print('shape of primary caps loss function -- present_error: ' + str(present_error))
+            print('shape of primary caps loss function -- absent_error: ' + str(absent_error))
+
+        # compute the margin loss
+        L = tf.add(T * present_error, lambda_primary * (1.0 - T) * absent_error, name="L")
+        if print_shapes:
+            print('shape of primary caps loss function -- L: ' + str(L))
+        margin_loss = tf.reduce_mean(tf.reduce_sum(L, axis=1), name="margin_loss")
+        tf.summary.scalar('loss', margin_loss)
 
         return margin_loss
 
@@ -478,8 +539,13 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
             reconstruction_loss = tf.reduce_sum(squared_difference,  name="reconstruction_loss")
 
         elif loss_type is 'sparse':
-            reconstruction_loss = tf.reduce_sum(squared_difference, name="reconstruction_loss")
-            reconstruction_loss = tf.add(reconstruction_loss, sparsity_constant * tf.reduce_sum(tf.square(reconstruction)), name='sparsity_constraint')
+            reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
+            sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction))
+            tf.summary.scalar('sparsity_loss', sparsity_loss)
+            reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
+            tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
+            reconstruction_loss = reconstruction_loss_sparse
+            stimuli_square_differences = tf.reduce_sum(squared_difference + sparsity_constant * tf.reduce_sum(tf.square(reconstruction)), axis=1,  name="sparse_square_diff_for_each_stimulus")
 
         elif loss_type is 'rescale':  # rescale to have errors of the same scale for large and small stimuli
             squared_difference_sum = tf.reduce_sum(squared_difference, axis=1, name="squared_difference_sum")
