@@ -347,7 +347,7 @@ def compute_primary_caps_loss(labels, caps1_output_with_maps, caps1_n_caps, caps
         tf.summary.histogram('primary_capsule_norms_map_0', caps1_output_norm[0, 0, :])
         if print_shapes:
             print('shape of primary caps loss function -- caps1_output_norm: ' + str(caps1_output_norm))
-        # we see these norms as one vector per class and squash thwm + take the norm (i.e., if many capsules are active
+        # we see these norms as one vector per class and squash them + take the norm (i.e., if many capsules are active
         # for a given class, this class has a high norm. We wish the irrelevant classes to have low norms.
         caps1_output_squash = squash(caps1_output_norm, axis=-1, name='caps1_output_squash')
         tf.summary.histogram('primary_capsule_squash', caps1_output_squash[0, 0, :])
@@ -615,7 +615,8 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
 
 # decode vernier orientation from an input
-def vernier_classifier(input, is_training, n_hidden=1024, name='', batch_norm=False, dropout=False):
+def vernier_classifier(input, is_training, n_hidden=1024, batch_norm=False, dropout=False, name=''):
+
     with tf.name_scope(name):
         batch_size = tf.shape(input)[0]
 
@@ -629,27 +630,41 @@ def vernier_classifier(input, is_training, n_hidden=1024, name='', batch_norm=Fa
         tf.summary.histogram('classifier_input_no_bn', flat_input)
 
         if batch_norm:
-            flat_input = tf.contrib.layers.batch_norm(flat_input, center=True, scale=True, is_training=is_training,
-                                                      scope=name + 'input_bn')
+            print('Applying batch normalization to vernier decoder input.')
+            flat_input = tf.contrib.layers.batch_norm(flat_input, center=True, scale=True, is_training=is_training, scope=name + 'input_bn')
             tf.summary.histogram('classifier_input_bn', flat_input)
 
         if n_hidden is None:
-            classifier_fc = tf.layers.dense(flat_input, 2, name='classifier_top_fc')
-            # classifier_fc = batch_norm_layer(flat_input, 2, is_training, name='classifier_fc')
+
+            print('No hidden layer in vernier classifier.')
+            if not batch_norm:
+                classifier_fc = tf.layers.dense(flat_input, 2, name='classifier_top_fc')
+            else:
+                print('Using a single batch norm fc layer as vernier decoder.')
+                classifier_fc = batch_norm_fc_layer(flat_input, 2, is_training, name='classifier_top_fc')
             tf.summary.histogram(name + '_fc', classifier_fc)
+
         else:
+
+            print('Number of hidden units in vernier classifier: ' + str(n_hidden))
             with tf.device('/cpu:0'):
-                classifier_hidden = tf.layers.dense(flat_input, n_hidden, activation=tf.nn.elu,
-                                                    name=name + '_hidden_fc')
+
+                classifier_hidden = tf.layers.dense(flat_input, n_hidden, activation=tf.nn.elu, name=name + '_hidden_fc')
+
                 if is_training and dropout:
+                    print('Using dropout at vernier classifier hidden layer.')
                     classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=0.5, name='vernier_fc_dropout')
                 else:
                     classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=1.0, name='vernier_fc_dropout')
-                # classifier_hidden = batch_norm_layer(flat_input, n_hidden, is_training,
-                # activation=tf.nn.relu, name='classifier_hidden_fc')
+                    # classifier_hidden = batch_norm_layer(flat_input, n_hidden, is_training,
+                    # activation=tf.nn.relu, name='classifier_hidden_fc')
                 tf.summary.histogram(name + '_hidden', classifier_hidden)
-            classifier_fc = tf.layers.dense(classifier_hidden, 2, activation=tf.nn.elu, name=name + '_top_fc')
-            # classifier_fc = batch_norm_layer(classifier_hidden, 2, is_training, name='classifier_top_fc')
+
+            if not batch_norm:
+                classifier_fc = tf.layers.dense(classifier_hidden, 2, activation=tf.nn.elu, name=name + '_top_fc')
+            else:
+                print('Applying batch normalization to output layer.')
+                classifier_fc = batch_norm_fc_layer(classifier_hidden, 2, is_training, activation=tf.nn.elu, name='classifier_top_fc')
             tf.summary.histogram(name + '_fc', classifier_fc)
 
         classifier_out = tf.nn.softmax(classifier_fc, name='softmax')

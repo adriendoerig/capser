@@ -16,9 +16,9 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 fixed_stim_position = None  # put top left corner of all stimuli at fixed_position
 normalize_images = True     # make each image mean=0, std=1
 max_rows, max_cols = 1, 7   # max number of rows, columns of shape grids
-vernier_grids = True        # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-im_size = (30, 140)         # guess what this does
-shape_size = 19             # size of a single shape in pixels
+vernier_grids = False        # if true, verniers come in grids like other shapes. Only single verniers otherwise.
+im_size = (50, 200)         # guess what this does
+shape_size = 25             # size of a single shape in pixels
 bar_width = 2               # thickness of elements' bars
 noise_level = 0  # 10       # add noise
 shape_types = [0, 1, 2]     # see batchMaker.drawShape for number-shape correspondences
@@ -40,9 +40,9 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 10000
+n_batches = 30000
 batch_size = 20
-conv_batch_norm = False
+conv_batch_norm = True
 decoder_batch_norm = False
 
 # saving/loading parameters
@@ -53,19 +53,19 @@ continue_training_from_checkpoint = False
 # conv layers
 activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
-                "kernel_size": 4,
+                "kernel_size": 5,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 4,
+                "kernel_size": 5,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
 conv3_params = {"filters": 32,
-                "kernel_size": 4,
+                "kernel_size": 5,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
@@ -76,7 +76,7 @@ conv3_params = {"filters": 32,
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 12,
+                    "kernel_size": 15,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -85,7 +85,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
 caps2_n_dims = 8                    # of n dimensions
-rba_rounds = 5
+rba_rounds = 2
 
 # margin loss parameters
 m_plus = .9
@@ -94,10 +94,10 @@ lambda_ = .75
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 1
+alpha_primary = 10
 m_plus_primary = .9
-m_minus_primary = .1
-lambda_primary = .75
+m_minus_primary = .2
+lambda_primary = .5
 
 # choose reconstruction loss type and alpha
 alpha_reconstruction = .0001
@@ -178,8 +178,8 @@ if do_all:
 else:
     do_embedding = 0
     plot_final_norms = 1
-    do_output_images = 0
-    do_color_capsules = 0
+    do_output_images = 1
+    do_color_capsules = 1
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -529,7 +529,8 @@ if do_output_images:
 
 if do_color_capsules:
 
-    n_trials = 8  # times we run each stimulus
+    show_grayscale = False  # you can choose to plot the decoder output for each capsule without colors
+    n_trials = 8            # times we run each stimulus
 
     with tf.Session() as sess:
 
@@ -586,11 +587,14 @@ if do_color_capsules:
                         decoder_outputs_all[:, :, rgb, done_caps] = temp
                         decoder_outputs_overlay[:, :, rgb] += temp
 
-                    show_grayscale = 0
                     if show_grayscale:
-                        print(this_decoder_output.shape)
-                        check_image = np.reshape(temp[0, :], [im_size[0], im_size[1]])
+                        print(this_decoder_output.shape, batch_data.shape)
+                        check_image = np.reshape(this_decoder_output[0, :], [im_size[0], im_size[1]])
+                        plt.subplot(1, 2, 1)
+                        plt.imshow(batch_data[0, :, :, 0], cmap="binary")
+                        plt.subplot(1, 2, 2)
                         plt.imshow(check_image, cmap="binary")
+                        plt.title('Left: stimulus, right: reconstruction from capsule ' + str(cap))
                         plt.show()
 
                     done_caps += 1
@@ -633,31 +637,33 @@ if do_vernier_decoding:
     decode_capsule = 0
     batch_size = batch_size
     n_batches = 10000
-    n_hidden = 2048
+    n_hidden = 256
+    vernier_batch_norm = True
+    vernier_dropout = False
+    decode_from_reconstruction = False
+
     LOGDIR = LOGDIR + '/vernier_decoder'
     vernier_checkpoint_path = LOGDIR+'/'+MODEL_NAME+'_'+str(version)+"vernier_decoder_model.ckpt"
     vernier_restore_checkpoint = False
     vernier_continue_training_from_checkpoint = False
 
-    caps2_output = capser["caps2_output"]  # decode from capsule
-    decoder_output = capser["decoder_output_output_caps"]  # decode from reconstruction
 
     with tf.variable_scope('decode_vernier'):
-        # vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
-        vernier_decoder_input = decoder_output
-        classifier = vernier_classifier(vernier_decoder_input, True, n_hidden, name='vernier_decoder')
+
+        if decode_from_reconstruction:
+            decoder_output = capser["decoder_output_output_caps"]  # decode from reconstruction
+            vernier_decoder_input = decoder_output
+        else:
+            caps2_output = capser["caps2_output"]  # decode from capsule
+            vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
+
+        classifier = vernier_classifier(vernier_decoder_input, True, n_hidden, batch_norm=vernier_batch_norm, dropout=vernier_dropout, name='vernier_decoder')
         x_entropy = vernier_x_entropy(classifier, y)
         correct_mean = vernier_correct_mean(tf.argmax(classifier, axis=1), y)
         update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        train_op = tf.train.AdamOptimizer(learning_rate=0.000001).minimize(x_entropy,
-                                                                           var_list=tf.get_collection(
-                                                                           tf.GraphKeys.GLOBAL_VARIABLES,
-                                                                           scope='decode_vernier'),
-                                                                           name="training_op")
+        train_op = tf.train.AdamOptimizer().minimize(x_entropy, var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'), name="training_op")
 
-    vernier_init = tf.variables_initializer(var_list=
-                                            tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'),
-                                            name='vernier_init')
+    vernier_init = tf.variables_initializer(var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'), name='vernier_init')
     summary = tf.summary.merge_all()
     master_training_op = [train_op, update_batch_norm_ops]
     vernier_saver = tf.train.Saver()
