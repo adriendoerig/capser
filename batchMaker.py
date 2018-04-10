@@ -298,6 +298,7 @@ class StimMaker:
         shapeLabels[-group_last_shapes:] = shapeLabels[-group_last_shapes]
         batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
         batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
+        nElements = numpy.zeros(batchSize, dtype=numpy.int64)
 
         if vernier_grids:  # verniers come in grids, like all other shapes.
 
@@ -312,6 +313,7 @@ class StimMaker:
                 if normalize:
                     batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
                 batchLabels[n] = shapeLabels[thisType]
+                nElements[n] = nRows*nCols
 
             batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
 
@@ -324,6 +326,7 @@ class StimMaker:
                     if normalize:
                         batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
                     batchLabels[n] = 0
+                    nElements[n] = 1
 
                 else:
                     thisType = random.randint(1, len(shapeTypes)-1)
@@ -335,11 +338,12 @@ class StimMaker:
                     if normalize:
                         batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
                     batchLabels[n] = shapeLabels[thisType]
+                    nElements[n] = nRows * nCols
 
             batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
 
         if return_n_elements is True:
-            return batchImages, batchLabels, nRows*nCols  # returns the number of elements in the last stimulus of the batch
+            return batchImages, batchLabels, nElements  # returns the number of elements in the each stimulus of the batch
         else:
             return batchImages, batchLabels
 

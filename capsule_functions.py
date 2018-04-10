@@ -420,6 +420,23 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
         return decoder_input
 
 
+def compute_n_shapes_loss(masked_input, n_shapes, n_shapes_max, print_shapes=False):
+
+    with tf.name_scope('n_shapes_loss'):
+        one_hot_n_shapes = tf.one_hot(tf.cast(n_shapes, tf.int32), n_shapes_max)
+        n_shapes_logits = tf.layers.dense(masked_input, n_shapes_max, activation=tf.nn.relu, name="n_shapes_logits")
+        n_shapes_xent = tf.losses.softmax_cross_entropy(one_hot_n_shapes, n_shapes_logits)
+        if print_shapes:
+            print('shape of compute_n_shapes_loss -- one_hot_n_shapes: ' + str(one_hot_n_shapes))
+            print('shape of compute_n_shapes_loss -- n_shapes_logits: ' + str(n_shapes_logits))
+            print('shape of compute_n_shapes_loss -- n_shapes_xent: ' + str(n_shapes_xent))
+
+        tf.summary.scalar('n_shapes_xentropy', n_shapes_xent)
+
+        return n_shapes_xent
+
+
+
 def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
 
     with tf.name_scope("decoder"):
@@ -530,7 +547,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
         used_loss = 'sparse'
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
         squared_difference = tf.square(X_flat - reconstruction, name="squared_difference")
-        sparsity_constant = 5
+        sparsity_constant = 2.5
         rescale_constant = 100000
         threshold = 0
         threshold_constant = 100000

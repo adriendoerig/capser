@@ -5,8 +5,7 @@ import numpy as np
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     caps_prediction, compute_margin_loss, compute_primary_caps_loss, create_masked_decoder_input, \
     decoder_with_mask, decoder_with_mask_batch_norm, decoder_with_mask_3layers, primary_capsule_reconstruction, \
-    compute_reconstruction_loss, safe_norm
-
+    compute_reconstruction_loss, safe_norm, compute_n_shapes_loss
 
 def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
     with tf.variable_scope('batch_norm_conv_layer'):
@@ -31,7 +30,9 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                  m_plus_primary, m_minus_primary, lambda_primary, alpha_primary,
                  output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output, reconstruction_loss_type,
                  is_training, mask_with_labels,
-                 primary_caps_decoder=False, do_primary_caps_loss=False, shape_patch=0, conv_batch_norm=False, decoder_batch_norm=False
+                 primary_caps_decoder=False, do_primary_caps_loss=False, do_n_shapes_loss=False,
+                 n_shapes_labels=0, n_shapes_max=0, alpha_n_shapes=0,
+                 shape_patch=0, conv_batch_norm=False, decoder_batch_norm=False
                  ):
 
 
@@ -160,14 +161,19 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
 
 
     ####################################################################################################################
-    # Reconstruction & reconstruction error
+    # N_shapes decoder, reconstruction & reconstruction error
     ####################################################################################################################
 
-    with tf.name_scope('decoder'):
+    with tf.name_scope('decoders'):
         # create the mask
         decoder_input_output_caps = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims,
                                                                 mask_with_labels, print_shapes=print_shapes)
         tf.summary.histogram('decoder_input_no_bn', decoder_input_output_caps)
+
+        # compute n_shapes loss
+        if do_n_shapes_loss:
+            n_shapes_loss = compute_n_shapes_loss(decoder_input_output_caps, n_shapes_labels, n_shapes_max, print_shapes)
+
         # # batch_normalize input to decoder
         # decoder_input = tf.contrib.layers.batch_norm(decoder_input_output_caps, center=True, scale=True,
         #                                              is_training=is_training, scope='output_caps_decoder_input_bn')
@@ -207,7 +213,7 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
 
     with tf.name_scope('total_loss'):
         if do_primary_caps_loss:
-            loss = tf.add_n([margin_loss, alpha_reconstruction * output_caps_reconstruction_loss, alpha_primary * primary_caps_loss], name="loss")
+            loss = tf.add_n([margin_loss, alpha_reconstruction * output_caps_reconstruction_loss, alpha_primary * primary_caps_loss, alpha_n_shapes * n_shapes_loss], name="loss")
         else:
             loss = tf.add(margin_loss, alpha_reconstruction * output_caps_reconstruction_loss, name="loss")
         tf.summary.scalar('total_loss', loss)

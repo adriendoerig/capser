@@ -53,30 +53,30 @@ continue_training_from_checkpoint = False
 # conv layers
 activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
-                "kernel_size": 5,
-                "strides": 1,
+                "kernel_size": 3,
+                "strides": 2,
                 "padding": "valid",
                 "activation": activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 5,
-                "strides": 1,
+                "kernel_size": 6,
+                "strides": 2,
                 "padding": "valid",
                 "activation": activation_function,
                 }
-conv3_params = {"filters": 32,
-                "kernel_size": 5,
-                "strides": 1,
-                "padding": "valid",
-                "activation": activation_function,
-                }
-# conv3_params = None
+# conv3_params = {"filters": 32,
+#                 "kernel_size": 5,
+#                 "strides": 1,
+#                 "padding": "valid",
+#                 "activation": activation_function,
+#                 }
+conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 15,
+                    "kernel_size": 3,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -84,13 +84,17 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 8                    # of n dimensions
-rba_rounds = 2
+caps2_n_dims = 4                    # of n dimensions
+rba_rounds = 3
 
 # margin loss parameters
 m_plus = .9
 m_minus = .1
 lambda_ = .75
+
+# optional loss requiring output capsules to give the number of shapes in the display
+n_shapes_loss = True
+alpha_n_shapes = 5
 
 # optional loss to the primary capsules
 primary_caps_loss = True
@@ -102,7 +106,7 @@ lambda_primary = .5
 # choose reconstruction loss type and alpha
 alpha_reconstruction = .0001
 reconstruction_loss_type = 'sparse'  # 'squared_difference', 'sparse', 'rescale', 'threshold' or 'plot_all'
-if reconstruction_loss_type is 'plot_all':
+if n_shapes_loss is True:
     return_n_elements = True
 else:
     return_n_elements = False
@@ -189,12 +193,12 @@ else:
 # create sample dataset (we need it to create adequately sized networks)
 if primary_caps_decoder:
     batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
-elif reconstruction_loss_type is 'plot_all':
+elif n_shapes_loss is True:
     batch_data, batch_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position, return_n_elements=return_n_elements)
 else:
     batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
-# placeholders for input images and labels
+# placeholders for input images and labels, and optional stuff
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
 x_image = tf.reshape(X, [-1, im_size[0], im_size[1], 1])
 tf.summary.image('input', x_image, 6)
@@ -205,6 +209,10 @@ if primary_caps_decoder:
     tf.summary.image('shape_patch', shape_patch, 6)
 else:
     shape_patch = 0
+if n_shapes_loss:
+    n_shapes = tf.placeholder_with_default(tf.zeros(shape=(1)), shape=[None], name="n_shapes_labels")
+else:
+    n_shapes = 0
 # create a placeholder that will tell the program whether to use the true or the predicted labels
 mask_with_labels = tf.placeholder_with_default(False, shape=(), name="mask_with_labels")
 # placeholder specifying if training or not (for batch normalization)
@@ -237,7 +245,9 @@ capser = capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                       m_plus_primary, m_minus_primary, lambda_primary, alpha_primary,
                       output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, reconstruction_loss_type,
                       is_training, mask_with_labels,
-                      primary_caps_decoder, primary_caps_loss, shape_patch, conv_batch_norm, decoder_batch_norm)
+                      primary_caps_decoder, primary_caps_loss, n_shapes_loss,
+                      n_shapes, max_cols*max_rows, alpha_n_shapes,
+                      shape_patch, conv_batch_norm, decoder_batch_norm)
 
 # op to train all networks
 do_training = capser["training_op"]
@@ -308,16 +318,17 @@ with tf.Session() as sess:
             # get new batch
             if primary_caps_decoder:
                 batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
-            elif reconstruction_loss_type is 'plot_all':
+            elif n_shapes_loss is True:
                 batch_data, batch_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position, return_n_elements=return_n_elements)
             else:
                 batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
             # Run the training operation and measure the loss:
             if primary_caps_decoder:
-                _, _, loss_train, summ,     highest_primary_capsule = sess.run(
+                _, _, loss_train, summ, highest_primary_capsule = sess.run(
                     [do_training, capser["train_op_primary_decoder"], capser["loss"], summary, capser["highest_norm_capsule"]],
                     feed_dict={X: batch_data,
                                y: batch_labels,
+                               n_shapes: n_elements,
                                mask_with_labels: True,
                                is_training: True,
                                shape_patch: batch_patches})
@@ -327,6 +338,7 @@ with tf.Session() as sess:
                     [do_training, capser["loss"], summary],
                     feed_dict={X: batch_data,
                                y: batch_labels,
+                               n_shapes: n_elements,
                                mask_with_labels: True,
                                is_training: True})
 
@@ -636,7 +648,7 @@ if do_vernier_decoding:
 
     decode_capsule = 0
     batch_size = batch_size
-    n_batches = 10000
+    n_batches = 1000
     n_hidden = 256
     vernier_batch_norm = True
     vernier_dropout = False
