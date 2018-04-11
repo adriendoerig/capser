@@ -437,21 +437,41 @@ def compute_n_shapes_loss(masked_input, n_shapes, n_shapes_max, print_shapes=Fal
 
 
 
-def decoder_with_mask(decoder_input, n_hidden1, n_hidden2, n_output):
+def decoder_with_mask(decoder_input, n_output, n_hidden1=None, n_hidden2=None, n_hidden3=None):
 
     with tf.name_scope("decoder"):
 
-        hidden1 = tf.layers.dense(decoder_input, n_hidden1,
-                                  activation=tf.nn.relu,
-                                  name="hidden1")
-        tf.summary.histogram('decoder_hidden1', hidden1)
-        hidden2 = tf.layers.dense(hidden1, n_hidden2,
-                                  activation=tf.nn.relu,
-                                  name="hidden2")
-        tf.summary.histogram('decoder_hidden2', hidden2)
-        decoder_output = tf.layers.dense(hidden2, n_output,
-                                         activation=tf.nn.sigmoid,
-                                         name="decoder_output")
+        if n_hidden1 is not None:
+            hidden1 = tf.layers.dense(decoder_input, n_hidden1,
+                                      activation=tf.nn.relu,
+                                      name="hidden1")
+            tf.summary.histogram('decoder_hidden1', hidden1)
+            if n_hidden2 is not None:
+                hidden2 = tf.layers.dense(hidden1, n_hidden2,
+                                          activation=tf.nn.relu,
+                                          name="hidden2")
+                tf.summary.histogram('decoder_hidden2', hidden2)
+                if n_hidden3 is not None:
+                    hidden3 = tf.layers.dense(hidden2, n_hidden3,
+                                              activation=tf.nn.relu,
+                                              name="hidden2")
+                    tf.summary.histogram('decoder_hidden3', hidden3)
+                    decoder_output = tf.layers.dense(hidden3, n_output,
+                                                     activation=tf.nn.sigmoid,
+                                                     name="decoder_output")
+                else:
+                    decoder_output = tf.layers.dense(hidden2, n_output,
+                                                     activation=tf.nn.sigmoid,
+                                                     name="decoder_output")
+            else:
+                decoder_output = tf.layers.dense(hidden1, n_output,
+                                                 activation=tf.nn.sigmoid,
+                                                 name="decoder_output")
+        else:
+            decoder_output = tf.layers.dense(decoder_input, n_output,
+                                             activation=tf.nn.sigmoid,
+                                             name="decoder_output")
+
         tf.summary.histogram('decoder_output', decoder_output)
 
         return decoder_output
@@ -470,38 +490,37 @@ def batch_norm_fc_layer(x, n_out, phase, name='', activation=None):
         return activation(h2)
 
 
-def decoder_with_mask_batch_norm(decoder_input, n_hidden1, n_hidden2, n_output, phase, name=''):
+def decoder_with_mask_batch_norm(decoder_input, n_output, n_hidden1=None, n_hidden2=None, n_hidden3=None, phase=True, name=''):
 
     with tf.name_scope(name+"decoder"):
 
-        hidden1 = batch_norm_fc_layer(decoder_input, n_hidden1, phase, name=name+'hidden1', activation=tf.nn.elu)
-        tf.summary.histogram(name+'_hidden1_bn', hidden1)
-        hidden2 = batch_norm_fc_layer(hidden1, n_hidden2, phase, name=name+'hidden2', activation=tf.nn.elu)
-        tf.summary.histogram(name+'_hidden2_bn', hidden2)
-        decoder_output = tf.layers.dense(hidden2, n_output,
-                                         activation=tf.nn.sigmoid,
-                                         name=name+"_output")
+        if n_hidden1 is not None:
+            hidden1 = batch_norm_fc_layer(decoder_input, n_hidden1, phase, name=name+'hidden1', activation=tf.nn.elu)
+            tf.summary.histogram(name+'_hidden1_bn', hidden1)
+            if n_hidden2 is not None:
+                hidden2 = batch_norm_fc_layer(hidden1, n_hidden2, phase, name=name+'hidden2', activation=tf.nn.elu)
+                tf.summary.histogram(name+'_hidden2_bn', hidden2)
+                if n_hidden3 is not None:
+                    hidden3 = batch_norm_fc_layer(hidden2, n_hidden3, phase, name=name + 'hidden2', activation=tf.nn.elu)
+                    tf.summary.histogram(name + '_hidden3_bn', hidden3)
+                    decoder_output = tf.layers.dense(hidden3, n_output,
+                                                     activation=tf.nn.sigmoid,
+                                                     name=name + "_output")
+                else:
+                    decoder_output = tf.layers.dense(hidden2, n_output,
+                                                 activation=tf.nn.sigmoid,
+                                                 name=name+"_output")
+            else:
+                decoder_output = tf.layers.dense(hidden1, n_output,
+                                                 activation=tf.nn.sigmoid,
+                                                 name=name + "_output")
+        else:
+            decoder_output = tf.layers.dense(decoder_input, n_output,
+                                             activation=tf.nn.sigmoid,
+                                             name=name + "_output")
+
         tf.summary.histogram(name+'_output', decoder_output)
 
-        return decoder_output
-
-
-def decoder_with_mask_3layers(decoder_input, n_hidden1, n_hidden2, n_hidden3, n_output):
-
-    with tf.name_scope("decoder"):
-
-        hidden1 = tf.layers.dense(decoder_input, n_hidden1,
-                                  activation=tf.nn.relu,
-                                  name="hidden1")
-        hidden2 = tf.layers.dense(hidden1, n_hidden2,
-                                  activation=tf.nn.relu,
-                                  name="hidden2")
-        hidden3 = tf.layers.dense(hidden2, n_hidden3,
-                                  activation=tf.nn.relu,
-                                  name="hidden3")
-        decoder_output = tf.layers.dense(hidden3, n_output,
-                                         activation=tf.nn.sigmoid,
-                                         name="decoder_output")
         return decoder_output
 
 
@@ -548,6 +567,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
         squared_difference = tf.square(X_flat - reconstruction, name="squared_difference")
         sparsity_constant = 2.5
+        sparsity_floor = 0  # value of the black background
         rescale_constant = 100000
         threshold = 0
         threshold_constant = 100000
@@ -557,7 +577,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
         elif loss_type is 'sparse':
             reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
-            sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction))
+            sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction-sparsity_floor))
             tf.summary.scalar('sparsity_loss', sparsity_loss)
             reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
             tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)

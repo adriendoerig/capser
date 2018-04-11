@@ -31,10 +31,10 @@ class StimMaker:
         firstCol = firstRow
         sideSize = int(self.shapeSize/resizeFactor)
 
-        patch[firstRow         :firstRow+self.barWidth,          firstCol:firstCol+sideSize+self.barWidth] = 254.0
-        patch[firstRow+sideSize:firstRow+self.barWidth+sideSize, firstCol:firstCol+sideSize+self.barWidth] = 254.0
-        patch[firstRow:firstRow+sideSize+self.barWidth, firstCol         :firstCol+self.barWidth         ] = 254.0
-        patch[firstRow:firstRow+sideSize+self.barWidth, firstRow+sideSize:firstRow+self.barWidth+sideSize] = 254.0
+        patch[firstRow         :firstRow+self.barWidth,          firstCol:firstCol+sideSize+self.barWidth] = 1.0
+        patch[firstRow+sideSize:firstRow+self.barWidth+sideSize, firstCol:firstCol+sideSize+self.barWidth] = 1.0
+        patch[firstRow:firstRow+sideSize+self.barWidth, firstCol         :firstCol+self.barWidth         ] = 1.0
+        patch[firstRow:firstRow+sideSize+self.barWidth, firstRow+sideSize:firstRow+self.barWidth+sideSize] = 1.0
 
         return patch
 
@@ -51,7 +51,7 @@ class StimMaker:
 
                 distance = numpy.sqrt((row-center[0])**2 + (col-center[1])**2)
                 if radius-self.barWidth < distance < radius:
-                    patch[row, col] = 254.0
+                    patch[row, col] = 1.0
 
         return patch
 
@@ -75,7 +75,7 @@ class StimMaker:
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
-        patch[RR, CC] = 254.0
+        patch[RR, CC] = 1.0
         patch[rr, cc] = 0.0
 
         return patch
@@ -105,7 +105,7 @@ class StimMaker:
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
-        patch[RR, CC] = 254.0
+        patch[RR, CC] = 1.0
         patch[rr, cc] = 0.0
 
         return patch
@@ -140,7 +140,7 @@ class StimMaker:
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
-        patch[RR, CC] = 254.0
+        patch[RR, CC] = 1.0
         patch[rr, cc] = 0.0
 
         if repeatShape:
@@ -157,7 +157,7 @@ class StimMaker:
 
             (r1, c1, r2, c2) = numpy.random.randint(self.shapeSize, size=4)
             rr, cc = draw.line(r1, c1, r2, c2)
-            patch[rr, cc] = 254.0
+            patch[rr, cc] = 1.0
 
         return patch
 
@@ -167,8 +167,8 @@ class StimMaker:
         if offset_size is None:
             offset_size = random.randint(1, int(self.barHeight/2.0))
         patch = numpy.zeros((2*self.barHeight+self.offsetHeight, 2*self.barWidth+offset_size))
-        patch[0:self.barHeight, 0:self.barWidth] = 254.0
-        patch[self.barHeight+self.offsetHeight:, self.barWidth+offset_size:] = 254.0
+        patch[0:self.barHeight, 0:self.barWidth] = 1.0
+        patch[self.barHeight+self.offsetHeight:, self.barWidth+offset_size:] = 1.0
 
         if offset is None:
             if random.randint(0, 1):
@@ -238,7 +238,7 @@ class StimMaker:
             firstRow = int((patch.shape[0]-self.shapeSize)/2) + 1
             firstCol = int((patch.shape[1]-self.shapeSize)/2) + 1
             patch[firstRow:firstRow+self.shapeSize, firstCol:firstCol+self.shapeSize] += self.drawVernier(offset, offset_size)
-            patch[patch > 254.0] = 254.0
+            patch[patch > 1.0] = 1.0
 
         if fixed_position is None:
             firstRow = random.randint(padDist, self.imSize[0] - (patch.shape[0]+padDist))  # int((self.imSize[0]-patch.shape[0])/2)
@@ -250,8 +250,8 @@ class StimMaker:
         image[firstRow:firstRow+patch.shape[0], firstCol:firstCol+patch.shape[1]] = patch
 
         # make images with only -1 and 1
-        image[image==0] = -254.
-        image[image>0] = 254.
+        image[image==0] = -0.
+        image[image>0] = 1.
 
         return image
 
@@ -321,7 +321,7 @@ class StimMaker:
 
             for n in range(batchSize):
 
-                if random.uniform(0, 1) < 0.25:
+                if random.uniform(0, 1) < 0.5:
                     batchImages[n, :, :] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
                     if normalize:
                         batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
@@ -468,4 +468,4 @@ if __name__ == "__main__":
 
     rufus = StimMaker((100, 200), 25, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 1, 2, 6, 7, 9], showPatch=False, showVernier=False, showConfig=[[1]], noiseLevel=0.0, group_last_shapes=2, normalize=True)
+    rufus.showBatch(20, [0, 2], showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=True)

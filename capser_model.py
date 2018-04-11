@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     caps_prediction, compute_margin_loss, compute_primary_caps_loss, create_masked_decoder_input, \
-    decoder_with_mask, decoder_with_mask_batch_norm, decoder_with_mask_3layers, primary_capsule_reconstruction, \
+    decoder_with_mask, decoder_with_mask_batch_norm, primary_capsule_reconstruction, \
     compute_reconstruction_loss, safe_norm, compute_n_shapes_loss
 
 def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
@@ -180,24 +180,16 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
         # tf.summary.histogram('decoder_input_bn', decoder_input_output_caps)
 
         # run decoder
-        if output_caps_decoder_n_hidden3 is None:
-            if decoder_batch_norm:
-                decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps,
-                                                                          output_caps_decoder_n_hidden1,
-                                                                          output_caps_decoder_n_hidden2,
-                                                                          output_caps_n_output, phase=is_training,
-                                                                          name='output_decoder')
-            else:
-                decoder_output_output_caps = decoder_with_mask(decoder_input_output_caps,
-                                                               output_caps_decoder_n_hidden1,
-                                                               output_caps_decoder_n_hidden2,
-                                                               output_caps_n_output)
+        if decoder_batch_norm:
+            decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps, output_caps_n_output,
+                                                                      output_caps_decoder_n_hidden1,
+                                                                      output_caps_decoder_n_hidden2,
+                                                                      phase=is_training,
+                                                                      name='output_decoder')
         else:
-            decoder_output_output_caps = decoder_with_mask_3layers(decoder_input_output_caps,
-                                                                   output_caps_decoder_n_hidden1,
-                                                                   output_caps_decoder_n_hidden2,
-                                                                   output_caps_decoder_n_hidden3,
-                                                                   output_caps_n_output)
+            decoder_output_output_caps = decoder_with_mask(decoder_input_output_caps, output_caps_n_output,
+                                                           output_caps_decoder_n_hidden1,
+                                                           output_caps_decoder_n_hidden2)
 
         decoder_output_image_output_caps = tf.reshape(decoder_output_output_caps, [-1, im_size[0], im_size[1], 1])
         tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)

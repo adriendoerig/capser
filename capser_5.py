@@ -14,52 +14,57 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 
 # data parameters
 fixed_stim_position = None  # put top left corner of all stimuli at fixed_position
-normalize_images = True     # make each image mean=0, std=1
-max_rows, max_cols = 1, 7   # max number of rows, columns of shape grids
+normalize_images = False     # make each image mean=0, std=1
+max_rows, max_cols = 1, 5   # max number of rows, columns of shape grids
 vernier_grids = False        # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-im_size = (50, 200)         # guess what this does
+im_size = (50, 145)         # guess what this does
 shape_size = 25             # size of a single shape in pixels
 bar_width = 2               # thickness of elements' bars
 noise_level = 0  # 10       # add noise
-shape_types = [0, 1, 2]     # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 2]     # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles'}
+label_to_shape = {0: 'vernier', 2: 'circles'}
 # shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
 # group_last_shapes = 1       # attributes the same label to the last n shapeTypes
 # label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
-test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
-                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6, 6, 6]]],
-                'irreg':         [None, [[7]], [[7, 7, 7, 7, 7, 7, 7]]],
-                'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6, 1, 6]]]}  #,
+test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
+                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
+                'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
+                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
+# test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
+#                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
+#                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6, 6, 6]]],
+#                 'irreg':         [None, [[7]], [[7, 7, 7, 7, 7, 7, 7]]],
+#                 'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6, 1, 6]]]}  #,
                 # 'config':        [None, [[1]], [[6, 1, 6, 1, 6, 1, 6],
                 #                                 [6, 1, 6, 1, 6, 1, 6],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 30000
-batch_size = 20
-conv_batch_norm = True
+n_batches = 400000
+batch_size = 6
+conv_batch_norm = False
 decoder_batch_norm = False
 
 # saving/loading parameters
 restore_checkpoint = True
-version_to_restore = None
+version_to_restore = 10
 continue_training_from_checkpoint = False
 
 # conv layers
 activation_function = tf.nn.elu
-conv1_params = {"filters": 32,
+conv1_params = {"filters": 16,
                 "kernel_size": 3,
-                "strides": 2,
+                "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 6,
+                "kernel_size": 12,
                 "strides": 2,
                 "padding": "valid",
                 "activation": activation_function,
@@ -76,7 +81,7 @@ conv3_params = None
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 3,
+                    "kernel_size": 7,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -84,17 +89,21 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 4                    # of n dimensions
+caps2_n_dims = 8                    # of n dimensions
 rba_rounds = 3
 
 # margin loss parameters
 m_plus = .9
-m_minus = .1
-lambda_ = .75
+m_minus = .2
+lambda_ = .5
 
 # optional loss requiring output capsules to give the number of shapes in the display
 n_shapes_loss = True
 alpha_n_shapes = 5
+if n_shapes_loss is True:
+    return_n_elements = True
+else:
+    return_n_elements = False
 
 # optional loss to the primary capsules
 primary_caps_loss = True
@@ -106,10 +115,6 @@ lambda_primary = .5
 # choose reconstruction loss type and alpha
 alpha_reconstruction = .0001
 reconstruction_loss_type = 'sparse'  # 'squared_difference', 'sparse', 'rescale', 'threshold' or 'plot_all'
-if n_shapes_loss is True:
-    return_n_elements = True
-else:
-    return_n_elements = False
 
 # decoder layer sizes
 primary_caps_decoder = False
@@ -118,8 +123,8 @@ primary_caps_decoder_n_hidden2 = 1024
 primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size**2
 
-output_caps_decoder_n_hidden1 = 512
-output_caps_decoder_n_hidden2 = 1024
+output_caps_decoder_n_hidden1 = 128
+output_caps_decoder_n_hidden2 = 512
 output_caps_decoder_n_hidden3 = None
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 
@@ -181,9 +186,9 @@ if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
     do_embedding = 0
-    plot_final_norms = 1
-    do_output_images = 1
-    do_color_capsules = 1
+    plot_final_norms = 0
+    do_output_images = 0
+    do_color_capsules = 0
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -210,7 +215,7 @@ if primary_caps_decoder:
 else:
     shape_patch = 0
 if n_shapes_loss:
-    n_shapes = tf.placeholder_with_default(tf.zeros(shape=(1)), shape=[None], name="n_shapes_labels")
+    n_shapes = tf.placeholder_with_default(tf.zeros(shape=(batch_size)), shape=[None], name="n_shapes_labels")
 else:
     n_shapes = 0
 # create a placeholder that will tell the program whether to use the true or the predicted labels
@@ -648,8 +653,8 @@ if do_vernier_decoding:
 
     decode_capsule = 0
     batch_size = batch_size
-    n_batches = 1000
-    n_hidden = 256
+    n_batches = 4000
+    n_hidden = 512
     vernier_batch_norm = True
     vernier_dropout = False
     decode_from_reconstruction = False
