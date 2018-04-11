@@ -291,7 +291,7 @@ class StimMaker:
         return batchImages, batchLabels
 
 
-    def makeBatch(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, max_rows=3, max_cols=7, vernier_grids=False, normalize=False, fixed_position=None, return_n_elements=False):
+    def makeBatch(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, max_rows=3, max_cols=7, vernier_grids=False, normalize=False, fixed_position=None):
 
         # group_last_types attributes the same label to the last n shapeTypes
         shapeLabels = numpy.arange(len(shapeTypes))
@@ -299,6 +299,7 @@ class StimMaker:
         batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
         batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
         nElements = numpy.zeros(batchSize, dtype=numpy.int64)
+        vernierLabels = numpy.zeros(batchSize, dtype=numpy.int64)  # 0 -> not a vernier, 1 -> left, 2 -> right
 
         if vernier_grids:  # verniers come in grids, like all other shapes.
 
@@ -309,11 +310,16 @@ class StimMaker:
                 nRows = random.randint(1, max_rows)
                 nCols = random.randint(1, max_cols)
                 shapeConfig = shapeType*numpy.ones((nRows, nCols))
-                batchImages[n, :, :] = self.drawStim(0, shapeConfig, fixed_position=fixed_position, offset=random.randint(0, 1), offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                thisOffset = random.randint(0, 1)
+                batchImages[n, :, :] = self.drawStim(0, shapeConfig, fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
                 if normalize:
                     batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
                 batchLabels[n] = shapeLabels[thisType]
                 nElements[n] = nRows*nCols
+                if thisType == 0:
+                    vernierLabels[n] = 0
+                else:
+                    vernierLabels[n] = -thisOffset+2
 
             batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
 
@@ -322,11 +328,13 @@ class StimMaker:
             for n in range(batchSize):
 
                 if random.uniform(0, 1) < 0.5:
-                    batchImages[n, :, :] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                    thisOffset = random.randint(0, len(shapeTypes)-1)
+                    batchImages[n, :, :] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
                     if normalize:
                         batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
                     batchLabels[n] = 0
                     nElements[n] = 1
+                    vernierLabels[n] = -thisOffset + 2
 
                 else:
                     thisType = random.randint(1, len(shapeTypes)-1)
@@ -339,13 +347,11 @@ class StimMaker:
                         batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
                     batchLabels[n] = shapeLabels[thisType]
                     nElements[n] = nRows * nCols
+                    vernierLabels[n] = 0
 
             batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
 
-        if return_n_elements is True:
-            return batchImages, batchLabels, nElements  # returns the number of elements in the each stimulus of the batch
-        else:
-            return batchImages, batchLabels
+        return batchImages, batchLabels, vernierLabels, nElements
 
 
     def makeVernierBatch(self, batchSize, noiseLevel=0.0, normalize=False, fixed_position=None):
@@ -468,4 +474,4 @@ if __name__ == "__main__":
 
     rufus = StimMaker((100, 200), 25, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 2], showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=True)
+    rufus.showBatch(20, [0, 2], showPatch=False, showVernier=True, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=False)

@@ -302,28 +302,22 @@ def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lam
             print('shape of output margin loss function -- T: ' + str(T))
 
         # the norms of the last capsules are taken as output probabilities
-        caps2_output_norm = safe_norm(caps2_output, axis=-2, keep_dims=True,
-                                      name="caps2_output_norm")
+        caps2_output_norm = safe_norm(caps2_output, axis=-2, keep_dims=True, name="caps2_output_norm")
         if print_shapes:
             print('shape of output margin loss function -- caps2_output_norm: ' + str(caps2_output_norm))
 
         # present and absent errors go into the loss
-        present_error_raw = tf.square(tf.maximum(0., m_plus - caps2_output_norm),
-                                      name="present_error_raw")
+        present_error_raw = tf.square(tf.maximum(0., m_plus - caps2_output_norm), name="present_error_raw")
         if print_shapes:
             print('shape of output margin loss function -- present_error_raw: ' + str(present_error_raw))
-        present_error = tf.reshape(present_error_raw, shape=(-1, caps2_n_caps),
-                                   name="present_error")  # there is a term for each of the caps2ncaps possible outputs
+        present_error = tf.reshape(present_error_raw, shape=(-1, caps2_n_caps), name="present_error")  # there is a term for each of the caps2ncaps possible outputs
         if print_shapes:
             print('shape of output margin loss function -- present_error: ' + str(present_error))
-        absent_error_raw = tf.square(tf.maximum(0., caps2_output_norm - m_minus),
-                                     name="absent_error_raw")
-        absent_error = tf.reshape(absent_error_raw, shape=(-1, caps2_n_caps),
-                                  name="absent_error")    # there is a term for each of the caps2ncaps possible outputs
+        absent_error_raw = tf.square(tf.maximum(0., caps2_output_norm - m_minus), name="absent_error_raw")
+        absent_error = tf.reshape(absent_error_raw, shape=(-1, caps2_n_caps), name="absent_error")    # there is a term for each of the caps2ncaps possible outputs
 
         # compute the margin loss
-        L = tf.add(T * present_error, lambda_ * (1.0 - T) * absent_error,
-                   name="L")
+        L = tf.add(T * present_error, lambda_ * (1.0 - T) * absent_error, name="L")
         if print_shapes:
             print('shape of output margin loss function -- L: ' + str(L))
         margin_loss = tf.reduce_mean(tf.reduce_sum(L, axis=1), name="margin_loss")
@@ -332,7 +326,7 @@ def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lam
         return margin_loss
 
 
-def compute_primary_caps_loss(labels, caps1_output_with_maps, caps1_n_caps, caps1_n_maps,  m_plus_primary, m_minus_primary, lambda_primary, print_shapes=False):
+def compute_primary_caps_loss(labels, caps1_output_with_maps, caps1_n_maps,  m_plus_primary, m_minus_primary, lambda_primary, print_shapes=False):
 
     # this loss will penalize capsules activated in the wrong map
 
@@ -426,14 +420,38 @@ def compute_n_shapes_loss(masked_input, n_shapes, n_shapes_max, print_shapes=Fal
         one_hot_n_shapes = tf.one_hot(tf.cast(n_shapes, tf.int32), n_shapes_max)
         n_shapes_logits = tf.layers.dense(masked_input, n_shapes_max, activation=tf.nn.relu, name="n_shapes_logits")
         n_shapes_xent = tf.losses.softmax_cross_entropy(one_hot_n_shapes, n_shapes_logits)
+        tf.summary.scalar('n_shapes_xentropy', n_shapes_xent)
+        correct = tf.equal(n_shapes, tf.cast(tf.argmax(n_shapes_logits, axis=1), tf.float32), name="correct")
+        accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
+        tf.summary.scalar('accuracy', accuracy)
+
         if print_shapes:
             print('shape of compute_n_shapes_loss -- one_hot_n_shapes: ' + str(one_hot_n_shapes))
             print('shape of compute_n_shapes_loss -- n_shapes_logits: ' + str(n_shapes_logits))
             print('shape of compute_n_shapes_loss -- n_shapes_xent: ' + str(n_shapes_xent))
 
-        tf.summary.scalar('n_shapes_xentropy', n_shapes_xent)
 
         return n_shapes_xent
+
+
+def compute_vernier_offset_loss(vernier_capsule, labels, print_shapes=False):
+
+    with tf.name_scope('vernier_offset_loss'):
+        one_hot_offsets = tf.one_hot(tf.cast(labels, tf.int32), 3)
+        offset_logits = tf.layers.dense(vernier_capsule, 3, activation=tf.nn.relu, name="offset_logits")
+        offset_xent = tf.losses.softmax_cross_entropy(one_hot_offsets, offset_logits)
+        tf.summary.scalar('training_vernier_offset_xentropy', offset_xent)
+        correct = tf.equal(labels, tf.cast(tf.argmax(offset_logits, axis=1), tf.float32), name="correct")
+        accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
+        tf.summary.scalar('accuracy', accuracy)
+
+        if print_shapes:
+            print('shape of compute_vernier_offset_loss -- input to decoder: ' + str(vernier_capsule))
+            print('shape of compute_vernier_offset_loss -- one_hot_offsets: ' + str(one_hot_offsets))
+            print('shape of compute_vernier_offset_loss -- offset_logits: ' + str(offset_logits))
+            print('shape of compute_vernier_offset_loss -- offset_xent: ' + str(offset_xent))
+
+        return offset_xent
 
 
 
@@ -577,6 +595,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
         elif loss_type is 'sparse':
             reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
+            tf.summary.scalar('squared_difference_loss', reconstruction_loss_sparse)
             sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction-sparsity_floor))
             tf.summary.scalar('sparsity_loss', sparsity_loss)
             reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
@@ -652,7 +671,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
 
 # decode vernier orientation from an input
-def vernier_classifier(input, is_training, n_hidden=1024, batch_norm=False, dropout=False, name=''):
+def vernier_classifier(input, is_training=True, n_hidden1=None, n_hidden2=None, batch_norm=False, dropout=False, name=''):
 
     with tf.name_scope(name):
         batch_size = tf.shape(input)[0]
@@ -671,7 +690,7 @@ def vernier_classifier(input, is_training, n_hidden=1024, batch_norm=False, drop
             flat_input = tf.contrib.layers.batch_norm(flat_input, center=True, scale=True, is_training=is_training, scope=name + 'input_bn')
             tf.summary.histogram('classifier_input_bn', flat_input)
 
-        if n_hidden is None:
+        if n_hidden1 is None:
 
             print('No hidden layer in vernier classifier.')
             if not batch_norm:
@@ -683,26 +702,42 @@ def vernier_classifier(input, is_training, n_hidden=1024, batch_norm=False, drop
 
         else:
 
-            print('Number of hidden units in vernier classifier: ' + str(n_hidden))
+            print('Number of hidden units in first hidden layer: ' + str(n_hidden1))
+            print('Number of hidden units in second hidden layer: ' + str(n_hidden2))
             with tf.device('/cpu:0'):
 
-                classifier_hidden = tf.layers.dense(flat_input, n_hidden, activation=tf.nn.elu, name=name + '_hidden_fc')
+                classifier_hidden1 = tf.layers.dense(flat_input, n_hidden1, activation=tf.nn.elu, name=name + '_hidden_fc')
 
                 if is_training and dropout:
-                    print('Using dropout at vernier classifier hidden layer.')
-                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=0.5, name='vernier_fc_dropout')
+                    print('Using dropout at vernier classifier first hidden layer.')
+                    classifier_hidden1 = tf.nn.dropout(classifier_hidden1, keep_prob=0.5, name='vernier_fc_dropout')
                 else:
-                    classifier_hidden = tf.nn.dropout(classifier_hidden, keep_prob=1.0, name='vernier_fc_dropout')
+                    classifier_hidden1 = tf.nn.dropout(classifier_hidden1, keep_prob=1.0, name='vernier_fc_dropout')
                     # classifier_hidden = batch_norm_layer(flat_input, n_hidden, is_training,
                     # activation=tf.nn.relu, name='classifier_hidden_fc')
-                tf.summary.histogram(name + '_hidden', classifier_hidden)
+                tf.summary.histogram(name + '_hidden', classifier_hidden1)
 
-            if not batch_norm:
-                classifier_fc = tf.layers.dense(classifier_hidden, 2, activation=tf.nn.elu, name=name + '_top_fc')
+            if n_hidden2 is None:
+                if not batch_norm:
+                    classifier_fc = tf.layers.dense(classifier_hidden1, 2, activation=tf.nn.elu, name=name + '_top_fc')
+                else:
+                    print('Applying batch normalization to output layer.')
+                    classifier_fc = batch_norm_fc_layer(classifier_hidden1, 2, is_training, activation=tf.nn.elu, name='classifier_top_fc')
+                tf.summary.histogram(name + '_fc', classifier_fc)
             else:
-                print('Applying batch normalization to output layer.')
-                classifier_fc = batch_norm_fc_layer(classifier_hidden, 2, is_training, activation=tf.nn.elu, name='classifier_top_fc')
-            tf.summary.histogram(name + '_fc', classifier_fc)
+                if not batch_norm:
+                    classifier_hidden2 = tf.layers.dense(classifier_hidden1, 2, activation=tf.nn.elu, name=name + '_hidden2')
+                else:
+                    print('Applying batch normalization to hidden2 layer.')
+                    classifier_hidden2 = batch_norm_fc_layer(classifier_hidden1, 2, is_training, activation=tf.nn.elu, name='classifier_hidden2')
+                tf.summary.histogram(name + '_hidden2', classifier_hidden2)
+
+                if not batch_norm:
+                    classifier_fc = tf.layers.dense(classifier_hidden2, 2, activation=tf.nn.elu, name=name + '_top_fc')
+                else:
+                    print('Applying batch normalization to output layer.')
+                    classifier_fc = batch_norm_fc_layer(classifier_hidden2, 2, is_training, activation=tf.nn.elu, name='classifier_top_fc')
+                tf.summary.histogram(name + '_fc', classifier_fc)
 
         classifier_out = tf.nn.softmax(classifier_fc, name='softmax')
 
