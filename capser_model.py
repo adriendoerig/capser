@@ -215,7 +215,7 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
 
 
     with tf.name_scope('total_loss'):
-        loss = tf.add_n([margin_loss,
+        loss = tf.add_n([2 * margin_loss,
                          alpha_reconstruction * output_caps_reconstruction_loss,
                          alpha_primary * primary_caps_loss,
                          alpha_n_shapes * n_shapes_loss,

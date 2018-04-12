@@ -19,14 +19,14 @@ max_rows, max_cols = 1, 5   # max number of rows, columns of shape grids
 vernier_grids = False        # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 im_size = (50, 145)         # guess what this does
 shape_size = 25             # size of a single shape in pixels
-bar_width = 2               # thickness of elements' bars
+bar_width = 3               # thickness of elements' bars
 noise_level = 0  # 10       # add noise
-shape_types = [0, 2]     # see batchMaker.drawShape for number-shape correspondences
-group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'circles'}
-# shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
+# shape_types = [0, 2]     # see batchMaker.drawShape for number-shape correspondences
 # group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-# label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
+# label_to_shape = {0: 'vernier', 1: 'circles'}
+shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
+group_last_shapes = 1       # attributes the same label to the last n shapeTypes
+label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
@@ -45,7 +45,7 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 400000
+n_batches = 200000
 batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
@@ -99,12 +99,12 @@ lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 10
+alpha_vernier_offset = 2
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
 n_shapes_loss = True
-alpha_n_shapes = 5
+alpha_n_shapes = 8
 if n_shapes_loss is True:
     return_n_elements = True
 else:
@@ -112,7 +112,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 10
+alpha_primary = 15
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
@@ -129,7 +129,7 @@ primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size**2
 
 output_caps_decoder_n_hidden1 = 128
-output_caps_decoder_n_hidden2 = 512
+output_caps_decoder_n_hidden2 = 256
 output_caps_decoder_n_hidden3 = None
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 
@@ -191,9 +191,9 @@ if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
     do_embedding = 0
-    plot_final_norms = 0
-    do_output_images = 0
-    do_color_capsules = 0
+    plot_final_norms = 1
+    do_output_images = 1
+    do_color_capsules = 1
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -275,7 +275,7 @@ if do_embedding:
     if primary_caps_decoder:
         embedding_data, embedding_labels, embedding_patches = stim_maker.makeBatchWithShape(144, shape_types,  noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     else:
-        embedding_data, embedding_labels = stim_maker.makeBatch(144, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+        embedding_data, embedding_labels, embedding_vernier_labels, embedding_n_elements = stim_maker.makeBatch(144, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
     # create sprites and embedding labels from test set for embedding visualization in tensorboard
     sprites = invert_grayscale(images_to_sprite(np.squeeze(embedding_data)))
     plt.imsave(LOGDIR+'/'+MODEL_NAME+'_'+str(version)+'_sprites.png', sprites, cmap='gray')
@@ -400,7 +400,7 @@ if plot_final_norms:
         if primary_caps_decoder:
             batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
         else:
-            batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+            batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
         caps2_output_final, predictions = sess.run([capser["caps2_output"], capser["y_pred"]],
                                                     feed_dict={X: batch_data[:n_plots, :, :, :],
@@ -450,7 +450,7 @@ if do_output_images:
     if primary_caps_decoder:
         batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     else:
-        batch_data, batch_labels = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+        batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
     sample_images = batch_data[:n_samples, :, :]
 
@@ -661,10 +661,10 @@ if do_vernier_decoding:
 
     decode_capsule = 0
     batch_size = batch_size
-    n_batches = 100000
-    n_hidden1 = 128
-    n_hidden2 = 512
-    vernier_batch_norm = True
+    n_batches = 1000
+    n_hidden1 = None
+    n_hidden2 = None
+    vernier_batch_norm = False
     vernier_dropout = False
     decode_from_reconstruction = False
 

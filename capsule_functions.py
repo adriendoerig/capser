@@ -584,7 +584,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
         used_loss = 'sparse'
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
         squared_difference = tf.square(X_flat - reconstruction, name="squared_difference")
-        sparsity_constant = 2.5
+        sparsity_constant = 1
         sparsity_floor = 0  # value of the black background
         rescale_constant = 100000
         threshold = 0
