@@ -328,7 +328,7 @@ class StimMaker:
             for n in range(batchSize):
 
                 if random.uniform(0, 1) < 0.5:
-                    thisOffset = random.randint(0, len(shapeTypes)-1)
+                    thisOffset = random.randint(0, 1)
                     batchImages[n, :, :] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
                     if normalize:
                         batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
@@ -461,12 +461,12 @@ class StimMaker:
                 plt.show()
 
         else:
-            batchImages, batchLabels = self.makeBatch(batchSize, shapeTypes, noiseLevel, group_last_shapes, normalize=normalize, fixed_position=fixed_position)
+            batchImages, batchLabels, vernierLabels, nElements = self.makeBatch(batchSize, shapeTypes, noiseLevel, group_last_shapes, normalize=normalize, fixed_position=fixed_position)
 
             for n in range(batchSize):
                 plt.figure()
                 plt.imshow(batchImages[n, :, :, 0])
-                plt.title('Label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
+                plt.title('Label, vernier label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(vernierLabels[n]) + ', ' + str(numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
                 plt.show()
 
 
@@ -474,4 +474,4 @@ if __name__ == "__main__":
 
     rufus = StimMaker((100, 200), 25, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 2], showPatch=False, showVernier=True, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=False)
+    rufus.showBatch(20, [0, 1, 2, 6, 7], showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=False)

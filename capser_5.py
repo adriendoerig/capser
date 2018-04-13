@@ -113,7 +113,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 50
+alpha_primary = 4
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
