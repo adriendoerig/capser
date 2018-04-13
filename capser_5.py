@@ -46,7 +46,7 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
 
 # training parameters
 n_batches = 150000
-batch_size = 10
+batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
 
@@ -89,18 +89,18 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 16                    # of n dimensions
+caps2_n_dims = 8                    # of n dimensions
 rba_rounds = 3
 
 # margin loss parameters
-alpha_margin = 10
+alpha_margin = 4
 m_plus = .9
 m_minus = .2
 lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 16
+alpha_vernier_offset = 8
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
@@ -129,8 +129,8 @@ primary_caps_decoder_n_hidden2 = 512
 primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size**2
 
-output_caps_decoder_n_hidden1 = 512
-output_caps_decoder_n_hidden2 = 1024
+output_caps_decoder_n_hidden1 = 256
+output_caps_decoder_n_hidden2 = 512
 output_caps_decoder_n_hidden3 = None
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 
