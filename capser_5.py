@@ -45,8 +45,8 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 200000
-batch_size = 6
+n_batches = 150000
+batch_size = 10
 conv_batch_norm = False
 decoder_batch_norm = False
 
@@ -79,7 +79,7 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = 8  # number of dimension per capsule
+caps1_n_dims = 16  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 7,
                     "strides": 2,
@@ -89,17 +89,18 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 8                    # of n dimensions
+caps2_n_dims = 16                    # of n dimensions
 rba_rounds = 3
 
 # margin loss parameters
+alpha_margin = 10
 m_plus = .9
 m_minus = .2
 lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 2
+alpha_vernier_offset = 16
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
@@ -112,7 +113,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 15
+alpha_primary = 50
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
@@ -123,13 +124,13 @@ reconstruction_loss_type = 'sparse'  # 'squared_difference', 'sparse', 'rescale'
 
 # decoder layer sizes
 primary_caps_decoder = False
-primary_caps_decoder_n_hidden1 = 512
-primary_caps_decoder_n_hidden2 = 1024
+primary_caps_decoder_n_hidden1 = 256
+primary_caps_decoder_n_hidden2 = 512
 primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size**2
 
-output_caps_decoder_n_hidden1 = 128
-output_caps_decoder_n_hidden2 = 256
+output_caps_decoder_n_hidden1 = 512
+output_caps_decoder_n_hidden2 = 1024
 output_caps_decoder_n_hidden3 = None
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 
@@ -253,9 +254,9 @@ capser = capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                       caps1_n_maps, caps1_n_dims, conv_caps_params,
                       primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                       caps2_n_caps, caps2_n_dims, rba_rounds,
-                      m_plus, m_minus, lambda_, alpha_reconstruction,
+                      m_plus, m_minus, lambda_, alpha_margin,
                       m_plus_primary, m_minus_primary, lambda_primary, alpha_primary,
-                      output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, reconstruction_loss_type,
+                      output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_decoder_n_output, reconstruction_loss_type, alpha_reconstruction,
                       is_training, mask_with_labels,
                       primary_caps_decoder, primary_caps_loss, n_shapes_loss, vernier_offset_loss,
                       n_shapes, max_cols*max_rows, alpha_n_shapes,
@@ -606,7 +607,7 @@ if do_color_capsules:
                                                                                    y: np.ones(n_trials)*cap,  # decode from capsule of interest
                                                                                    mask_with_labels: True,
                                                                                    is_training: True})
-                        peak_intensity = 255
+                        peak_intensity = np.amax(this_decoder_output)
                         this_decoder_output = np.divide(this_decoder_output, peak_intensity)
                         temp = np.multiply(this_decoder_output, color_masks[cap, rgb])
                         decoder_outputs_all[:, :, rgb, done_caps] = temp
