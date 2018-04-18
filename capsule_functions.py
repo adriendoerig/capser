@@ -451,7 +451,7 @@ def compute_vernier_offset_loss(vernier_capsule, labels, print_shapes=False):
             print('shape of compute_vernier_offset_loss -- offset_logits: ' + str(offset_logits))
             print('shape of compute_vernier_offset_loss -- offset_xent: ' + str(offset_xent))
 
-        return offset_xent
+        return offset_xent, accuracy, offset_logits
 
 
 
@@ -759,3 +759,85 @@ def vernier_correct_mean(prediction, label):
         correct_mean = tf.reduce_mean(tf.cast(correct, tf.float32), name="correct_mean")
         tf.summary.scalar('correct_mean', correct_mean)
         return correct_mean
+
+
+def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position,
+                     capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR,
+                     label_encoding='lr_01', res_path=None, plot_ID=None, saver=False, checkpoint_path=None,
+                     summary_writer=None, global_step=None):
+
+    for category in test_stimuli.keys():
+
+        stim_matrices = test_stimuli[category]
+
+        if saver is not False:
+            print('Decoding vernier orientation for : ' + category)
+            saver.restore(sess, checkpoint_path)
+
+        # we will collect correct responses here
+        correct_responses = np.zeros(shape=(3))
+
+        for this_stim in range(3):
+
+            n_batches = n_stimuli // batch_size
+
+            for batch in range(n_batches):
+                curr_stim = stim_matrices[this_stim]
+
+                # get a batch of the current stimulus
+                batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noiseLevel=noise_level,
+                                                                        normalize=normalize_images,
+                                                                        fixed_position=fixed_stim_position)
+
+                if label_encoding is 'nothinglr_012':
+                    vernier_labels = -vernier_labels+2  # (just because capser has l&r = 1&2 as vernier labels instead of l&r = 1&0
+
+                # run test stimuli through the netwoek and get classifier output:
+                correct_in_this_batch_all = sess.run(capser["vernier_accuracy"],
+                                                     feed_dict={X: batch_data,
+                                                                y: vernier_labels,
+                                                                vernier_offsets: vernier_labels,
+                                                                mask_with_labels: False})
+                correct_responses[this_stim] += np.array(correct_in_this_batch_all)
+
+        percent_correct = correct_responses * 100 / n_batches
+
+        if saver is False:
+            summary = tf.Summary()
+            summary.value.add(tag='zzz_uncrowding_exp/' + category + '_0_vernier', simple_value=percent_correct[0] / 100)
+            summary.value.add(tag='zzz_uncrowding_exp/' + category + '_1_crowded', simple_value=percent_correct[1] / 100)
+            summary.value.add(tag='zzz_uncrowding_exp/' + category + '_2_uncrowded', simple_value=percent_correct[2] / 100)
+            summary_writer.add_summary(summary, global_step)
+            summary_writer.flush()
+
+
+        if saver is not False:
+            print('... testing done.')
+            print('Percent correct for vernier decoders with stimuli: ' + category)
+            print(percent_correct)
+            print('Writing data and plot')
+            np.save(LOGDIR + '/' + category + '_percent_correct', percent_correct)
+
+            # PLOT
+            x_labels = ['vernier', 'crowded', 'uncrowded']
+
+            ####### PLOT RESULTS #######
+
+            N = len(x_labels)
+            ind = np.arange(N)  # the x locations for the groups
+            width = 0.25  # the width of the bars
+
+            fig, ax = plt.subplots()
+            plot_color = (0. / 255, 91. / 255, 150. / 255)
+            rects1 = ax.bar(ind, percent_correct, width, color=plot_color)
+
+            # add some text for labels, title and axes ticks, and save figure
+            ax.set_ylabel('Percent correct')
+            # ax.set_title('Vernier decoding from alexnet layers')
+            ax.set_xticks(ind + width / 2)
+            ax.set_xticklabels(x_labels)
+            ax.plot([-0.3, N], [50, 50], 'k--')  # chance level cashed line
+            ax.legend(rects1, ('vernier', '1 ' + category[:-1], '7 ' + category))
+            plt.savefig(res_path + '/' + category + '_uncrowding_plot_' + plot_ID + '.png')
+            plt.close()
+

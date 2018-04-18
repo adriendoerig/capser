@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from create_sprite import images_to_sprite, invert_grayscale
-from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_correct_mean, safe_norm
+from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_correct_mean, safe_norm, run_test_stimuli
 
 ########################################################################################################################
 # Parameters
@@ -24,9 +24,9 @@ noise_level = 0  # 10       # add noise
 # shape_types = [0, 2]     # see batchMaker.drawShape for number-shape correspondences
 # group_last_shapes = 1       # attributes the same label to the last n shapeTypes
 # label_to_shape = {0: 'vernier', 1: 'circles'}
-shape_types = [0, 1, 2, 6, 7]  # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 1, 2, 6]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars', 4: 'stuff'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
@@ -49,6 +49,9 @@ n_batches = 150000
 batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
+train_new_vernier_decoder = False  # to use a "fresh" new decoder for the vernier testing. More historical than useful.
+plot_uncrowding_during_training = True  # to plot uncrowding results while training
+vernier_label_encoding = 'lr_10'  # 'lr_10' or 'nothinglr_012'
 
 # saving/loading parameters
 restore_checkpoint = True
@@ -79,7 +82,7 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = 16  # number of dimension per capsule
+caps1_n_dims = 4  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 7,
                     "strides": 2,
@@ -93,19 +96,19 @@ caps2_n_dims = 8                    # of n dimensions
 rba_rounds = 3
 
 # margin loss parameters
-alpha_margin = 4
+alpha_margin = 2
 m_plus = .9
 m_minus = .2
 lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 8
+alpha_vernier_offset = 4
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
 n_shapes_loss = True
-alpha_n_shapes = 8
+alpha_n_shapes = 2
 if n_shapes_loss is True:
     return_n_elements = True
 else:
@@ -192,9 +195,9 @@ if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
     do_embedding = 0
-    plot_final_norms = 1
-    do_output_images = 1
-    do_color_capsules = 1
+    plot_final_norms = 0
+    do_output_images = 0
+    do_color_capsules = 0
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -205,7 +208,7 @@ else:
 if primary_caps_decoder:
     batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
 else:
-    batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+    batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
 # placeholders for input images and labels, and optional stuff
 X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
@@ -314,6 +317,8 @@ if do_embedding:
 saver = tf.train.Saver()
 init = tf.global_variables_initializer()
 summary = tf.summary.merge_all()
+uncrowding_exp_summary_writer = tf.summary.FileWriter(LOGDIR + '/uncrowding_exp')
+uncrowding_exp_summary = tf.Summary()
 
 with tf.Session() as sess:
 
@@ -333,7 +338,7 @@ with tf.Session() as sess:
             if primary_caps_decoder:
                 batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
             else:
-                batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+                batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
             # Run the training operation and measure the loss:
             if primary_caps_decoder:
@@ -359,7 +364,10 @@ with tf.Session() as sess:
             print("\rBatch: {}/{} ({:.1f}%) Total loss: {:.5f}".format(batch, n_batches, batch * 100 / n_batches, loss_train), end="")
 
             if batch % 250 == 0:
-                writer.add_summary(summ, batch)
+               writer.add_summary(summ, batch)
+            if batch % 10000 == 0 and plot_uncrowding_during_training:
+                    run_test_stimuli(test_stimuli, 400, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR, label_encoding=vernier_label_encoding, summary_writer=uncrowding_exp_summary_writer, global_step=batch)  # create (un-)crowding plots to see evolution
+
 
         saver.save(sess, checkpoint_path)
 
@@ -401,7 +409,7 @@ if plot_final_norms:
         if primary_caps_decoder:
             batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
         else:
-            batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+            batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, vernierLabelEncoding=vernier_label_encoding, group_last_shapes=group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
         caps2_output_final, predictions = sess.run([capser["caps2_output"], capser["y_pred"]],
                                                     feed_dict={X: batch_data[:n_plots, :, :, :],
@@ -431,6 +439,7 @@ if plot_final_norms:
             ax.set_xticks(ind + width / 2)
             ax.set_xticklabels(x_labels)
             plt.savefig(res_path + '/stimulus_' + str(i) + '.png')
+            plt.close()
 
 ########################################################################################################################
 # View predictions
@@ -451,7 +460,7 @@ if do_output_images:
     if primary_caps_decoder:
         batch_data, batch_labels, batch_patches = stim_maker.makeBatchWithShape(batch_size, shape_types, noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
     else:
-        batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+        batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
     sample_images = batch_data[:n_samples, :, :]
 
@@ -475,6 +484,7 @@ if do_output_images:
         plt.axis("off")
 
     plt.savefig(res_path+'/sample images')
+    plt.close()
     # plt.show()
 
     plt.figure(figsize=(n_samples / 1.5, n_samples / 1.5))
@@ -485,6 +495,7 @@ if do_output_images:
         plt.axis("off")
 
     plt.savefig(res_path+'/sample images reconstructed')
+    plt.close()
     # plt.show()
 
     ####################################################################################################################
@@ -546,6 +557,7 @@ if do_output_images:
                 plt.axis("off")
         # plt.show()
         plt.savefig(res_path + '/tweak dimension' + str(dim))
+        plt.close()
 
 
 ########################################################################################################################
@@ -557,6 +569,7 @@ if do_color_capsules:
 
     show_grayscale = False  # you can choose to plot the decoder output for each capsule without colors
     n_trials = 8            # times we run each stimulus
+    peak_intensity = 256    # limit the pixel intnsity to avoid saturation in the output image
 
     with tf.Session() as sess:
 
@@ -607,7 +620,6 @@ if do_color_capsules:
                                                                                    y: np.ones(n_trials)*cap,  # decode from capsule of interest
                                                                                    mask_with_labels: True,
                                                                                    is_training: True})
-                        peak_intensity = np.amax(this_decoder_output)
                         this_decoder_output = np.divide(this_decoder_output, peak_intensity)
                         temp = np.multiply(this_decoder_output, color_masks[cap, rgb])
                         decoder_outputs_all[:, :, rgb, done_caps] = temp
@@ -660,163 +672,175 @@ if do_color_capsules:
 
 if do_vernier_decoding:
 
-    decode_capsule = 0
-    batch_size = batch_size
-    n_batches = 1000
-    n_hidden1 = None
-    n_hidden2 = None
-    vernier_batch_norm = False
-    vernier_dropout = False
-    decode_from_reconstruction = False
+    res_path = image_output_dir + '/uncrowding_plots'
+    if not os.path.exists(res_path):
+        os.makedirs(res_path)
 
-    LOGDIR = LOGDIR + '/vernier_decoder'
-    vernier_checkpoint_path = LOGDIR+'/'+MODEL_NAME+'_'+str(version)+"vernier_decoder_model.ckpt"
-    vernier_restore_checkpoint = False
-    vernier_continue_training_from_checkpoint = False
+    if train_new_vernier_decoder is False:
+
+        with tf.Session() as sess:
+            correct_responses = run_test_stimuli(test_stimuli, 1000, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR, label_encoding=vernier_label_encoding, res_path=res_path, plot_ID='FINAL_TEST', saver=saver, checkpoint_path=checkpoint_path)
+
+    else:
+
+        decode_capsule = 0
+        batch_size = batch_size
+        n_batches = 1000
+        n_hidden1 = None
+        n_hidden2 = None
+        vernier_batch_norm = False
+        vernier_dropout = False
+        decode_from_reconstruction = False
+
+        LOGDIR = LOGDIR + '/vernier_decoder'
+        vernier_checkpoint_path = LOGDIR+'/'+MODEL_NAME+'_'+str(version)+"vernier_decoder_model.ckpt"
+        vernier_restore_checkpoint = True
+        vernier_continue_training_from_checkpoint = False
 
 
-    with tf.variable_scope('decode_vernier'):
+        with tf.variable_scope('decode_vernier'):
 
-        if decode_from_reconstruction:
-            decoder_output = capser["decoder_output_output_caps"]  # decode from reconstruction
-            vernier_decoder_input = decoder_output
-        else:
-            caps2_output = capser["caps2_output"]  # decode from capsule
-            vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
+            if decode_from_reconstruction:
+                decoder_output = capser["decoder_output_output_caps"]  # decode from reconstruction
+                vernier_decoder_input = decoder_output
+            else:
+                caps2_output = capser["caps2_output"]  # decode from capsule
+                vernier_decoder_input = caps2_output[:, :, decode_capsule, :, :]
 
-        classifier = vernier_classifier(vernier_decoder_input, True, n_hidden1=n_hidden1, n_hidden2=n_hidden2, batch_norm=vernier_batch_norm, dropout=vernier_dropout, name='vernier_decoder')
-        x_entropy = vernier_x_entropy(classifier, y)
-        correct_mean = vernier_correct_mean(tf.argmax(classifier, axis=1), y)
-        update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        train_op = tf.train.AdamOptimizer().minimize(x_entropy, var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'), name="training_op")
+            classifier = vernier_classifier(vernier_decoder_input, True, n_hidden1=n_hidden1, n_hidden2=n_hidden2, batch_norm=vernier_batch_norm, dropout=vernier_dropout, name='vernier_decoder')
+            x_entropy = vernier_x_entropy(classifier, y)
+            correct_mean = vernier_correct_mean(tf.argmax(classifier, axis=1), y)
+            update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            train_op = tf.train.AdamOptimizer().minimize(x_entropy, var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'), name="training_op")
 
-    vernier_init = tf.variables_initializer(var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'), name='vernier_init')
-    summary = tf.summary.merge_all()
-    master_training_op = [train_op, update_batch_norm_ops]
-    vernier_saver = tf.train.Saver()
+        vernier_init = tf.variables_initializer(var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decode_vernier'), name='vernier_init')
+        summary = tf.summary.merge_all()
+        master_training_op = [train_op, update_batch_norm_ops]
+        vernier_saver = tf.train.Saver()
 
-    ####################################################################################################################
-    # Train decoder on different verniers
-    ####################################################################################################################
-
-    with tf.Session() as sess:
-
-        # First restore the network
-        saver.restore(sess, checkpoint_path)
-        print('Training vernier decoder...')
-        writer = tf.summary.FileWriter(LOGDIR, sess.graph)
-
-        if vernier_restore_checkpoint and tf.train.checkpoint_exists(vernier_checkpoint_path):
-            print('Vernier decoder checkpoint found, will not bother training.')
-            vernier_saver.restore(sess, vernier_checkpoint_path)
-        if (vernier_restore_checkpoint and tf.train.checkpoint_exists(
-                vernier_checkpoint_path) and vernier_continue_training_from_checkpoint) \
-                or not vernier_restore_checkpoint or not tf.train.checkpoint_exists(vernier_checkpoint_path):
-
-            vernier_init.run()
-
-            for batch in range(n_batches):
-
-                # get a vernier batch
-                vernier_data, vernier_labels = stim_maker.makeVernierBatch(batch_size, noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
-
-                if batch % 5 == 0:
-
-                    # Run the training operation, measure the losses and write summary:
-                    _, summ = sess.run(
-                        [master_training_op, summary],
-                        feed_dict={X: vernier_data,
-                                   y: vernier_labels,
-                                   mask_with_labels: False,
-                                   is_training: True})
-                    writer.add_summary(summ, batch)
-
-                else:
-
-                    # Run the training operation and measure the losses:
-                    _ = sess.run(master_training_op,
-                                 feed_dict={X: vernier_data,
-                                            y: vernier_labels,
-                                            mask_with_labels: False,
-                                            is_training: True})
-
-                print("\rbatch: {}/{} ({:.1f}%)".format(
-                    batch, n_batches,
-                    batch * 100 / n_batches),
-                    end="")
-
-            # save the model at the end
-            vernier_save_path = vernier_saver.save(sess, vernier_checkpoint_path)
-
-    ####################################################################################################################
-    # Run trained decoder on actual stimuli
-    ####################################################################################################################
-
-    for category in test_stimuli.keys():
-
-        print('Decoding vernier orientation for : '  + category)
-
-        stim_matrices = test_stimuli[category]
-
-        res_path = image_output_dir + '/plots'
-        if not os.path.exists(res_path):
-            os.makedirs(res_path)
+        ####################################################################################################################
+        # Train decoder on different verniers
+        ####################################################################################################################
 
         with tf.Session() as sess:
 
-            vernier_saver.restore(sess, vernier_checkpoint_path)
+            # First restore the network
+            saver.restore(sess, checkpoint_path)
+            print('Training a new vernier decoder...')
+            writer = tf.summary.FileWriter(LOGDIR, sess.graph)
 
-            # we will collect correct responses here
-            correct_responses = np.zeros(shape=(3))
+            if vernier_restore_checkpoint and tf.train.checkpoint_exists(vernier_checkpoint_path):
+                print('Vernier decoder checkpoint found, will not bother training.')
+                vernier_saver.restore(sess, vernier_checkpoint_path)
+            if (vernier_restore_checkpoint and tf.train.checkpoint_exists(
+                    vernier_checkpoint_path) and vernier_continue_training_from_checkpoint) \
+                    or not vernier_restore_checkpoint or not tf.train.checkpoint_exists(vernier_checkpoint_path):
 
-            for this_stim in range(3):
-
-                n_stimuli = 100
-                n_batches = n_stimuli//batch_size
+                vernier_init.run()
 
                 for batch in range(n_batches):
 
+                    # get a vernier batch
+                    vernier_data, vernier_labels = stim_maker.makeVernierBatch(batch_size, noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
 
-                    curr_stim = stim_matrices[this_stim]
+                    if batch % 5 == 0:
 
-                    # get a batch of the current stimulus
-                    batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
+                        # Run the training operation, measure the losses and write summary:
+                        _, summ = sess.run(
+                            [master_training_op, summary],
+                            feed_dict={X: vernier_data,
+                                       y: vernier_labels,
+                                       mask_with_labels: False,
+                                       is_training: True})
+                        writer.add_summary(summ, batch)
+
+                    else:
+
+                        # Run the training operation and measure the losses:
+                        _ = sess.run(master_training_op,
+                                     feed_dict={X: vernier_data,
+                                                y: vernier_labels,
+                                                mask_with_labels: False,
+                                                is_training: True})
+
+                    print("\rbatch: {}/{} ({:.1f}%)".format(
+                        batch, n_batches,
+                        batch * 100 / n_batches),
+                        end="")
+
+                # save the model at the end
+                vernier_save_path = vernier_saver.save(sess, vernier_checkpoint_path)
+
+        ####################################################################################################################
+        # Run trained decoder on actual stimuli
+        ####################################################################################################################
+
+        for category in test_stimuli.keys():
+
+            print('Decoding vernier orientation for : '  + category)
+
+            stim_matrices = test_stimuli[category]
+
+            res_path = image_output_dir + '/plots'
+            if not os.path.exists(res_path):
+                os.makedirs(res_path)
+
+            with tf.Session() as sess:
+
+                vernier_saver.restore(sess, vernier_checkpoint_path)
+
+                # we will collect correct responses here
+                correct_responses = np.zeros(shape=(3))
+
+                for this_stim in range(3):
+
+                    n_stimuli = 1000
+                    n_batches = n_stimuli//batch_size
+
+                    for batch in range(n_batches):
 
 
-                    # Run the training operation and measure the losses:
-                    correct_in_this_batch_all = sess.run(correct_mean,
-                                                         feed_dict={X: batch_data,
-                                                                    y: vernier_labels,
-                                                                    mask_with_labels: False,
-                                                                    is_training: True})
+                        curr_stim = stim_matrices[this_stim]
 
-                    correct_responses[this_stim] += np.array(correct_in_this_batch_all)
+                        # get a batch of the current stimulus
+                        batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
 
-            percent_correct = correct_responses*100/n_batches
-            print('... testing done.')
-            print('Percent correct for vernier decoders with stimuli: ' + category)
-            print(percent_correct)
-            print('Writing data and plot')
-            np.save(LOGDIR+'/'+category+'_percent_correct', percent_correct)
 
-            # PLOT
-            x_labels = ['vernier', 'crowded', 'uncrowded']
+                        # Run the training operation and measure the losses:
+                        correct_in_this_batch_all = sess.run(correct_mean,
+                                                             feed_dict={X: batch_data,
+                                                                        y: vernier_labels,
+                                                                        mask_with_labels: False,
+                                                                        is_training: True})
 
-            ####### PLOT RESULTS #######
+                        correct_responses[this_stim] += np.array(correct_in_this_batch_all)
 
-            N = len(x_labels)
-            ind = np.arange(N)  # the x locations for the groups
-            width = 0.25  # the width of the bars
+                percent_correct = correct_responses*100/n_batches
+                print('... testing done.')
+                print('Percent correct for vernier decoders with stimuli: ' + category)
+                print(percent_correct)
+                print('Writing data and plot')
+                np.save(LOGDIR+'/'+category+'_percent_correct', percent_correct)
 
-            fig, ax = plt.subplots()
-            plot_color = (0./255, 91./255, 150./255)
-            rects1 = ax.bar(ind, percent_correct, width, color=plot_color)
+                # PLOT
+                x_labels = ['vernier', 'crowded', 'uncrowded']
 
-            # add some text for labels, title and axes ticks, and save figure
-            ax.set_ylabel('Percent correct')
-            # ax.set_title('Vernier decoding from alexnet layers')
-            ax.set_xticks(ind + width / 2)
-            ax.set_xticklabels(x_labels)
-            ax.plot([-0.3, N], [50, 50], 'k--')  # chance level cashed line
-            ax.legend(rects1, ('vernier', '1 ' + category[:-1], '7 ' + category))
-            plt.savefig(res_path + '/' + category + '_uncrowding_plot.png')
+                ####### PLOT RESULTS #######
+
+                N = len(x_labels)
+                ind = np.arange(N)  # the x locations for the groups
+                width = 0.25  # the width of the bars
+
+                fig, ax = plt.subplots()
+                plot_color = (0./255, 91./255, 150./255)
+                rects1 = ax.bar(ind, percent_correct, width, color=plot_color)
+
+                # add some text for labels, title and axes ticks, and save figure
+                ax.set_ylabel('Percent correct')
+                # ax.set_title('Vernier decoding from alexnet layers')
+                ax.set_xticks(ind + width / 2)
+                ax.set_xticklabels(x_labels)
+                ax.plot([-0.3, N], [50, 50], 'k--')  # chance level cashed line
+                ax.legend(rects1, ('vernier', '1 ' + category[:-1], '7 ' + category))
+                plt.savefig(res_path + '/' + category + '_uncrowding_plot.png')
+                plt.close()
