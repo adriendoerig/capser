@@ -47,7 +47,7 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
 # training parameters
 n_batches = 150000
 batch_size = 6
-conv_batch_norm = False
+conv_batch_norm = True
 decoder_batch_norm = False
 train_new_vernier_decoder = False  # to use a "fresh" new decoder for the vernier testing. More historical than useful.
 plot_uncrowding_during_training = True  # to plot uncrowding results while training
@@ -82,7 +82,7 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = 4  # number of dimension per capsule
+caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 7,
                     "strides": 2,
@@ -103,7 +103,7 @@ lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 4
+alpha_vernier_offset = 1
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
@@ -116,7 +116,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 4
+alpha_primary = 2
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
