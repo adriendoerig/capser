@@ -231,7 +231,7 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
 
     # TRAINING OPERATIONS #
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.0005)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.0005 )
     update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # for batch norm
     loss_training_op = optimizer.minimize(loss, name="training_op")
     training_op = [loss_training_op, update_batch_norm_ops]

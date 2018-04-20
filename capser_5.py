@@ -19,22 +19,24 @@ max_rows, max_cols = 1, 5   # max number of rows, columns of shape grids
 vernier_grids = False        # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 im_size = (50, 145)         # guess what this does
 shape_size = 25             # size of a single shape in pixels
-bar_width = 3               # thickness of elements' bars
+bar_width = 2               # thickness of elements' bars
 noise_level = 0  # 10       # add noise
 # shape_types = [0, 2]     # see batchMaker.drawShape for number-shape correspondences
 # group_last_shapes = 1       # attributes the same label to the last n shapeTypes
 # label_to_shape = {0: 'vernier', 1: 'circles'}
-shape_types = [0, 1, 2, 6]  # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 2]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: '7stars'}
+label_to_shape = {0: 'vernier', 1: 'circles'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
-                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-                'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
-                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]]}
+# test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
+#                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
+#                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
+#                 'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
+#                 'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
 # test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
 #                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
 #                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6, 6, 6]]],
@@ -45,17 +47,17 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 150000
+n_batches = 200000
 batch_size = 6
-conv_batch_norm = True
+conv_batch_norm = False
 decoder_batch_norm = False
-train_new_vernier_decoder = False  # to use a "fresh" new decoder for the vernier testing. More historical than useful.
+train_new_vernier_decoder = True  # to use a "fresh" new decoder for the vernier testing.
 plot_uncrowding_during_training = True  # to plot uncrowding results while training
 vernier_label_encoding = 'lr_10'  # 'lr_10' or 'nothinglr_012'
 
 # saving/loading parameters
 restore_checkpoint = True
-version_to_restore = None
+version_to_restore = 7
 continue_training_from_checkpoint = False
 
 # conv layers
@@ -103,12 +105,12 @@ lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 1
+alpha_vernier_offset = 2
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
 n_shapes_loss = True
-alpha_n_shapes = 2
+alpha_n_shapes = 8
 if n_shapes_loss is True:
     return_n_elements = True
 else:
@@ -116,7 +118,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 2
+alpha_primary = 15
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
@@ -132,8 +134,8 @@ primary_caps_decoder_n_hidden2 = 512
 primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size**2
 
-output_caps_decoder_n_hidden1 = 256
-output_caps_decoder_n_hidden2 = 512
+output_caps_decoder_n_hidden1 = 128
+output_caps_decoder_n_hidden2 = 256
 output_caps_decoder_n_hidden3 = None
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 
@@ -195,9 +197,9 @@ if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
     do_embedding = 0
-    plot_final_norms = 0
-    do_output_images = 0
-    do_color_capsules = 0
+    plot_final_norms = 1
+    do_output_images = 1
+    do_color_capsules = 1
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -780,10 +782,6 @@ if do_vernier_decoding:
             print('Decoding vernier orientation for : '  + category)
 
             stim_matrices = test_stimuli[category]
-
-            res_path = image_output_dir + '/plots'
-            if not os.path.exists(res_path):
-                os.makedirs(res_path)
 
             with tf.Session() as sess:
 
