@@ -47,12 +47,12 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 20000
+n_batches = 1000
 batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
 train_new_vernier_decoder = True  # to use a "fresh" new decoder for the vernier testing.
-plot_uncrowding_during_training = False  # to plot uncrowding results while training
+plot_uncrowding_during_training = True  # to plot uncrowding results while training
 vernier_label_encoding = 'nothinglr_012'  # 'lr_10' or 'nothinglr_012'
 
 # saving/loading parameters
@@ -105,12 +105,12 @@ lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 2
+alpha_vernier_offset = 1
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
 n_shapes_loss = True
-alpha_n_shapes = 8
+alpha_n_shapes = 4
 if n_shapes_loss is True:
     return_n_elements = True
 else:
@@ -118,7 +118,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 10
+alpha_primary = 8
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
@@ -273,6 +273,7 @@ do_training = capser["training_op"]
 
 
 writer = tf.summary.FileWriter(LOGDIR)  # to write summaries
+writer2 = tf.summary.FileWriter(LOGDIR)
 
 
 ########################################################################################################################
@@ -281,39 +282,91 @@ writer = tf.summary.FileWriter(LOGDIR)  # to write summaries
 
 
 if do_embedding:
-    if primary_caps_decoder:
-        embedding_data, embedding_labels, embedding_patches = stim_maker.makeBatchWithShape(144, shape_types,  noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
-    else:
-        embedding_data, embedding_labels, embedding_vernier_labels, embedding_n_elements = stim_maker.makeBatch(144, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
-    # create sprites and embedding labels from test set for embedding visualization in tensorboard
-    sprites = invert_grayscale(images_to_sprite(np.squeeze(embedding_data)))
-    plt.imsave(LOGDIR+'/'+MODEL_NAME+'_'+str(version)+'_sprites.png', sprites, cmap='gray')
 
-    with open(LOGDIR+'/'+MODEL_NAME+'_'+str(version)+'_embedding_labels.tsv', 'w') as f:
-        f.write("Index\tLabel\n")
-        for index, label in enumerate(embedding_labels):
-            f.write("%d\t%d\n" % (index, label))
-
-    show_sprites = 0
-    if show_sprites:
-        plt.imshow(sprites, cmap='gray')
-        plt.show()
-
-    LABELS = os.path.join(os.getcwd(), LOGDIR[2:]+'/'+MODEL_NAME+'_'+str(version)+'_embedding_labels.tsv')
-    SPRITES = os.path.join(os.getcwd(), LOGDIR[2:]+'/'+MODEL_NAME+'_'+str(version)+'_sprites.png')
-    embedding_input = tf.reshape(capser["caps2_output"], [-1, caps2_n_caps*caps2_n_dims])
-    embedding_size = caps2_n_caps*caps2_n_dims
-    embedding = tf.Variable(tf.zeros([embedding_data.shape[0], embedding_size]), name='final_capsules_embedding')
     with tf.device('/cpu:0'):
-        assignment = embedding.assign(embedding_input)
-    config = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
-    embedding_config = config.embeddings.add()
-    embedding_config.tensor_name = embedding.name
-    embedding_config.sprite.image_path = SPRITES
-    embedding_config.metadata_path = LABELS
-    # Specify the width and height (in this order!) of a single thumbnail.
-    embedding_config.sprite.single_image_dim.extend([max(im_size), max(im_size)])
-    tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
+        # an embedding using the training images
+        if primary_caps_decoder:
+            embedding_train_data, embedding_train_labels, embedding_train_patches = stim_maker.makeBatchWithShape(80, shape_types,  noise_level, group_last_shapes, normalize=normalize_images, fixed_position=fixed_stim_position)
+        else:
+            embedding_train_data, embedding_train_labels, embedding_train_vernier_labels, embedding_train_n_elements = stim_maker.makeBatch(80, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+        # create sprites and embedding labels from test set for embedding visualization in tensorboard
+        sprites_train = invert_grayscale(images_to_sprite(np.squeeze(embedding_train_data)))
+        plt.imsave(LOGDIR+'/'+MODEL_NAME+'_'+str(version)+'_sprites_train.png', sprites_train, cmap='gray')
+
+        with open(LOGDIR+'/'+MODEL_NAME+'_'+str(version)+'_embedding_train_labels.tsv', 'w') as f:
+            f.write("Index\tLabel\n")
+            for index, label in enumerate(embedding_train_labels):
+                f.write("%d\t%d\n" % (index, label))
+
+        show_sprites = 0
+        if show_sprites:
+            plt.imshow(sprites_train, cmap='gray')
+            plt.show()
+
+        LABELS_train = os.path.join(os.getcwd(), LOGDIR[2:]+'/'+MODEL_NAME+'_'+str(version)+'_embedding_train_labels.tsv')
+        SPRITES_train = os.path.join(os.getcwd(), LOGDIR[2:]+'/'+MODEL_NAME+'_'+str(version)+'_sprites_train.png')
+        embedding_input_train = tf.reshape(capser["caps2_output"], [-1, caps2_n_caps*caps2_n_dims])
+        embedding_size_train = caps2_n_caps*caps2_n_dims
+        embedding_train = tf.Variable(tf.zeros([embedding_train_data.shape[0], embedding_size_train]), name='final_capsules_embedding_train')
+        assignment_train = embedding_train.assign(embedding_input_train)
+        # config_train = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
+        # embedding_config_train = config_train.embeddings.add()
+        # embedding_config_train.tensor_name = embedding_train.name
+        # embedding_config_train.sprite.image_path = SPRITES_train
+        # embedding_config_train.metadata_path = LABELS_train
+        # # Specify the width and height (in this order!) of a single thumbnail.
+        # embedding_config_train.sprite.single_image_dim.extend([max(im_size), max(im_size)])
+        # tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config_train)
+
+        # an embedding using the testing images
+        samples_per_condition = 20
+        embedding_test_labels = np.zeros(shape=(samples_per_condition*len(test_stimuli)*2+1))
+        embedding_test_data = np.zeros(shape=(len(embedding_test_labels), im_size[0], im_size[1], 1))
+        this_cat = 0
+        for category in test_stimuli.keys():
+            stim_matrices = test_stimuli[category]
+            for stim in range(1,3):
+                embedding_test_data[(this_cat*2+(stim-1))*samples_per_condition:(this_cat*2+stim)*samples_per_condition,:,:,:], embedding_test_labels[(this_cat*2+(stim-1))*samples_per_condition:(this_cat*2+stim)*samples_per_condition] = stim_maker.makeConfigBatch(samples_per_condition, stim_matrices[stim], noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
+            this_cat += 1
+        embedding_test_data[-samples_per_condition:,:,:,:], embedding_test_labels[-samples_per_condition:] = stim_maker.makeConfigBatch(samples_per_condition, None, noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
+
+        # create sprites and embedding labels from test set for embedding visualization in tensorboard
+        sprites_test = invert_grayscale(images_to_sprite(np.squeeze(embedding_test_data)))
+        plt.imsave(LOGDIR + '/' + MODEL_NAME + '_' + str(version) + '_sprites_test.png', sprites_test, cmap='gray')
+
+        with open(LOGDIR + '/' + MODEL_NAME + '_' + str(version) + '_embedding_test_labels.tsv', 'w') as f:
+            f.write("Index\tLabel\n")
+            for index, label in enumerate(embedding_test_labels):
+                f.write("%d\t%d\n" % (index, label))
+
+        show_sprites = 0
+        if show_sprites:
+            plt.imshow(sprites_test, cmap='gray')
+            plt.show()
+
+        LABELS_test = os.path.join(os.getcwd(), LOGDIR[2:] + '/' + MODEL_NAME + '_' + str(version) + '_embedding_test_labels.tsv')
+        SPRITES_test = os.path.join(os.getcwd(), LOGDIR[2:] + '/' + MODEL_NAME + '_' + str(version) + '_sprites_test.png')
+        embedding_input_test = tf.reshape(capser["caps2_output"], [-1, caps2_n_caps * caps2_n_dims])
+        embedding_size_test = caps2_n_caps * caps2_n_dims
+        embedding_test = tf.Variable(tf.zeros([embedding_test_data.shape[0], embedding_size_test]), name='final_capsules_embedding_test')
+
+        assignment_test = embedding_test.assign(embedding_input_test)
+
+        # configure embedding visualizer
+        # training set embedding
+        config = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
+        embedding_config_train = config.embeddings.add()
+        embedding_config_train.tensor_name = embedding_train.name
+        embedding_config_train.sprite.image_path = SPRITES_train
+        embedding_config_train.metadata_path = LABELS_train
+        embedding_config_train.sprite.single_image_dim.extend([max(im_size), max(im_size)])
+        # testing set embedding
+        embedding_config_test = config.embeddings.add()
+        embedding_config_test.tensor_name = embedding_test.name
+        embedding_config_test.sprite.image_path = SPRITES_test
+        embedding_config_test.metadata_path = LABELS_test
+        embedding_config_test.sprite.single_image_dim.extend([max(im_size), max(im_size)])
+        tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
 
 
 ########################################################################################################################
@@ -371,32 +424,21 @@ with tf.Session() as sess:
                writer.add_summary(summ, batch)
             if batch % 10000 == 0 and plot_uncrowding_during_training:
                     run_test_stimuli(test_stimuli, 400, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR, label_encoding=vernier_label_encoding, summary_writer=uncrowding_exp_summary_writer, global_step=batch)  # create (un-)crowding plots to see evolution
-
-        if do_embedding:
-            sess.run(assignment, feed_dict={X: embedding_data,
-                                            y: embedding_labels,
-                                            n_shapes: n_elements,
-                                            vernier_offsets: vernier_offset_labels,
-                                            mask_with_labels: False,
-                                            is_training: True})
-        saver.save(sess, checkpoint_path)
-
-########################################################################################################################
-# Embedding & model saving
-########################################################################################################################
-
-# if do_embedding:
-#     config_cpu = tf.ConfigProto(device_count={'GPU': 0})
-#     with tf.Session(config=config_cpu) as sess:
-#         print('Creating embedding')
-#         saver.restore(sess, checkpoint_path)
-#         sess.run(assignment, feed_dict={X: embedding_data,
-#                                         y: embedding_labels,
-#                                         n_shapes: n_elements,
-#                                         vernier_offsets: vernier_offset_labels,
-#                                         mask_with_labels: False,
-#                                         is_training: True})
-#         saver.save(sess, checkpoint_path)
+            if batch % 50000 == 0:
+                if do_embedding:
+                    sess.run(assignment_train, feed_dict={X: embedding_train_data,
+                                                          y: embedding_train_labels,
+                                                          n_shapes: n_elements,
+                                                          vernier_offsets: vernier_offset_labels,
+                                                          mask_with_labels: False,
+                                                          is_training: True})
+                    sess.run(assignment_test, feed_dict={X: embedding_test_data,
+                                                         y: embedding_test_labels,
+                                                         n_shapes: n_elements,
+                                                         vernier_offsets: vernier_offset_labels,
+                                                         mask_with_labels: False,
+                                                         is_training: True})
+                saver.save(sess, checkpoint_path)
 
 
 ########################################################################################################################
