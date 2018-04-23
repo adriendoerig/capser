@@ -47,17 +47,17 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 200000
+n_batches = 20000
 batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
 train_new_vernier_decoder = True  # to use a "fresh" new decoder for the vernier testing.
-plot_uncrowding_during_training = True  # to plot uncrowding results while training
-vernier_label_encoding = 'lr_10'  # 'lr_10' or 'nothinglr_012'
+plot_uncrowding_during_training = False  # to plot uncrowding results while training
+vernier_label_encoding = 'nothinglr_012'  # 'lr_10' or 'nothinglr_012'
 
 # saving/loading parameters
 restore_checkpoint = True
-version_to_restore = 7
+version_to_restore = None
 continue_training_from_checkpoint = False
 
 # conv layers
@@ -118,7 +118,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 15
+alpha_primary = 10
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
@@ -170,7 +170,7 @@ LOGDIR = './' + MODEL_NAME + '_logdir/version_' + str(version)
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)
 
-image_output_dir = 'output_images/' + MODEL_NAME + '_' + str(version)
+image_output_dir = LOGDIR + '/output_images/'
 if not os.path.exists(image_output_dir):
     os.makedirs(image_output_dir)
 # path for saving the network
@@ -196,11 +196,11 @@ do_all = 0
 if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
-    do_embedding = 0
-    plot_final_norms = 1
-    do_output_images = 1
-    do_color_capsules = 1
-    do_vernier_decoding = 1
+    do_embedding = 1
+    plot_final_norms = 0
+    do_output_images = 0
+    do_color_capsules = 0
+    do_vernier_decoding = 0
 
 ########################################################################################################################
 # Data handling
@@ -272,6 +272,9 @@ capser = capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
 do_training = capser["training_op"]
 
 
+writer = tf.summary.FileWriter(LOGDIR)  # to write summaries
+
+
 ########################################################################################################################
 # Create embedding of the secondary capsules output
 ########################################################################################################################
@@ -296,12 +299,13 @@ if do_embedding:
         plt.imshow(sprites, cmap='gray')
         plt.show()
 
-    LABELS = MODEL_NAME+'_'+str(version)+'_embedding_labels.tsv'
-    SPRITES = MODEL_NAME+'_'+str(version)+'_sprites.png'
+    LABELS = os.path.join(os.getcwd(), LOGDIR[2:]+'/'+MODEL_NAME+'_'+str(version)+'_embedding_labels.tsv')
+    SPRITES = os.path.join(os.getcwd(), LOGDIR[2:]+'/'+MODEL_NAME+'_'+str(version)+'_sprites.png')
     embedding_input = tf.reshape(capser["caps2_output"], [-1, caps2_n_caps*caps2_n_dims])
     embedding_size = caps2_n_caps*caps2_n_dims
     embedding = tf.Variable(tf.zeros([embedding_data.shape[0], embedding_size]), name='final_capsules_embedding')
-    assignment = embedding.assign(embedding_input)
+    with tf.device('/cpu:0'):
+        assignment = embedding.assign(embedding_input)
     config = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
     embedding_config = config.embeddings.add()
     embedding_config.tensor_name = embedding.name
@@ -309,12 +313,12 @@ if do_embedding:
     embedding_config.metadata_path = LABELS
     # Specify the width and height (in this order!) of a single thumbnail.
     embedding_config.sprite.single_image_dim.extend([max(im_size), max(im_size)])
+    tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
 
 
 ########################################################################################################################
 # Training
 ########################################################################################################################
-
 
 saver = tf.train.Saver()
 init = tf.global_variables_initializer()
@@ -329,8 +333,6 @@ with tf.Session() as sess:
         print('Capser checkpoint found, skipping training.')
     if (restore_checkpoint and tf.train.checkpoint_exists(checkpoint_path) and continue_training_from_checkpoint) \
             or not restore_checkpoint or not tf.train.checkpoint_exists(checkpoint_path):
-
-        writer = tf.summary.FileWriter(LOGDIR, sess.graph)
 
         init.run()
 
@@ -370,25 +372,31 @@ with tf.Session() as sess:
             if batch % 10000 == 0 and plot_uncrowding_during_training:
                     run_test_stimuli(test_stimuli, 400, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR, label_encoding=vernier_label_encoding, summary_writer=uncrowding_exp_summary_writer, global_step=batch)  # create (un-)crowding plots to see evolution
 
-
+        if do_embedding:
+            sess.run(assignment, feed_dict={X: embedding_data,
+                                            y: embedding_labels,
+                                            n_shapes: n_elements,
+                                            vernier_offsets: vernier_offset_labels,
+                                            mask_with_labels: False,
+                                            is_training: True})
         saver.save(sess, checkpoint_path)
 
 ########################################################################################################################
 # Embedding & model saving
 ########################################################################################################################
 
-if do_embedding:
-    config = tf.ConfigProto(device_count={'GPU': 0})
-    with tf.Session(config=config) as sess:
-        writer = tf.summary.FileWriter(LOGDIR, sess.graph)
-        tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
-        print('Creating embedding')
-        saver.restore(sess, checkpoint_path)
-        sess.run(assignment, feed_dict={X: embedding_data,
-                                        y: embedding_labels,
-                                        mask_with_labels: False,
-                                        is_training: True})
-        saver.save(sess, checkpoint_path)
+# if do_embedding:
+#     config_cpu = tf.ConfigProto(device_count={'GPU': 0})
+#     with tf.Session(config=config_cpu) as sess:
+#         print('Creating embedding')
+#         saver.restore(sess, checkpoint_path)
+#         sess.run(assignment, feed_dict={X: embedding_data,
+#                                         y: embedding_labels,
+#                                         n_shapes: n_elements,
+#                                         vernier_offsets: vernier_offset_labels,
+#                                         mask_with_labels: False,
+#                                         is_training: True})
+#         saver.save(sess, checkpoint_path)
 
 
 ########################################################################################################################
@@ -571,7 +579,7 @@ if do_color_capsules:
 
     show_grayscale = False  # you can choose to plot the decoder output for each capsule without colors
     n_trials = 8            # times we run each stimulus
-    peak_intensity = 256    # limit the pixel intnsity to avoid saturation in the output image
+    peak_intensity = 128    # limit the pixel intnsity to avoid saturation in the output image
 
     with tf.Session() as sess:
 
