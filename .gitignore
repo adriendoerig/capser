@@ -1,3 +1,8 @@
-capser_5_logdir/*
+capser_5_*
+capser_4_*
+crowding_images/
 
 Thumbs.db
+.idea/
+__pycache__/
+        
