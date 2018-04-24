@@ -47,7 +47,7 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 1000
+n_batches = 200000
 batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
@@ -98,19 +98,19 @@ caps2_n_dims = 8                    # of n dimensions
 rba_rounds = 3
 
 # margin loss parameters
-alpha_margin = 2
+alpha_margin = 10
 m_plus = .9
 m_minus = .2
 lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = True
-alpha_vernier_offset = 1
+alpha_vernier_offset = 10
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
 n_shapes_loss = True
-alpha_n_shapes = 4
+alpha_n_shapes = 10
 if n_shapes_loss is True:
     return_n_elements = True
 else:
@@ -118,7 +118,7 @@ else:
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 8
+alpha_primary = 10
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
@@ -192,7 +192,7 @@ tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
-do_all = 0
+do_all = 1
 if do_all:
     do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
@@ -273,7 +273,6 @@ do_training = capser["training_op"]
 
 
 writer = tf.summary.FileWriter(LOGDIR)  # to write summaries
-writer2 = tf.summary.FileWriter(LOGDIR)
 
 
 ########################################################################################################################
@@ -309,18 +308,10 @@ if do_embedding:
         embedding_size_train = caps2_n_caps*caps2_n_dims
         embedding_train = tf.Variable(tf.zeros([embedding_train_data.shape[0], embedding_size_train]), name='final_capsules_embedding_train')
         assignment_train = embedding_train.assign(embedding_input_train)
-        # config_train = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
-        # embedding_config_train = config_train.embeddings.add()
-        # embedding_config_train.tensor_name = embedding_train.name
-        # embedding_config_train.sprite.image_path = SPRITES_train
-        # embedding_config_train.metadata_path = LABELS_train
-        # # Specify the width and height (in this order!) of a single thumbnail.
-        # embedding_config_train.sprite.single_image_dim.extend([max(im_size), max(im_size)])
-        # tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config_train)
 
         # an embedding using the testing images
         samples_per_condition = 20
-        embedding_test_labels = np.zeros(shape=(samples_per_condition*len(test_stimuli)*2+1))
+        embedding_test_labels = np.zeros(shape=(samples_per_condition*(len(test_stimuli)*2+1)))
         embedding_test_data = np.zeros(shape=(len(embedding_test_labels), im_size[0], im_size[1], 1))
         this_cat = 0
         for category in test_stimuli.keys():
