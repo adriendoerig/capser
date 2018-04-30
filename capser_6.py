@@ -57,23 +57,24 @@ if simultaneous_shapes > 1:
 
 # saving/loading parameters
 restore_checkpoint = True
-version_to_restore = 6
+version_to_restore = None
 continue_training_from_checkpoint = False
 
 # conv layers
 activation_function = tf.nn.elu
 conv1_params = {"filters": 16,
-                "kernel_size": 3,
+                "kernel_size": 9,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
-conv2_params = {"filters": 32,
-                "kernel_size": 12,
-                "strides": 2,
-                "padding": "valid",
-                "activation": activation_function,
-                }
+# conv2_params = {"filters": 32,
+#                 "kernel_size": 3,
+#                 "strides": 2,
+#                 "padding": "valid",
+#                 "activation": activation_function,
+#                 }
+conv2_params = None
 # conv3_params = {"filters": 32,
 #                 "kernel_size": 5,
 #                 "strides": 1,
@@ -83,10 +84,10 @@ conv2_params = {"filters": 32,
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
+caps1_n_maps = 16  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 7,
+                    "kernel_size": 9,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -94,7 +95,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 8                    # of n dimensions
+caps2_n_dims = 16                    # of n dimensions
 rba_rounds = 3
 
 # margin loss parameters
@@ -116,7 +117,7 @@ alpha_n_shapes = 10
 
 # optional loss to the primary capsules
 primary_caps_loss = True
-alpha_primary = 1000
+alpha_primary = 0
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
@@ -132,8 +133,8 @@ primary_caps_decoder_n_hidden2 = 512
 primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size**2
 
-output_caps_decoder_n_hidden1 = 512
-output_caps_decoder_n_hidden2 = 1024
+output_caps_decoder_n_hidden1 = 1024
+output_caps_decoder_n_hidden2 = 2048
 output_caps_decoder_n_hidden3 = None
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 output_decoder_deconv_params = {'use_deconvolution_decoder': False,

@@ -54,29 +54,38 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
         # sizes, etc.
         conv1_width = int((im_size[0] - conv1_params["kernel_size"])/conv1_params["strides"] + 1)
         conv1_height = int((im_size[1] - conv1_params["kernel_size"])/conv1_params["strides"] + 1)
-        conv2_width = int((conv1_width - conv2_params["kernel_size"])/conv2_params["strides"] + 1)
-        conv2_height = int((conv1_height - conv2_params["kernel_size"])/conv2_params["strides"] + 1)
 
-        if conv3_params is None:
-            caps1_n_caps = int((caps1_n_maps *
-                                int((conv2_width-conv_caps_params["kernel_size"])/conv_caps_params["strides"] + 1) *
-                                int((conv2_height-conv_caps_params["kernel_size"])/conv_caps_params["strides"] + 1)))
+        if conv2_params is not None:
+            conv2_width = int((conv1_width - conv2_params["kernel_size"])/conv2_params["strides"] + 1)
+            conv2_height = int((conv1_height - conv2_params["kernel_size"])/conv2_params["strides"] + 1)
+
+            if conv3_params is None:
+                caps1_n_caps = int((caps1_n_maps *
+                                    int((conv2_width-conv_caps_params["kernel_size"])/conv_caps_params["strides"] + 1) *
+                                    int((conv2_height-conv_caps_params["kernel_size"])/conv_caps_params["strides"] + 1)))
+            else:
+                conv3_width = int((conv2_width - conv3_params["kernel_size"])/conv3_params["strides"] + 1)
+                conv3_height = int((conv2_height-conv3_params["kernel_size"])/conv3_params["strides"] + 1)
+                caps1_n_caps = int((caps1_n_maps *
+                                    int((conv3_width - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1) *
+                                    int((conv3_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
         else:
-            conv3_width = int((conv2_width - conv3_params["kernel_size"])/conv3_params["strides"] + 1)
-            conv3_height = int((conv2_height-conv3_params["kernel_size"])/conv3_params["strides"] + 1)
             caps1_n_caps = int((caps1_n_maps *
-                                int((conv3_width - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1) *
-                                int((conv3_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
+                                int((conv1_width - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1) *
+                                int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params[
+                                    "strides"] + 1)))
 
         # create early conv layers
         if conv_batch_norm:
             conv1 = batch_norm_conv_layer(X, is_training, name='conv1', **conv1_params)
-            conv2 = batch_norm_conv_layer(conv1, is_training, name='conv2', **conv2_params)
+            if conv2_params is not None:
+                conv2 = batch_norm_conv_layer(conv1, is_training, name='conv2', **conv2_params)
         else:
             conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
             tf.summary.histogram('1st_conv_layer', conv1)
-            conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)
-            tf.summary.histogram('2nd_conv_layer', conv2)
+            if conv2_params is not None:
+                conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)
+                tf.summary.histogram('2nd_conv_layer', conv2)
 
         if conv3_params is not None:
 
@@ -88,9 +97,8 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
 
     with tf.name_scope('1st_caps'):
 
-        if conv3_params is None:
-            # create first capsule layer
-            caps1_output, caps1_output_with_maps = primary_caps_layer(conv2, caps1_n_maps, caps1_n_caps, caps1_n_dims,
+        if conv2_params is None:
+            caps1_output, caps1_output_with_maps = primary_caps_layer(conv1, caps1_n_maps, caps1_n_caps, caps1_n_dims,
                                                                       conv_caps_params["kernel_size"],
                                                                       conv_caps_params["strides"],
                                                                       conv_padding=conv_caps_params['padding'],
@@ -98,8 +106,18 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                                                                       print_shapes=print_shapes)
 
         else:
-            # create first capsule layer
-            caps1_output, caps1_output_with_maps = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dims, conv_caps_params["kernel_size"], conv_caps_params["strides"], conv_padding=conv_caps_params['padding'], conv_activation=conv_caps_params['activation'], print_shapes=print_shapes)
+            if conv3_params is None:
+                # create first capsule layer
+                caps1_output, caps1_output_with_maps = primary_caps_layer(conv2, caps1_n_maps, caps1_n_caps, caps1_n_dims,
+                                                                          conv_caps_params["kernel_size"],
+                                                                          conv_caps_params["strides"],
+                                                                          conv_padding=conv_caps_params['padding'],
+                                                                          conv_activation=conv_caps_params['activation'],
+                                                                          print_shapes=print_shapes)
+
+            else:
+                # create first capsule layer
+                caps1_output, caps1_output_with_maps = primary_caps_layer(conv3, caps1_n_maps, caps1_n_caps, caps1_n_dims, conv_caps_params["kernel_size"], conv_caps_params["strides"], conv_padding=conv_caps_params['padding'], conv_activation=conv_caps_params['activation'], print_shapes=print_shapes)
 
         # display a histogram of primary capsule norms
         caps1_output_norms = safe_norm(caps1_output, axis=-1, keep_dims=False, name="primary_capsule_norms")
