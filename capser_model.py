@@ -30,12 +30,13 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
                  caps2_n_caps, caps2_n_dims, rba_rounds,
                  m_plus, m_minus, lambda_, alpha_margin,
                  m_plus_primary, m_minus_primary, lambda_primary, alpha_primary,
-                 output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, output_caps_n_output, reconstruction_loss_type, alpha_reconstruction,
+                 output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, reconstruction_loss_type, alpha_reconstruction,
                  is_training, mask_with_labels,
                  primary_caps_decoder=False, do_primary_caps_loss=False, do_n_shapes_loss=False, do_vernier_offset_loss=False,
                  n_shapes_labels=0, n_shapes_max=0, alpha_n_shapes=0,
                  vernier_offset_labels=0, alpha_vernier_offset=0,
-                 shape_patch=0, conv_batch_norm=False, decoder_batch_norm=False
+                 shape_patch=0, conv_batch_norm=False, decoder_batch_norm=False,
+                 **output_decoder_deconv_params
                  ):
 
 
@@ -152,7 +153,7 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
         ####################################################################################################################
 
 
-        y_pred = caps_prediction(caps2_output, print_shapes=print_shapes)  # get index of max probability
+        y_pred = caps_prediction(caps2_output, n_labels=len(y.shape), print_shapes=print_shapes)  # get index of max probability
 
 
         ####################################################################################################################
@@ -177,13 +178,13 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
         if do_n_shapes_loss:
             n_shapes_loss = compute_n_shapes_loss(decoder_input_output_caps, n_shapes_labels, n_shapes_max, print_shapes)
         else:
-            n_shapes_loss = 0
+            n_shapes_loss = 0.
 
         if do_vernier_offset_loss:
             training_vernier_decoder_input = caps2_output[:, 0, 0, :, 0]
             training_vernier_loss, vernier_accuracy, vernier_logits = compute_vernier_offset_loss(training_vernier_decoder_input, vernier_offset_labels, print_shapes)
         else:
-            training_vernier_loss = 0
+            training_vernier_loss = 0.
 
         # # batch_normalize input to decoder
         # decoder_input = tf.contrib.layers.batch_norm(decoder_input_output_caps, center=True, scale=True,
@@ -192,15 +193,16 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
 
         # run decoder
         if decoder_batch_norm:
-            decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps, output_caps_n_output,
+            decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps, im_size[0]*im_size[1],
                                                                       output_caps_decoder_n_hidden1,
                                                                       output_caps_decoder_n_hidden2,
                                                                       phase=is_training,
                                                                       name='output_decoder')
         else:
-            decoder_output_output_caps = decoder_with_mask(decoder_input_output_caps, output_caps_n_output,
-                                                           output_caps_decoder_n_hidden1,
-                                                           output_caps_decoder_n_hidden2)
+            decoder_output_output_caps = decoder_with_mask(decoder_input=decoder_input_output_caps, output_width=im_size[1], output_height=im_size[0],
+                                                           n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2,
+                                                           n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes,
+                                                           **output_decoder_deconv_params)
 
         decoder_output_image_output_caps = tf.reshape(decoder_output_output_caps, [-1, im_size[0], im_size[1], 1])
         tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)

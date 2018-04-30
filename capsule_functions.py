@@ -280,12 +280,18 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
         return caps2_output
 
 
-def caps_prediction(caps2_output, print_shapes=False):
+def caps_prediction(caps2_output, n_labels=1, print_shapes=False):
     with tf.name_scope('net_prediction'):
+
         y_proba = safe_norm(caps2_output, axis=-2, name="y_proba")
-        y_proba_argmax = tf.argmax(y_proba, axis=2, name="y_proba")
-        # get predicted class by squeezing out irrelevant dimensions
-        y_pred = tf.squeeze(y_proba_argmax, axis=[1, 2], name="y_pred")
+
+        if n_labels == 1:  # there is a single shape to classify
+            y_proba_argmax = tf.argmax(y_proba, axis=2, name="y_proba")
+            # get predicted class by squeezing out irrelevant dimensions
+            y_pred = tf.squeeze(y_proba_argmax, axis=[1, 2], name="y_pred")
+        else:  # there are more than one shape to classify
+            _, y_pred = tf.nn.top_k(y_proba[:,0,:,0], 2, name="y_proba")
+            y_pred = tf.cast(y_pred, tf.int64)  # need to cast for type compliance later)
 
         if print_shapes:
             # check shapes
@@ -296,10 +302,24 @@ def caps_prediction(caps2_output, print_shapes=False):
 
 def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lambda_, print_shapes=False):
     with tf.name_scope('margin_loss'):
-        # the T in the margin equation can be computed easily
-        T = tf.one_hot(labels, depth=caps2_n_caps, name="T")
-        if print_shapes:
-            print('shape of output margin loss function -- T: ' + str(T))
+
+        if len(labels.shape) == 1:  # there is a single shape to classify
+
+            # the T in the margin equation can be computed easily
+            T = tf.one_hot(labels, depth=caps2_n_caps, name="T")
+            if print_shapes:
+                print('Computing output margin loss based on ONE label per image')
+                print('shape of output margin loss function -- T: ' + str(T))
+
+        else:  # there are more than one shape to classify
+
+            # trick to get a vector for each image in the batch. Labels [0,2] -> [[1, 0, 1]] and [1,1] -> [[0, 1, 0]]
+            T_raw = tf.one_hot(labels, depth=caps2_n_caps)
+            T = tf.reduce_sum(T_raw, axis=1)
+            T = tf.minimum(T, 1)
+            if print_shapes:
+                print('Computing output margin loss based on ' + str(len(labels.shape)) + ' labels per image')
+                print('shape of output margin loss function -- T: ' + str(T))
 
         # the norms of the last capsules are taken as output probabilities
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keep_dims=True, name="caps2_output_norm")
@@ -331,10 +351,23 @@ def compute_primary_caps_loss(labels, caps1_output_with_maps, caps1_n_maps,  m_p
     # this loss will penalize capsules activated in the wrong map
 
     with tf.name_scope('primary_caps_loss'):
-        # the T in the margin equation can be computed easily
-        T = tf.one_hot(labels, depth=caps1_n_maps, name="T")
-        if print_shapes:
-            print('shape of primary caps loss function -- T: ' + str(T))
+        if len(labels.shape) == 1:  # there is a single shape to classify
+
+            # the T in the margin equation can be computed easily
+            T = tf.one_hot(labels, depth=caps1_n_maps, name="T")
+            if print_shapes:
+                print('Computing primary margin loss based on ONE label per image')
+                print('shape of primary margin loss function -- T: ' + str(T))
+
+        else:  # there are more than one shape to classify
+
+            # trick to get a vector for each image in the batch. Labels [0,2] -> [[1, 0, 1]] and [1,1] -> [[0, 1, 0]]
+            T_raw = tf.one_hot(labels, depth=caps1_n_maps, name='T_raw')
+            T = tf.reduce_sum(T_raw, axis=1)
+            T = tf.minimum(T, 1)
+            if print_shapes:
+                print('Computing primarymargin loss based on ' + str(len(labels.shape)) + 'labels per image')
+                print('shape of primary margin loss function -- T: ' + str(T))
 
         # the norms of the capsules
         caps1_output_norm = safe_norm(caps1_output_with_maps, axis=-1, keep_dims=False, name="caps1_output_norm")
@@ -382,30 +415,25 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
 
         # Let's create the reconstruction mask. It should be equal to 1.0 for the target class, and 0.0 for the
         # other classes, for each instance in the batch.
-        reconstruction_mask = tf.one_hot(reconstruction_targets,
-                                         depth=n_caps,
-                                         name="reconstruction_mask")
+        reconstruction_mask = tf.one_hot(reconstruction_targets, depth=n_caps, name="reconstruction_mask")
+        if len(labels.shape) > 1:  # there are different shapes in the image
+            reconstruction_mask = tf.reduce_sum(reconstruction_mask, axis=1)
+            reconstruction_mask = tf.minimum(reconstruction_mask, 1)
 
         # caps2_output shape is (batch size, 1, 10, 16, 1). We want to multiply it by the reconstruction_mask,
         # but the shape of the reconstruction_mask is (batch size, 10). We must reshape it to (batch size, 1, 10, 1, 1)
         # to make multiplication possible:
-        reconstruction_mask_reshaped = tf.reshape(
-            reconstruction_mask, [-1, 1, n_caps, 1, 1],
-            name="reconstruction_mask_reshaped")
+        reconstruction_mask_reshaped = tf.reshape(reconstruction_mask, [-1, 1, n_caps, 1, 1], name="reconstruction_mask_reshaped")
 
         # Apply the mask!
-        caps2_output_masked = tf.multiply(
-            caps_output, reconstruction_mask_reshaped,
-            name="caps2_output_masked")
+        caps2_output_masked = tf.multiply(caps_output, reconstruction_mask_reshaped, name="caps2_output_masked")
 
         if print_shapes:
             # check shape
             print('shape of masked output: ' + str(caps2_output_masked))
 
         # flatten the masked output to feed to the decoder
-        decoder_input = tf.reshape(caps2_output_masked,
-                                   [-1, n_caps * caps_n_dims],
-                                   name="decoder_input")
+        decoder_input = tf.reshape(caps2_output_masked, [-1, n_caps * caps_n_dims], name="decoder_input")
 
         if print_shapes:
             # check shape
@@ -418,6 +446,9 @@ def compute_n_shapes_loss(masked_input, n_shapes, n_shapes_max, print_shapes=Fal
 
     with tf.name_scope('n_shapes_loss'):
         one_hot_n_shapes = tf.one_hot(tf.cast(n_shapes, tf.int32), n_shapes_max)
+        if len(n_shapes.shape) > 1:  # there are different shapes in the image
+            one_hot_n_shapes = tf.reduce_sum(one_hot_n_shapes, axis=1)
+            one_hot_n_shapes = tf.minimum(one_hot_n_shapes, 1)
         n_shapes_logits = tf.layers.dense(masked_input, n_shapes_max, activation=tf.nn.relu, name="n_shapes_logits")
         n_shapes_xent = tf.losses.softmax_cross_entropy(one_hot_n_shapes, n_shapes_logits)
         tf.summary.scalar('n_shapes_xentropy', n_shapes_xent)
@@ -437,6 +468,7 @@ def compute_n_shapes_loss(masked_input, n_shapes, n_shapes_max, print_shapes=Fal
 def compute_vernier_offset_loss(vernier_capsule, labels, print_shapes=False):
 
     with tf.name_scope('vernier_offset_loss'):
+
         one_hot_offsets = tf.one_hot(tf.cast(labels, tf.int32), 3)
         offset_logits = tf.layers.dense(vernier_capsule, 3, activation=tf.nn.relu, name="offset_logits")
         offset_xent = tf.losses.softmax_cross_entropy(one_hot_offsets, offset_logits)
@@ -454,45 +486,81 @@ def compute_vernier_offset_loss(vernier_capsule, labels, print_shapes=False):
         return offset_xent, accuracy, offset_logits
 
 
-
-def decoder_with_mask(decoder_input, n_output, n_hidden1=None, n_hidden2=None, n_hidden3=None):
+def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None, n_hidden2=None, n_hidden3=None, print_shapes=False, **deconv_params):
 
     with tf.name_scope("decoder"):
 
-        if n_hidden1 is not None:
-            hidden1 = tf.layers.dense(decoder_input, n_hidden1,
-                                      activation=tf.nn.relu,
-                                      name="hidden1")
-            tf.summary.histogram('decoder_hidden1', hidden1)
-            if n_hidden2 is not None:
-                hidden2 = tf.layers.dense(hidden1, n_hidden2,
+        n_output = output_width * output_height
+
+        if deconv_params['use_deconvolution_decoder'] is True:
+
+            if deconv_params['fc_width'] is not None:
+                hidden1 = tf.layers.dense(decoder_input, deconv_params['fc_width']*deconv_params['fc_height'], activation=tf.nn.relu, name="fc_hidden1")
+                hidden1_2d = tf.reshape(hidden1, shape=[-1, deconv_params['fc_height'], deconv_params['fc_width']])
+                hidden1_2d = tf.expand_dims(hidden1_2d, axis=-1)
+                tf.summary.histogram('deconv_decoder_hidden1', hidden1_2d)
+                if print_shapes:
+                    print('shape of decoder first fc: ' + str(hidden1_2d))
+
+                hidden2 = tf.layers.conv2d_transpose(hidden1_2d, deconv_params['deconv_filters2'], deconv_params['deconv_kernel2'],  deconv_params['deconv_strides2'], activation=tf.nn.relu, name="deconv_hidden2")
+                tf.summary.histogram('deconv_decoder_hidden2', hidden2)
+                if print_shapes:
+                    print('shape of decoder 1st deconv output: ' + str(hidden2))
+
+                if deconv_params['final_fc'] is True:
+                    hidden2_flat = tf.reshape(hidden2, shape=[-1,n_output*deconv_params['deconv_filters2']])
+                    if print_shapes:
+                        print('shape of decoder 1st deconv output flat: ' + str(hidden2_flat))
+
+                    decoder_output = tf.layers.dense(hidden2_flat, n_output, activation=tf.nn.sigmoid, name="deconv_decoder_output")
+                    if print_shapes:
+                        print('shape of decoder output: ' + str(decoder_output))
+                else:
+                    decoder_output = tf.reduce_sum(hidden2, axis=-1)
+                    if print_shapes:
+                        print('shape of decoder output: ' + str(decoder_output))
+                    decoder_output = tf.reshape(decoder_output, shape=[-1, n_output])
+                    if print_shapes:
+                        print('shape of decoder output flat: ' + str(decoder_output))
+
+            return decoder_output
+
+        else:
+
+            if n_hidden1 is not None:
+                hidden1 = tf.layers.dense(decoder_input, n_hidden1,
                                           activation=tf.nn.relu,
-                                          name="hidden2")
-                tf.summary.histogram('decoder_hidden2', hidden2)
-                if n_hidden3 is not None:
-                    hidden3 = tf.layers.dense(hidden2, n_hidden3,
+                                          name="hidden1")
+                tf.summary.histogram('decoder_hidden1', hidden1)
+                if n_hidden2 is not None:
+                    hidden2 = tf.layers.dense(hidden1, n_hidden2,
                                               activation=tf.nn.relu,
                                               name="hidden2")
-                    tf.summary.histogram('decoder_hidden3', hidden3)
-                    decoder_output = tf.layers.dense(hidden3, n_output,
-                                                     activation=tf.nn.sigmoid,
-                                                     name="decoder_output")
+                    tf.summary.histogram('decoder_hidden2', hidden2)
+                    if n_hidden3 is not None:
+                        hidden3 = tf.layers.dense(hidden2, n_hidden3,
+                                                  activation=tf.nn.relu,
+                                                  name="hidden2")
+                        tf.summary.histogram('decoder_hidden3', hidden3)
+                        decoder_output = tf.layers.dense(hidden3, n_output,
+                                                         activation=tf.nn.sigmoid,
+                                                         name="decoder_output")
+                    else:
+                        decoder_output = tf.layers.dense(hidden2, n_output,
+                                                         activation=tf.nn.sigmoid,
+                                                         name="decoder_output")
                 else:
-                    decoder_output = tf.layers.dense(hidden2, n_output,
+                    decoder_output = tf.layers.dense(hidden1, n_output,
                                                      activation=tf.nn.sigmoid,
                                                      name="decoder_output")
             else:
-                decoder_output = tf.layers.dense(hidden1, n_output,
+                decoder_output = tf.layers.dense(decoder_input, n_output,
                                                  activation=tf.nn.sigmoid,
                                                  name="decoder_output")
-        else:
-            decoder_output = tf.layers.dense(decoder_input, n_output,
-                                             activation=tf.nn.sigmoid,
-                                             name="decoder_output")
 
-        tf.summary.histogram('decoder_output', decoder_output)
+            tf.summary.histogram('decoder_output', decoder_output)
 
-        return decoder_output
+            return decoder_output
 
 
 def batch_norm_fc_layer(x, n_out, phase, name='', activation=None):
@@ -761,7 +829,7 @@ def vernier_correct_mean(prediction, label):
         return correct_mean
 
 
-def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position,
+def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, simultaneous_shapes,
                      capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR,
                      label_encoding='lr_01', res_path=None, plot_ID=None, saver=False, checkpoint_path=None,
                      summary_writer=None, global_step=None):
@@ -795,7 +863,7 @@ def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_leve
                 # run test stimuli through the netwoek and get classifier output:
                 correct_in_this_batch_all = sess.run(capser["vernier_accuracy"],
                                                      feed_dict={X: batch_data,
-                                                                y: vernier_labels,
+                                                                y: np.zeros(shape=(len(vernier_labels), simultaneous_shapes)),  # just a trick to make it run, we actually don't care about this
                                                                 vernier_offsets: vernier_labels,
                                                                 mask_with_labels: False})
                 correct_responses[this_stim] += np.array(correct_in_this_batch_all)
