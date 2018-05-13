@@ -24,7 +24,7 @@ def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
             return activation(norm_conv)
 
 
-def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
+def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_params, conv3_params,
                  caps1_n_maps, caps1_n_dims, conv_caps_params,
                  primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                  caps2_n_caps, caps2_n_dims, rba_rounds,
@@ -199,7 +199,7 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
             n_shapes_loss = 0.
 
         if do_vernier_offset_loss:
-            training_vernier_decoder_input = caps2_output[:, 0, 0, :, 0]
+            training_vernier_decoder_input = caps2_output[:, 0, 0, :, 0]  # decode from vernier capsule
             training_vernier_loss, vernier_accuracy, vernier_logits = compute_vernier_offset_loss(training_vernier_decoder_input, vernier_offset_labels, print_shapes)
         else:
             training_vernier_loss = 0.
@@ -209,26 +209,52 @@ def capser_model(X, y, im_size, conv1_params, conv2_params, conv3_params,
         #                                              is_training=is_training, scope='output_caps_decoder_input_bn')
         # tf.summary.histogram('decoder_input_bn', decoder_input_output_caps)
 
-        # run decoder
-        if decoder_batch_norm:
-            decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps, im_size[0]*im_size[1],
-                                                                      output_caps_decoder_n_hidden1,
-                                                                      output_caps_decoder_n_hidden2,
-                                                                      phase=is_training,
-                                                                      name='output_decoder')
+        # run decoder to reconstruct full image at once (used when simultaneous shapes == 1
+        simultaneous_shapes = tf.shape(reconstruction_targets)[-1]
+        if simultaneous_shapes == 1:
+            if decoder_batch_norm:
+                decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps, im_size[0]*im_size[1],
+                                                                          output_caps_decoder_n_hidden1,
+                                                                          output_caps_decoder_n_hidden2,
+                                                                          phase=is_training,
+                                                                          name='output_decoder')
+            else:
+                decoder_output_output_caps = decoder_with_mask(decoder_input=decoder_input_output_caps, output_width=im_size[1], output_height=im_size[0],
+                                                               n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2,
+                                                               n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes,
+                                                               **output_decoder_deconv_params)
+
+            decoder_output_image_output_caps = tf.reshape(decoder_output_output_caps, [-1, im_size[0], im_size[1], 1])
+            tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
+
+            # reconstruction loss
+            output_caps_reconstruction_loss, squared_differences = compute_reconstruction_loss(X, decoder_output_output_caps, loss_type=reconstruction_loss_type)
+
+        # if we are in simultaneous_shapes > 1 mode, we reconstruct from each capsule separately and clip at 1.
         else:
-            decoder_output_output_caps = decoder_with_mask(decoder_input=decoder_input_output_caps, output_width=im_size[1], output_height=im_size[0],
-                                                           n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2,
-                                                           n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes,
-                                                           **output_decoder_deconv_params)
 
-        decoder_output_image_output_caps = tf.reshape(decoder_output_output_caps, [-1, im_size[0], im_size[1], 1])
-        tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
+            decoder_outputs = tf.zeros(shape=(tf.shape(X)[0], im_size[0]*im_size[1], simultaneous_shapes))
+            output_caps_reconstruction_loss, squared_differences = 0, 0
+            if print_shapes:
+                print('shape of decoder_output: ' + str(decoder_outputs))
 
-        # reconstruction loss
-        output_caps_reconstruction_loss, squared_differences = compute_reconstruction_loss(X, decoder_output_output_caps, loss_type=reconstruction_loss_type)
+            for this_shape in range(simultaneous_shapes):
+                this_masked_output = create_masked_decoder_input(y[this_shape], y_pred[this_shape], caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=print_shapes)
 
+                if decoder_batch_norm:
+                    decoder_outputs[:, :, this_shape] = decoder_with_mask_batch_norm(this_masked_output, im_size[0] * im_size[1], output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, phase=is_training, name='output_decoder')
+                else:
+                    decoder_outputs[:, :, this_shape] = decoder_with_mask(decoder_input=decoder_input_output_caps, output_width=im_size[1], output_height=im_size[0], n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2, n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes, **output_decoder_deconv_params)
 
+                # reconstruction loss
+                this_output_caps_reconstruction_loss, this_squared_differences = compute_reconstruction_loss(reconstruction_targets[:, :, :, this_shape], decoder_outputs[:, :, this_shape], loss_type=reconstruction_loss_type, no_tensorboard=True)
+                output_caps_reconstruction_loss = output_caps_reconstruction_loss + this_output_caps_reconstruction_loss
+                squared_differences = squared_differences + this_squared_differences
+
+            tf.summary.scalar('reconstruction_loss_sum', output_caps_reconstruction_loss)
+            decoder_output_images = tf.reshape(decoder_outputs, [-1, im_size[0], im_size[1], 1])
+            # display the summed output image
+            tf.summary.image('decoder_output', tf.reduce_sum(decoder_outputs, axis=-1), 6)
     ####################################################################################################################
     # Final loss, accuracy, training operations, init & saver
     ####################################################################################################################

@@ -645,11 +645,11 @@ def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_outp
         return decoder_output_primary_caps, highest_norm_capsule[0]
 
 # takes a n*n input and a flat decoder output
-def compute_reconstruction_loss(input, reconstruction, loss_type='squared_difference'):
+def compute_reconstruction_loss(input, reconstruction, loss_type='squared_difference', no_tensorboard=False):
 
     with tf.name_scope('reconstruction_loss'):
 
-        used_loss = 'sparse'
+        used_loss = 'sparse'  # which loss to use for training if loss_type is 'plot_all'
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
         squared_difference = tf.square(X_flat - reconstruction, name="squared_difference")
         sparsity_constant = 1
@@ -660,14 +660,20 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
         if loss_type is 'squared_difference':
             reconstruction_loss = tf.reduce_sum(squared_difference,  name="reconstruction_loss")
+            if no_tensorboard is False:
+                tf.summary.scalar('reconstruction_loss_squared_diff', reconstruction_loss)
+            stimuli_square_differences = tf.reduce_sum(squared_difference, axis=1, name="square_diff_for_each_stimulus")
 
         elif loss_type is 'sparse':
             reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
-            tf.summary.scalar('squared_difference_loss', reconstruction_loss_sparse)
+            if no_tensorboard is False:
+                tf.summary.scalar('squared_difference_loss', reconstruction_loss_sparse)
             sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction-sparsity_floor))
-            tf.summary.scalar('sparsity_loss', sparsity_loss)
+            if no_tensorboard is False:
+                tf.summary.scalar('sparsity_loss', sparsity_loss)
             reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
-            tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
+            if no_tensorboard is False:
+                tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
             reconstruction_loss = reconstruction_loss_sparse
             stimuli_square_differences = tf.reduce_sum(squared_difference + sparsity_constant * tf.reduce_sum(tf.square(reconstruction)), axis=1,  name="sparse_square_diff_for_each_stimulus")
 
@@ -694,19 +700,23 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
         elif loss_type is 'plot_all':
             reconstruction_loss_square_diff = tf.reduce_sum(squared_difference, name="reconstruction_loss_square_diff")
-            tf.summary.scalar('reconstruction_loss_square_diff', reconstruction_loss_square_diff)
+            if no_tensorboard is False:
+                tf.summary.scalar('reconstruction_loss_square_diff', reconstruction_loss_square_diff)
 
             reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
             sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction))
-            tf.summary.scalar('sparsity_loss', sparsity_loss)
+            if no_tensorboard is False:
+                tf.summary.scalar('sparsity_loss', sparsity_loss)
             reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
-            tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
+            if no_tensorboard is False:
+                tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
 
             squared_difference_sum = tf.reduce_sum(squared_difference, axis=1, name="squared_difference_sum")
             scales = tf.reduce_sum(X_flat, axis=1, name='scales')
             diff_rescale = rescale_constant * squared_difference_sum / scales
             reconstruction_loss_rescale = tf.reduce_sum(diff_rescale, name="reconstruction_loss")
-            tf.summary.scalar('reconstruction_loss_rescale', reconstruction_loss_rescale)
+            if no_tensorboard is False:
+                tf.summary.scalar('reconstruction_loss_rescale', reconstruction_loss_rescale)
 
             threshold = 0
             template = tf.maximum(X_flat, reconstruction, name='template')
@@ -720,7 +730,8 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
             n_above_threshold = tf.count_nonzero(template, dtype=tf.float32)
             thresholded_squared_difference = tf.multiply(squared_difference, template)
             reconstruction_loss_threshold = tf.reduce_sum(thresholded_squared_difference, name="reconstruction_loss") / n_above_threshold * threshold_constant
-            tf.summary.scalar('reconstruction_loss_threshold', reconstruction_loss_threshold)
+            if no_tensorboard is False:
+                tf.summary.scalar('reconstruction_loss_threshold', reconstruction_loss_threshold)
 
             if used_loss is 'squared_difference':
                 reconstruction_loss = reconstruction_loss_square_diff
@@ -830,7 +841,7 @@ def vernier_correct_mean(prediction, label):
 
 
 def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, simultaneous_shapes,
-                     capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR,
+                     capser, X, y, reconstruction_targets, vernier_offsets, mask_with_labels, sess, LOGDIR,
                      label_encoding='lr_01', res_path=None, plot_ID=None, saver=False, checkpoint_path=None,
                      summary_writer=None, global_step=None):
 
@@ -856,14 +867,22 @@ def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_leve
                 batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noiseLevel=noise_level,
                                                                         normalize=normalize_images,
                                                                         fixed_position=fixed_stim_position)
+                batch_reconstruction_targets = batch_data
 
                 if label_encoding is 'nothinglr_012':
                     vernier_labels = -vernier_labels+2  # (just because capser has l&r = 1&2 as vernier labels instead of l&r = 1&0
 
+                # we will feed an empty y that will not be used, but needs to have the right shape (called y_serge)
+                if simultaneous_shapes == 1:
+                    y_serge = np.zeros(shape=(len(vernier_labels)))
+                else:
+                    y_serge = np.zeros(shape=(len(vernier_labels), 2))
+
                 # run test stimuli through the netwoek and get classifier output:
                 correct_in_this_batch_all = sess.run(capser["vernier_accuracy"],
                                                      feed_dict={X: batch_data,
-                                                                y: np.zeros(shape=(len(vernier_labels), simultaneous_shapes)),  # just a trick to make it run, we actually don't care about this
+                                                                reconstruction_targets: batch_reconstruction_targets,
+                                                                y: y_serge,  # just a trick to make it run, we actually don't care about this
                                                                 vernier_offsets: vernier_labels,
                                                                 mask_with_labels: False})
                 correct_responses[this_stim] += np.array(correct_in_this_batch_all)
