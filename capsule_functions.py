@@ -290,7 +290,7 @@ def caps_prediction(caps2_output, n_labels=1, print_shapes=False):
             # get predicted class by squeezing out irrelevant dimensions
             y_pred = tf.squeeze(y_proba_argmax, axis=[1, 2], name="y_pred")
         else:  # there are more than one shape to classify
-            _, y_pred = tf.nn.top_k(y_proba[:,0,:,0], 2, name="y_proba")
+            _, y_pred = tf.nn.top_k(y_proba[:, 0, :, 0], 2, name="y_proba")
             y_pred = tf.cast(y_pred, tf.int64)  # need to cast for type compliance later)
 
         if print_shapes:
@@ -645,18 +645,23 @@ def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_outp
         return decoder_output_primary_caps, highest_norm_capsule[0]
 
 # takes a n*n input and a flat decoder output
-def compute_reconstruction_loss(input, reconstruction, loss_type='squared_difference', no_tensorboard=False):
+def compute_reconstruction_loss(input, reconstruction, loss_type='squared_difference', gain=None, no_tensorboard=False):
 
     with tf.name_scope('reconstruction_loss'):
 
-        used_loss = 'sparse'  # which loss to use for training if loss_type is 'plot_all'
         X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
+
+        if gain is None:
+            gain = tf.ones_like(X_flat[:,0])
+
         squared_difference = tf.square(X_flat - reconstruction, name="squared_difference")
         sparsity_constant = 1
         sparsity_floor = 0  # value of the black background
         rescale_constant = 100000
         threshold = 0
         threshold_constant = 100000
+        used_loss = 'sparse'  # which loss to use for training if loss_type is 'plot_all'
+
 
         if loss_type is 'squared_difference':
             reconstruction_loss = tf.reduce_sum(squared_difference,  name="reconstruction_loss")
@@ -867,7 +872,8 @@ def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_leve
                 batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noiseLevel=noise_level,
                                                                         normalize=normalize_images,
                                                                         fixed_position=fixed_stim_position)
-                batch_reconstruction_targets = batch_data
+
+                reconstruction_targets_serge = np.repeat(batch_data, 2, axis=-1)
 
                 if label_encoding is 'nothinglr_012':
                     vernier_labels = -vernier_labels+2  # (just because capser has l&r = 1&2 as vernier labels instead of l&r = 1&0
@@ -881,7 +887,7 @@ def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_leve
                 # run test stimuli through the netwoek and get classifier output:
                 correct_in_this_batch_all = sess.run(capser["vernier_accuracy"],
                                                      feed_dict={X: batch_data,
-                                                                reconstruction_targets: batch_reconstruction_targets,
+                                                                reconstruction_targets: reconstruction_targets_serge,
                                                                 y: y_serge,  # just a trick to make it run, we actually don't care about this
                                                                 vernier_offsets: vernier_labels,
                                                                 mask_with_labels: False})

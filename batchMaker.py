@@ -13,7 +13,7 @@ class StimMaker:
         self.imSize    = imSize
         self.shapeSize = shapeSize
         self.barWidth  = barWidth
-        self.barHeight = int(shapeSize/4-barWidth/2)
+        self.barHeight = int(shapeSize/4-barWidth/4)
         self.offsetHeight = 0
 
 
@@ -365,7 +365,7 @@ class StimMaker:
 
         return batchImages, batchLabels, vernierLabels, nElements
 
-    def makeMultiShapeBatch(self, batchSize, shapeTypes, n_shapes=1, noiseLevel=0.0, group_last_shapes=1, max_rows=1, max_cols=5, vernierLabelEncoding='nothinglr_012', vernier_grids=False, normalize=False, fixed_position=None):
+    def makeMultiShapeBatch(self, batchSize, shapeTypes, n_shapes=1, noiseLevel=0.0, group_last_shapes=1, max_rows=1, max_cols=3, vernierLabelEncoding='nothinglr_012', vernier_grids=False, normalize=False, fixed_position=None):
 
         # group_last_types attributes the same label to the last n shapeTypes
         shapeLabels = numpy.arange(len(shapeTypes))
@@ -578,6 +578,6 @@ class StimMaker:
 
 if __name__ == "__main__":
 
-    rufus = StimMaker((50, 145), 20, 2)
+    rufus = StimMaker((30, 40), 10, 1)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=False)
+    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=True)

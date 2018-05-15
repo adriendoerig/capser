@@ -15,12 +15,12 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 # data parameters
 fixed_stim_position = None  # put top left corner of all stimuli at fixed_position
 normalize_images = False    # make each image mean=0, std=1
-max_rows, max_cols = 1, 5   # max number of rows, columns of shape grids
+max_rows, max_cols = 1, 3   # max number of rows, columns of shape grids
 vernier_grids = False       # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-im_size = (40, 115)         # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
-shape_size = 20             # size of a single shape in pixels
-simultaneous_shapes = 2     # number of different shapes in an image
-bar_width = 2               # thickness of elements' bars
+im_size = (30, 40)         # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
+shape_size = 10             # size of a single shape in pixels
+simultaneous_shapes = 2     # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
+bar_width = 1              # thickness of elements' bars
 noise_level = 0  # 10       # add noise
 shape_types = [0, 1, 2]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
@@ -28,8 +28,8 @@ label_to_shape = {0: 'vernier', 1: 'squares', 2:'circles'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
-test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]]}
+test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1]]],
+                'circles':       [None, [[2]], [[2, 2, 2]]]}
 # test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
 #                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
 #                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
@@ -45,12 +45,12 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 300000
+n_batches = 1000000
 batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
 train_new_vernier_decoder = True  # to use a "fresh" new decoder for the vernier testing.
-plot_uncrowding_during_training = True  # to plot uncrowding results while training
+plot_uncrowding_during_training = False  # to plot uncrowding results while training
 vernier_label_encoding = 'nothinglr_012'  # 'lr_10' or 'nothinglr_012'
 if simultaneous_shapes > 1:
     vernier_label_encoding = 'nothinglr_012'  # needs to be nothinglr_012 if we use simultaneous shapes
@@ -61,9 +61,9 @@ version_to_restore = None
 continue_training_from_checkpoint = False
 
 # conv layers
-activation_function = tf.nn.elu
-conv1_params = {"filters": 16,
-                "kernel_size": 4,
+activation_function = tf.nn.relu
+conv1_params = {"filters": 256,
+                "kernel_size": 5,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
@@ -84,10 +84,10 @@ conv2_params = None
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 16  # number of capsules at level 1 of capsules
-caps1_n_dims = 10  # number of dimension per capsule
+caps1_n_maps = 32  # number of capsules at level 1 of capsules
+caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 9,
+                    "kernel_size": 6,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -95,35 +95,35 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 10                    # of n dimensions
-rba_rounds = 2
+caps2_n_dims = 16                    # of n dimensions
+rba_rounds = 3
 
 # margin loss parameters
-alpha_margin = 10
+alpha_margin = 3.333
 m_plus = .9
-m_minus = .2
+m_minus = .1
 lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
-vernier_offset_loss = True
-alpha_vernier_offset = 10
+vernier_offset_loss = False
+alpha_vernier_offset = 0
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
-n_shapes_loss = True
+n_shapes_loss = False
 if simultaneous_shapes > 1:  # you can't do the n_shapes loss with simultaneous shapes
     n_shapes_loss = False
-alpha_n_shapes = 10
+alpha_n_shapes = 0
 
 # optional loss to the primary capsules
-primary_caps_loss = True
+primary_caps_loss = False
 alpha_primary = 0
 m_plus_primary = .9
 m_minus_primary = .2
 lambda_primary = .5
 
 # choose reconstruction loss type and alpha
-alpha_reconstruction = .0001
+alpha_reconstruction = .0005
 reconstruction_loss_type = 'squared_difference'  # 'squared_difference', 'sparse', 'rescale', 'threshold' or 'plot_all'
 
 # decoder layer sizes
@@ -133,8 +133,8 @@ primary_caps_decoder_n_hidden2 = 512
 primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size**2
 
-output_caps_decoder_n_hidden1 = 256
-output_caps_decoder_n_hidden2 = 512
+output_caps_decoder_n_hidden1 = 512
+output_caps_decoder_n_hidden2 = 1024
 output_caps_decoder_n_hidden3 = None
 output_caps_decoder_n_output = im_size[0] * im_size[1]
 output_decoder_deconv_params = {'use_deconvolution_decoder': False,
@@ -276,7 +276,6 @@ capser = capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2
 # op to train all networks
 do_training = capser["training_op"]
 
-
 embedding_writer = tf.summary.FileWriter(LOGDIR)  # to write summaries
 
 
@@ -400,6 +399,7 @@ with tf.Session() as sess:
             else:
                 batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
                 batch_reconstruction_targets = batch_data
+
             # Run the training operation and measure the loss:
             _, loss_train, summ = sess.run(
                 [do_training, capser["loss"], summary],
@@ -415,9 +415,9 @@ with tf.Session() as sess:
 
             if batch % 250 == 0:
                writer.add_summary(summ, batch)
-            if batch % 10000 == 0 and plot_uncrowding_during_training:
-                    run_test_stimuli(test_stimuli, 400, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, simultaneous_shapes, capser, X, y, vernier_offsets, mask_with_labels, sess, LOGDIR, label_encoding=vernier_label_encoding, summary_writer=uncrowding_exp_summary_writer, global_step=batch)  # create (un-)crowding plots to see evolution
-            if batch % 50000 == 0:
+            if batch % 10000 == 0 and batch > 0 and plot_uncrowding_during_training:
+                    run_test_stimuli(test_stimuli, 400, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, simultaneous_shapes, capser, X, y, reconstruction_targets, vernier_offsets, mask_with_labels, sess, LOGDIR, label_encoding=vernier_label_encoding, summary_writer=uncrowding_exp_summary_writer, global_step=batch)  # create (un-)crowding plots to see evolution
+            if batch % 50000 == 0 and batch > 0:
                 if do_embedding:
 
                     # we will feed an empty y that will not be used, but needs to have the right shape (called y_serge)
@@ -445,6 +445,8 @@ with tf.Session() as sess:
 
     else:
         print('Skipping training.')
+
+
 ########################################################################################################################
 # Output norms of trained network
 ########################################################################################################################
