@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from capsule_functions import safe_norm
 from batchMaker import StimMaker
+import tensorflow.contrib.framework
 
 # data parameters
 fixed_stim_position = None  # put top left corner of all stimuli at fixed_position
@@ -31,39 +32,17 @@ batch_data, batch_single_shape_images, batch_labels, vernier_offset_labels, n_el
     normalize=normalize_images, fixed_position=fixed_stim_position)
 
 
-batch_data_rgb = tf.image.grayscale_to_rgb(batch_data)
-
-color_masks = np.array([[121, 199, 83],  # 0: vernier, green
-                        [220, 76, 70],  # 1: red
-                        [79, 132, 196]])  # 3: blue
-color_masks = np.expand_dims(color_masks, axis=1)
-color_masks = np.expand_dims(color_masks, axis=1)
-
-batch_labels = np.array(batch_labels, dtype=np.uint8)
-
-n_samples = 5
-
-print(batch_labels.shape)
-print(batch_data_rgb.shape)
-print(color_masks.shape)
-rgb_sum = batch_data_rgb[:n_samples,:,:,:]*color_masks[batch_labels[:n_samples,0], : ,:, :] + batch_data_rgb[n_samples:,:,:,:]*color_masks[batch_labels[n_samples:,1],:,:,:]
-print(rgb_sum)
+sorted_labels = tensorflow.contrib.framework.sort(
+    batch_labels,
+    axis=-1,
+    direction='ASCENDING',
+    name=None
+)
 
 with tf.Session() as sess:
-    rgb_stim = sess.run(rgb_sum)
 
-    # plt.figure()
-    # plt.imshow(np.squeeze(batch_data[0,:,:,:]))
-    # plt.show()
-    # for i in range(3):
-    #     for stim in range(3):
-    #         plt.figure()
-    #         plt.imshow(rgb_stim[stim,:,:,:]*color_masks[i,:])
-    #         plt.show()
-    # plt.close()
+    sorted = sorted_labels.eval()
+    print(sorted)
 
-    for stim in range(n_samples):
-        plt.figure()
-        plt.imshow(rgb_stim[stim,:,:,:])
-        plt.title('LABELS: ' + str(batch_labels[stim,0]) + ', ' + str(batch_labels[stim+n_samples,1]))
-        plt.show()
+print(batch_labels)
+print(sorted_labels)

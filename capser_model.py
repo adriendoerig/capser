@@ -2,6 +2,7 @@
 from __future__ import division, print_function, unicode_literals
 import tensorflow as tf
 import numpy as np
+import tensorflow.contrib.framework
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     caps_prediction, compute_margin_loss, compute_primary_caps_loss, create_masked_decoder_input, \
     decoder_with_mask, decoder_with_mask_batch_norm, primary_capsule_reconstruction, \
@@ -30,7 +31,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                  caps2_n_caps, caps2_n_dims, rba_rounds,
                  m_plus, m_minus, lambda_, alpha_margin,
                  m_plus_primary, m_minus_primary, lambda_primary, alpha_primary,
-                 output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, reconstruction_loss_type, alpha_reconstruction,
+                 output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, reconstruction_loss_type, alpha_reconstruction, vernier_gain,
                  is_training, mask_with_labels,
                  primary_caps_decoder=False, do_primary_caps_loss=False, do_n_shapes_loss=False, do_vernier_offset_loss=False,
                  n_shapes_labels=0, n_shapes_max=0, alpha_n_shapes=0,
@@ -41,6 +42,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
 
 
     print_shapes = True  # to print the size of each layer during graph construction
+
 
     ####################################################################################################################
     # Early conv layers and first capsules
@@ -154,7 +156,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         if do_primary_caps_loss:
             primary_caps_loss = compute_primary_caps_loss(y, caps1_output_with_maps, caps1_n_maps, m_plus_primary, m_minus_primary, lambda_primary, print_shapes=print_shapes)
         else:
-            primary_caps_loss = 0
+            primary_caps_loss = 0.
 
     ####################################################################################################################
     # From caps1 to caps2
@@ -192,107 +194,110 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
     ####################################################################################################################
 
     with tf.name_scope('decoders'):
-        # create the mask
-        decoder_input_output_caps = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims,
-                                                                mask_with_labels, print_shapes=print_shapes)
-        tf.summary.histogram('decoder_input_no_bn', decoder_input_output_caps)
 
         # compute n_shapes loss
-        if do_n_shapes_loss:
-            n_shapes_loss = compute_n_shapes_loss(decoder_input_output_caps, n_shapes_labels, n_shapes_max, print_shapes)
-        else:
-            n_shapes_loss = 0.
+        with tf.name_scope('n_shape_loss'):
+            if do_n_shapes_loss:
+                # create the mask
+                decoder_input_output_caps = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=print_shapes)
+                tf.summary.histogram('decoder_input_no_bn', decoder_input_output_caps)
 
-        if do_vernier_offset_loss:
-            training_vernier_decoder_input = caps2_output[:, 0, 0, :, 0]  # decode from vernier capsule
-            training_vernier_loss, vernier_accuracy, vernier_logits = compute_vernier_offset_loss(training_vernier_decoder_input, vernier_offset_labels, print_shapes)
-        else:
-            training_vernier_loss = 0.
-
-        # # batch_normalize input to decoder
-        # decoder_input = tf.contrib.layers.batch_norm(decoder_input_output_caps, center=True, scale=True,
-        #                                              is_training=is_training, scope='output_caps_decoder_input_bn')
-        # tf.summary.histogram('decoder_input_bn', decoder_input_output_caps)
-
-        # run decoder to reconstruct full image at once (used when simultaneous shapes == 1
-        simultaneous_shapes = tf.shape(reconstruction_targets)[-1]
-        if simultaneous_shapes == 1:
-            if decoder_batch_norm:
-                decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps, im_size[0]*im_size[1],
-                                                                          output_caps_decoder_n_hidden1,
-                                                                          output_caps_decoder_n_hidden2,
-                                                                          phase=is_training,
-                                                                          name='output_decoder')
+                n_shapes_loss = compute_n_shapes_loss(decoder_input_output_caps, n_shapes_labels, n_shapes_max, print_shapes)
             else:
-                decoder_output_output_caps = decoder_with_mask(decoder_input=decoder_input_output_caps, output_width=im_size[1], output_height=im_size[0],
-                                                               n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2,
-                                                               n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes,
-                                                               **output_decoder_deconv_params)
+                n_shapes_loss = 0.
 
-            decoder_output_image_output_caps = tf.reshape(decoder_output_output_caps, [-1, im_size[0], im_size[1], 1])
-            tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
+        # vernier offset loss
+        with tf.name_scope('vernier_offset_loss'):
+            if do_vernier_offset_loss:
+                training_vernier_decoder_input = caps2_output[:, 0, 0, :, 0]  # decode from vernier capsule
+                training_vernier_loss, vernier_accuracy, vernier_logits = compute_vernier_offset_loss(training_vernier_decoder_input, vernier_offset_labels, print_shapes)
+            else:
+                training_vernier_loss = 0.
 
-            # reconstruction loss
-            output_caps_reconstruction_loss, squared_differences = compute_reconstruction_loss(X, decoder_output_output_caps, loss_type=reconstruction_loss_type)
-
-        # if we are in simultaneous_shapes > 1 mode, we reconstruct from each capsule separately and clip at 1.
-        # NOTE: for now, let's assume we have 2 shapes. It would be better to use range(simultaneous_shapes),
-        # but this raises an error: TypeError: 'Tensor' object cannot be interpreted as an integer
-        else:
-
-            decoder_outputs = []
-
-            for this_shape in range(2):
-                this_masked_output = create_masked_decoder_input(y[:, this_shape], y_pred[:, this_shape], caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=print_shapes)
-
+        with tf.name_scope('reconstruction_loss'):
+            # run decoder to reconstruct full image at once (used when simultaneous shapes == 1)
+            simultaneous_shapes = tf.shape(reconstruction_targets)[-1]
+            if simultaneous_shapes == 1:
                 if decoder_batch_norm:
-                    decoder_outputs.append(decoder_with_mask_batch_norm(this_masked_output, im_size[0] * im_size[1], output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, phase=is_training, name='output_decoder'+str(this_shape)))
+                    decoder_output_output_caps = decoder_with_mask_batch_norm(decoder_input_output_caps, im_size[0]*im_size[1],
+                                                                              output_caps_decoder_n_hidden1,
+                                                                              output_caps_decoder_n_hidden2,
+                                                                              phase=is_training,
+                                                                              name='output_decoder')
                 else:
-                    with tf.variable_scope('shape_'+str(this_shape)):
-                        decoder_outputs.append(decoder_with_mask(decoder_input=decoder_input_output_caps, output_width=im_size[1], output_height=im_size[0], n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2, n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes, **output_decoder_deconv_params))
+                    decoder_output_output_caps = decoder_with_mask(decoder_input=decoder_input_output_caps, output_width=im_size[1], output_height=im_size[0],
+                                                                   n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2,
+                                                                   n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes,
+                                                                   **output_decoder_deconv_params)
 
-            decoder_outputs = tf.stack(decoder_outputs)
-            decoder_outputs = tf.transpose(decoder_outputs, [1, 2, 0])
-            if print_shapes:
-                print('shape of decoder_outputs: ' + str(decoder_outputs))
+                decoder_output_image_output_caps = tf.reshape(decoder_output_output_caps, [-1, im_size[0], im_size[1], 1])
+                tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
 
-            # reconstruction loss
-            output_caps_reconstruction_loss, squared_differences = 0, 0
-            vernier_gain = 100  # to pump up the reconstruction error when a vernier is present (because there are so few pixels in the vernier)
-            for this_shape in range(2):
+                # reconstruction loss
+                output_caps_reconstruction_loss, squared_differences = compute_reconstruction_loss(X, decoder_output_output_caps, loss_type=reconstruction_loss_type)
 
-                gain = tf.ones_like(y[:, 0])
-                mask = tf.cast(tf.equal(y[:, this_shape], tf.zeros_like(y[:, this_shape])), tf.int64)
-                gain = tf.cast(gain*mask*vernier_gain, tf.float32)
+            # if we are in simultaneous_shapes > 1 mode, we reconstruct from each capsule separately.
+            # NOTE: for now, let's assume we have 2 shapes. It would be better to use range(simultaneous_shapes),
+            # but this raises an error: TypeError: 'Tensor' object cannot be interpreted as an integer
+            else:
 
-                this_output_caps_reconstruction_loss, this_squared_differences = compute_reconstruction_loss(
-                    reconstruction_targets[:, :, :, this_shape], decoder_outputs[:, :, this_shape],
-                    loss_type=reconstruction_loss_type, gain=gain, no_tensorboard=True)
-                output_caps_reconstruction_loss = output_caps_reconstruction_loss + this_output_caps_reconstruction_loss
-                squared_differences = squared_differences + this_squared_differences
+                decoder_outputs = []
 
-            tf.summary.scalar('reconstruction_loss_sum', output_caps_reconstruction_loss)
+                for this_shape in range(2):
+                    with tf.variable_scope('shape_' + str(this_shape)):
+                        this_masked_output = create_masked_decoder_input(y[:, this_shape], y_pred[:, this_shape], caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=print_shapes)
 
-            # make an rgb tf.summary image. Note: there's sum fucked up dimension tweaking but it works.
-            color_masks = np.array([[121, 199, 83],  # 0: vernier, green
-                                    [220, 76, 70],  # 1: red
-                                    [79, 132, 196]])  # 3: blue
-            color_masks = np.expand_dims(color_masks, axis=1)
-            color_masks = np.expand_dims(color_masks, axis=1)
+                        if decoder_batch_norm:
+                            decoder_outputs.append(decoder_with_mask_batch_norm(this_masked_output, im_size[0] * im_size[1], output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, phase=is_training, name='output_decoder'))
+                        else:
+                            decoder_outputs.append(decoder_with_mask(decoder_input=this_masked_output, output_width=im_size[1], output_height=im_size[0], n_hidden1=output_caps_decoder_n_hidden1, n_hidden2=output_caps_decoder_n_hidden2, n_hidden3=output_caps_decoder_n_hidden3, print_shapes=print_shapes, **output_decoder_deconv_params))
 
-            decoder_output_images = tf.reshape(decoder_outputs, [-1, im_size[0], im_size[1], simultaneous_shapes])
-            decoder_output_images_rgb_0 = tf.image.grayscale_to_rgb(tf.expand_dims(decoder_output_images[:, :, :, 0], axis=-1))*color_masks[0, :, :, :]
-            decoder_output_images_rgb_1 = tf.image.grayscale_to_rgb(tf.expand_dims(decoder_output_images[:, :, :, 1], axis=-1))*color_masks[1, :, :, :]
+                decoder_outputs = tf.stack(decoder_outputs)
+                decoder_outputs = tf.transpose(decoder_outputs, [1, 2, 0])
+                if print_shapes:
+                    print('shape of decoder_outputs: ' + str(decoder_outputs))
 
-            decoder_output_images_sum = decoder_output_images_rgb_0 + decoder_output_images_rgb_1
-            # display the summed output image
-            tf.summary.image('decoder_output', decoder_output_images_sum, 6)
+                # reconstruction loss
+                output_caps_reconstruction_loss, squared_differences = 0, 0
+                for this_shape in range(2):
+
+                    with tf.variable_scope('shape_' + str(this_shape)):
+                        # to pump up the reconstruction error when a vernier is present (because there are so few pixels in the vernier)
+                        gain = tf.ones_like(y[:, this_shape])
+                        mask = tf.cast(tf.equal(y[:, this_shape], tf.zeros_like(y[:, this_shape])), tf.int64)  # find verniers
+                        gain = tf.cast(gain*mask*vernier_gain, tf.float32)
+
+                        this_output_caps_reconstruction_loss, this_squared_differences = compute_reconstruction_loss(
+                            reconstruction_targets[:, :, :, this_shape], decoder_outputs[:, :, this_shape],
+                            loss_type=reconstruction_loss_type, gain=gain, no_tensorboard=True)
+                        output_caps_reconstruction_loss = output_caps_reconstruction_loss + this_output_caps_reconstruction_loss
+                        squared_differences = squared_differences + this_squared_differences
+
+                tf.summary.scalar('reconstruction_loss_sum', output_caps_reconstruction_loss)
+
+                # make an rgb tf.summary image. Note: there's sum fucked up dimension tweaking but it works.
+                color_masks = np.array([[121, 199, 83],  # 0: vernier, green
+                                        [220, 76, 70],  # 1: red
+                                        [79, 132, 196]])  # 3: blue
+                color_masks = np.expand_dims(color_masks, axis=1)
+                color_masks = np.expand_dims(color_masks, axis=1)
+
+                decoder_output_images = tf.reshape(decoder_outputs, [-1, im_size[0], im_size[1], simultaneous_shapes])
+                decoder_output_images_rgb_0 = tf.image.grayscale_to_rgb(tf.expand_dims(decoder_output_images[:, :, :, 0], axis=-1))*color_masks[0, :, :, :]
+                decoder_output_images_rgb_1 = tf.image.grayscale_to_rgb(tf.expand_dims(decoder_output_images[:, :, :, 1], axis=-1))*color_masks[1, :, :, :]
+
+                decoder_output_images_sum = decoder_output_images_rgb_0 + decoder_output_images_rgb_1
+                # display the summed output image
+                tf.summary.image('decoder_output', decoder_output_images_sum, 6)
+
+
     ####################################################################################################################
     # Final loss, accuracy, training operations, init & saver
     ####################################################################################################################
 
 
     with tf.name_scope('total_loss'):
+
         loss = tf.add_n([alpha_margin * margin_loss,
                          alpha_reconstruction * output_caps_reconstruction_loss,
                          alpha_primary * primary_caps_loss,
@@ -303,15 +308,16 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         tf.summary.scalar('total_loss', loss)
 
     with tf.name_scope('accuracy'):
-        y_acc = y[:]  # this is in case simulataneous_shapes > 1 (in this case y has dim [batch_size, 2]
-        y_pred_acc = y_pred[:]
-        correct = tf.equal(y_acc[:], y_pred[:], name="correct")
+        # the reshape is in case simulataneous_shapes > 1 (in this case we need to reorder y and y_pred in ascending order to have matching labels for shape 1 & 2)
+        y_sorted = tensorflow.contrib.framework.sort(y, axis=-1, direction='ASCENDING', name='y_sorted')
+        y_pred_sorted = tensorflow.contrib.framework.sort(y_pred, axis=-1, direction='ASCENDING', name='y_pred_sorted')
+        correct = tf.equal(y_sorted, y_pred_sorted, name="correct")
         accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
         tf.summary.scalar('accuracy', accuracy)
 
     # TRAINING OPERATIONS #
 
-    optimizer = tf.train.AdamOptimizer()
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
     update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # for batch norm
     loss_training_op = optimizer.minimize(loss, name="training_op")
     training_op = [loss_training_op, update_batch_norm_ops]

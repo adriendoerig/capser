@@ -15,26 +15,26 @@ from capsule_functions import vernier_classifier, vernier_x_entropy, vernier_cor
 # data parameters
 fixed_stim_position = None  # put top left corner of all stimuli at fixed_position
 normalize_images = False    # make each image mean=0, std=1
-max_rows, max_cols = 1, 3   # max number of rows, columns of shape grids
+max_rows, max_cols = 1, 5   # max number of rows, columns of shape grids
 vernier_grids = False       # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-im_size = (30, 40)         # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
+im_size = (30, 60)         # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
 shape_size = 10             # size of a single shape in pixels
 simultaneous_shapes = 2     # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1              # thickness of elements' bars
 noise_level = 0  # 10       # add noise
-shape_types = [0, 1, 2]  # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 1, 2, 7]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'squares', 2:'circles'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2:'circles', 3:'irreg'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
-test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2]]]}
-# test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
-#                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
-#                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-#                 'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
-#                 'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
+# test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1]]],
+#                 'circles':       [None, [[2]], [[2, 2, 2]]]}
+test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
+                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
+                'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
+                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
 # test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
 #                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
 #                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6, 6, 6]]],
@@ -57,23 +57,23 @@ if simultaneous_shapes > 1:
 
 # saving/loading parameters
 restore_checkpoint = True
-version_to_restore = None
+version_to_restore = 6
 continue_training_from_checkpoint = False
 
 # conv layers
 activation_function = tf.nn.relu
-conv1_params = {"filters": 256,
-                "kernel_size": 5,
+conv1_params = {"filters": 64,
+                "kernel_size": 3,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
-# conv2_params = {"filters": 32,
-#                 "kernel_size": 3,
-#                 "strides": 2,
-#                 "padding": "valid",
-#                 "activation": activation_function,
-#                 }
+conv2_params = {"filters": 64,
+                "kernel_size": 3,
+                "strides": 1,
+                "padding": "valid",
+                "activation": activation_function,
+                }
 conv2_params = None
 # conv3_params = {"filters": 32,
 #                 "kernel_size": 5,
@@ -84,10 +84,10 @@ conv2_params = None
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 32  # number of capsules at level 1 of capsules
+caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 6,
+                    "kernel_size": 4,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -125,6 +125,7 @@ lambda_primary = .5
 # choose reconstruction loss type and alpha
 alpha_reconstruction = .0005
 reconstruction_loss_type = 'squared_difference'  # 'squared_difference', 'sparse', 'rescale', 'threshold' or 'plot_all'
+vernier_gain = 1
 
 # decoder layer sizes
 primary_caps_decoder = False
@@ -199,17 +200,17 @@ tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
-do_all = 1
+do_all = 0
 if do_all:
     if simultaneous_shapes > 1:
-        do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
+        do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 0, 1, 1
     else:
         do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 1, 1, 1
 else:
     do_embedding = 0
-    plot_final_norms = 0
+    plot_final_norms = 1
     do_output_images = 0
-    do_color_capsules = 0
+    do_color_capsules = 1
     do_vernier_decoding = 1
 
 ########################################################################################################################
@@ -258,14 +259,13 @@ if show_samples:
 # Create Networks
 ########################################################################################################################
 
-
 capser = capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_params, conv3_params,
                       caps1_n_maps, caps1_n_dims, conv_caps_params,
                       primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                       caps2_n_caps, caps2_n_dims, rba_rounds,
                       m_plus, m_minus, lambda_, alpha_margin,
                       m_plus_primary, m_minus_primary, lambda_primary, alpha_primary,
-                      output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, reconstruction_loss_type, alpha_reconstruction,
+                      output_caps_decoder_n_hidden1, output_caps_decoder_n_hidden2, output_caps_decoder_n_hidden3, reconstruction_loss_type, alpha_reconstruction, vernier_gain,
                       is_training, mask_with_labels,
                       primary_caps_decoder, primary_caps_loss, n_shapes_loss, vernier_offset_loss,
                       n_shapes, max_cols*max_rows, alpha_n_shapes,
@@ -414,10 +414,20 @@ with tf.Session() as sess:
             print("\rBatch: {}/{} ({:.1f}%) Total loss: {:.5f}".format(batch, n_batches, batch * 100 / n_batches, loss_train), end="")
 
             if batch % 250 == 0:
-               writer.add_summary(summ, batch)
+                # printed = sess.run(capser["printed"], feed_dict={X: batch_data,
+                #                reconstruction_targets: batch_reconstruction_targets,
+                #                y: batch_labels,
+                #                n_shapes: n_elements,
+                #                vernier_offsets: vernier_offset_labels,
+                #                mask_with_labels: True,
+                #                is_training: True})
+
+                writer.add_summary(summ, batch)
+
             if batch % 10000 == 0 and batch > 0 and plot_uncrowding_during_training:
                     run_test_stimuli(test_stimuli, 400, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, simultaneous_shapes, capser, X, y, reconstruction_targets, vernier_offsets, mask_with_labels, sess, LOGDIR, label_encoding=vernier_label_encoding, summary_writer=uncrowding_exp_summary_writer, global_step=batch)  # create (un-)crowding plots to see evolution
-            if batch % 50000 == 0 and batch > 0:
+
+            if batch == n_batches-1 or (batch % 50000 == 0 and batch > 0):
                 if do_embedding:
 
                     # we will feed an empty y that will not be used, but needs to have the right shape (called y_serge)
@@ -470,6 +480,7 @@ if plot_final_norms:
         else:
             batch_data, batch_labels, vernier_offset_labels, n_elements = stim_maker.makeBatch(batch_size, shape_types, noise_level, group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
             batch_reconstruction_targets = batch_data
+
         caps2_output_final, predictions = sess.run([capser["caps2_output"], capser["y_pred"]],
                                                     feed_dict={X: batch_data[:n_plots, :, :, :],
                                                                y: batch_labels[:n_plots],
@@ -629,110 +640,144 @@ if do_output_images:
 
 if do_color_capsules:
 
-    show_grayscale = False  # you can choose to plot the decoder output for each capsule without colors
-    n_trials = 8            # times we run each stimulus
-    peak_intensity = 128    # limit the pixel intnsity to avoid saturation in the output image
 
-    with tf.Session() as sess:
+    # old version
+    if simultaneous_shapes == 1:
 
-        # First restore the network
-        saver.restore(sess, checkpoint_path)
+        show_grayscale = False  # you can choose to plot the decoder output for each capsule without colors
+        n_trials = 8            # times we run each stimulus
+        peak_intensity = 128    # limit the pixel intnsity to avoid saturation in the output image
 
-        for category in test_stimuli.keys():
+        with tf.Session() as sess:
 
-            print('Creating capsule visualizations for : ' + category)
+            # First restore the network
+            saver.restore(sess, checkpoint_path)
 
-            stim_matrices = test_stimuli[category]
+            for category in test_stimuli.keys():
 
-            res_path = image_output_dir + '/' + category
-            if not os.path.exists(res_path):
-                os.makedirs(res_path)
+                print('Creating capsule visualizations for : ' + category)
 
-            for stim in range(3):
+                stim_matrices = test_stimuli[category]
 
-                # get a few copies of the current stimulus
-                batch_data, vernier_labels = stim_maker.makeConfigBatch(n_trials, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
-                reconstruction_targets_serge = np.zeros(shape=(batch_size, im_size[0], im_size[1], simultaneous_shapes))
-                
-                # choose which capsules to vizualize
-                caps_to_visualize = None
-                for key, value in shape_to_label.items():
-                    if category is key:
-                        caps_to_visualize = [0, value]
-                if caps_to_visualize is None:
-                    print('CANNOT FIND WHICH CAPSULES TO DISPLAY FOR ' + category + ': DISPLAYING ALL CAPSULES.')
-                    caps_to_visualize = range(caps2_n_caps)  # to see where the irreg shapes end up
-                n_caps_to_visualize = len(caps_to_visualize)
+                res_path = image_output_dir + '/' + category
+                if not os.path.exists(res_path):
+                    os.makedirs(res_path)
 
-                color_masks = np.array([[121, 199, 83],   # 0: vernier, green
-                                        [220, 76, 70],    # 1: red
-                                        [196, 143, 101],  # 2: beige
-                                        [79, 132, 196],   # 3: blue
-                                        [246, 209, 85],   # 4: yellow
-                                        [237, 205, 194],  # 5: pale pink
-                                        [181, 101, 167],  # 6: purple
-                                        [210, 105, 30]])  # 7: orange
+                for stim in range(3):
 
-                decoder_outputs_all = np.zeros(shape=(n_trials, im_size[0]*im_size[1], 3, n_caps_to_visualize))
-                decoder_outputs_overlay = np.zeros(shape=(n_trials, im_size[0]*im_size[1], 3))
+                    # get a few copies of the current stimulus
+                    batch_data, vernier_labels = stim_maker.makeConfigBatch(n_trials, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
+                    reconstruction_targets_serge = np.zeros(shape=(batch_size, im_size[0], im_size[1], simultaneous_shapes))
 
-                done_caps = 0
-                for cap in caps_to_visualize:
-                    for rgb in range(3):
+                    # choose which capsules to vizualize
+                    caps_to_visualize = None
+                    for key, value in shape_to_label.items():
+                        if category is key:
+                            caps_to_visualize = [0, value]
+                    if caps_to_visualize is None:
+                        print('CANNOT FIND WHICH CAPSULES TO DISPLAY FOR ' + category + ': DISPLAYING ALL CAPSULES.')
+                        caps_to_visualize = range(caps2_n_caps)  # to see where the irreg shapes end up
+                    n_caps_to_visualize = len(caps_to_visualize)
 
-                        cap_labels = np.ones(n_trials)*cap
-                        if simultaneous_shapes > 1:  # we need to have a [batch_size, simultaneous_shapes] array as input for y. Columns tell us which capsule to decode from in a stimulus (rows). So we add a columns of zeros to lways decode from the vernier capsule. The masking function will do the right thing.
-                            cap_labels = np.transpose(np.stack(cap_labels, cap_labels*0))
-                            print('CAP_LABELS.SHAPE FOR COLOR CAPSULES: ' + str(cap_labels.shape))
+                    color_masks = np.array([[121, 199, 83],   # 0: vernier, green
+                                            [220, 76, 70],    # 1: red
+                                            [196, 143, 101],  # 2: beige
+                                            [79, 132, 196],   # 3: blue
+                                            [246, 209, 85],   # 4: yellow
+                                            [237, 205, 194],  # 5: pale pink
+                                            [181, 101, 167],  # 6: purple
+                                            [210, 105, 30]])  # 7: orange
 
-                        this_decoder_output = capser["decoder_output_output_caps"].eval({X: batch_data,
-                                                                                         reconstruction_targets: reconstruction_targets_serge,
-                                                                                         y: cap_labels,  # decode from capsule of interest
-                                                                                         mask_with_labels: True,
-                                                                                         is_training: True})
-                        this_decoder_output = np.divide(this_decoder_output, peak_intensity)
-                        temp = np.multiply(this_decoder_output, color_masks[cap, rgb])
-                        decoder_outputs_all[:, :, rgb, done_caps] = temp
-                        decoder_outputs_overlay[:, :, rgb] += temp
+                    decoder_outputs_all = np.zeros(shape=(n_trials, im_size[0]*im_size[1], 3, n_caps_to_visualize))
+                    decoder_outputs_overlay = np.zeros(shape=(n_trials, im_size[0]*im_size[1], 3))
 
-                    if show_grayscale:
-                        print(this_decoder_output.shape, batch_data.shape)
-                        check_image = np.reshape(this_decoder_output[0, :], [im_size[0], im_size[1]])
-                        plt.subplot(1, 2, 1)
-                        plt.imshow(batch_data[0, :, :, 0], cmap="binary")
-                        plt.subplot(1, 2, 2)
-                        plt.imshow(check_image, cmap="binary")
-                        plt.title('Left: stimulus, right: reconstruction from capsule ' + str(cap))
-                        plt.show()
+                    done_caps = 0
+                    for cap in caps_to_visualize:
+                        for rgb in range(3):
 
-                    done_caps += 1
+                            cap_labels = np.ones(n_trials)*cap
+                            if simultaneous_shapes > 1:  # we need to have a [batch_size, simultaneous_shapes] array as input for y. Columns tell us which capsule to decode from in a stimulus (rows). So we add a columns of zeros to lways decode from the vernier capsule. The masking function will do the right thing.
+                                cap_labels = np.transpose(np.stack(cap_labels, cap_labels*0))
+                                print('CAP_LABELS.SHAPE FOR COLOR CAPSULES: ' + str(cap_labels.shape))
 
-                decoder_outputs_overlay[decoder_outputs_overlay > 255] = 255
+                            this_decoder_output = capser["decoder_output_output_caps"].eval({X: batch_data,
+                                                                                             reconstruction_targets: reconstruction_targets_serge,
+                                                                                             y: cap_labels,  # decode from capsule of interest
+                                                                                             mask_with_labels: True,
+                                                                                             is_training: True})
+                            this_decoder_output = np.divide(this_decoder_output, peak_intensity)
+                            temp = np.multiply(this_decoder_output, color_masks[cap, rgb])
+                            decoder_outputs_all[:, :, rgb, done_caps] = temp
+                            decoder_outputs_overlay[:, :, rgb] += temp
 
-                decoder_images_all = np.reshape(decoder_outputs_all, [n_trials, im_size[0], im_size[1], 3, n_caps_to_visualize])
-                overlay_images = np.reshape(decoder_outputs_overlay, [n_trials, im_size[0], im_size[1], 3])
+                        if show_grayscale:
+                            print(this_decoder_output.shape, batch_data.shape)
+                            check_image = np.reshape(this_decoder_output[0, :], [im_size[0], im_size[1]])
+                            plt.subplot(1, 2, 1)
+                            plt.imshow(batch_data[0, :, :, 0], cmap="binary")
+                            plt.subplot(1, 2, 2)
+                            plt.imshow(check_image, cmap="binary")
+                            plt.title('Left: stimulus, right: reconstruction from capsule ' + str(cap))
+                            plt.show()
 
-                plt.figure(figsize=(n_trials / .5, n_trials / .5))
-                for im in range(n_trials):
-                    plt.subplot(np.ceil(np.sqrt(n_trials)), np.ceil(np.sqrt(n_trials)), im+1)
-                    plt.imshow(overlay_images[im, :, :, :])
-                    plt.axis("off")
-                plt.savefig(res_path + '/capsule_overlay_image_' + category + '_' + str(stim))
-                plt.close()
-                # plt.show()
+                        done_caps += 1
 
-                for im in range(n_trials):
-                    plt.figure(figsize=(n_caps_to_visualize / .5, n_caps_to_visualize / .5))
-                    plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize)) + 1, np.ceil(np.sqrt(n_caps_to_visualize)), 1)
-                    plt.imshow(batch_data[im, :, :, 0], cmap='gray')
-                    plt.axis("off")
-                    for cap in range(n_caps_to_visualize):
-                        plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize))+1, np.ceil(np.sqrt(n_caps_to_visualize)), cap + 2)
-                        plt.imshow(decoder_images_all[im, :, :, :, cap])
+                    decoder_outputs_overlay[decoder_outputs_overlay > 255] = 255
+
+                    decoder_images_all = np.reshape(decoder_outputs_all, [n_trials, im_size[0], im_size[1], 3, n_caps_to_visualize])
+                    overlay_images = np.reshape(decoder_outputs_overlay, [n_trials, im_size[0], im_size[1], 3])
+
+                    plt.figure(figsize=(n_trials / .5, n_trials / .5))
+                    for im in range(n_trials):
+                        plt.subplot(np.ceil(np.sqrt(n_trials)), np.ceil(np.sqrt(n_trials)), im+1)
+                        plt.imshow(overlay_images[im, :, :, :])
                         plt.axis("off")
-                    plt.savefig(res_path + '/all_caps_images_' + category + '_' + str(stim) + '_' + str(im))
+                    plt.savefig(res_path + '/capsule_overlay_image_' + category + '_' + str(stim))
                     plt.close()
                     # plt.show()
+
+                    for im in range(n_trials):
+                        plt.figure(figsize=(n_caps_to_visualize / .5, n_caps_to_visualize / .5))
+                        plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize)) + 1, np.ceil(np.sqrt(n_caps_to_visualize)), 1)
+                        plt.imshow(batch_data[im, :, :, 0], cmap='gray')
+                        plt.axis("off")
+                        for cap in range(n_caps_to_visualize):
+                            plt.subplot(np.ceil(np.sqrt(n_caps_to_visualize))+1, np.ceil(np.sqrt(n_caps_to_visualize)), cap + 2)
+                            plt.imshow(decoder_images_all[im, :, :, :, cap])
+                            plt.axis("off")
+                        plt.savefig(res_path + '/all_caps_images_' + category + '_' + str(stim) + '_' + str(im))
+                        plt.close()
+                        # plt.show()
+    else:
+
+        n_trials = 6
+
+        with tf.Session() as sess:
+
+            # First restore the network
+            saver.restore(sess, checkpoint_path)
+
+            for category in test_stimuli.keys():
+
+                CAT_LOGDIR = LOGDIR + '/test_' + category
+                stim_matrices = test_stimuli[category]
+
+                for stim in range(3):
+
+                    THIS_LOGDIR = CAT_LOGDIR + '/' + str(stim)
+
+                    this_writer = tf.summary.FileWriter(THIS_LOGDIR, sess.graph)
+
+                    batch_data, vernier_labels = stim_maker.makeConfigBatch(n_trials, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
+                    reconstruction_targets_serge = np.zeros(shape=(batch_size, im_size[0], im_size[1], simultaneous_shapes))
+                    y_serge = np.zeros(shape=(batch_size, simultaneous_shapes))
+
+                    summ = sess.run(summary, feed_dict={X: batch_data,
+                                                        reconstruction_targets: reconstruction_targets_serge,
+                                                        y: y_serge,
+                                                        mask_with_labels: False})
+                    this_writer.add_summary(summ)
+
 
 ########################################################################################################################
 # Determine performance by training a decoder to identify vernier orientation based on the vernier capsule activity
@@ -755,7 +800,7 @@ if do_vernier_decoding:
 
         decode_capsule = 0
         batch_size = batch_size
-        n_batches = 1000
+        n_batches = 10000
         n_hidden1 = None
         n_hidden2 = None
         vernier_batch_norm = False
@@ -821,7 +866,7 @@ if do_vernier_decoding:
                     if simultaneous_shapes > 1:  # we need to have a [batch_size, simultaneous_shapes] array as input for y. We copy the labels in each column. The masking function will do the right thing
                         vernier_labels = np.transpose(np.tile(vernier_labels, [2, 1]))
 
-                    if batch % 5 == 0:
+                    if batch % 250 == 0:
 
                         # Run the training operation, measure the losses and write summary:
                         _, summ = sess.run(
