@@ -22,9 +22,9 @@ shape_size = 10             # size of a single shape in pixels
 simultaneous_shapes = 2     # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1              # thickness of elements' bars
 noise_level = 0  # 10       # add noise
-shape_types = [0, 1, 2, 7]  # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 1, 2, 6]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'squares', 2:'circles', 3:'irreg'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2:'circles', 3:'stars'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
@@ -57,7 +57,7 @@ if simultaneous_shapes > 1:
 
 # saving/loading parameters
 restore_checkpoint = True
-version_to_restore = 6
+version_to_restore = None
 continue_training_from_checkpoint = False
 
 # conv layers
