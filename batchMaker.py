@@ -14,7 +14,7 @@ class StimMaker:
         self.shapeSize = shapeSize
         self.barWidth  = barWidth
         self.barHeight = int(shapeSize/4-barWidth/4)
-        self.offsetHeight = 0
+        self.offsetHeight = 1
 
 
     def setShapeSize(self, shapeSize):
@@ -235,8 +235,8 @@ class StimMaker:
 
         if vernier:
 
-            firstRow = int((patch.shape[0]-self.shapeSize)/2) + 1
-            firstCol = int((patch.shape[1]-self.shapeSize)/2) + 1
+            firstRow = int((patch.shape[0]-self.shapeSize)/2) # + 1  # small adjustments may be needed depending on precise image size
+            firstCol = int((patch.shape[1]-self.shapeSize)/2) # + 1
             patch[firstRow:firstRow+self.shapeSize, firstCol:firstCol+self.shapeSize] += self.drawVernier(offset, offset_size)
             patch[patch > 1.0] = 1.0
 
@@ -578,6 +578,6 @@ class StimMaker:
 
 if __name__ == "__main__":
 
-    rufus = StimMaker((60, 85), 10, 1)
+    rufus = StimMaker((30, 60), 10, 1)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=True)
+    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig=[[1,1,1]], noiseLevel=0.0, group_last_shapes=1, normalize=True)

@@ -17,14 +17,14 @@ fixed_stim_position = None  # put top left corner of all stimuli at fixed_positi
 normalize_images = False    # make each image mean=0, std=1
 max_rows, max_cols = 1, 5   # max number of rows, columns of shape grids
 vernier_grids = False       # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-im_size = (30, 60)         # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
+im_size = (30, 60)          # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
 shape_size = 10             # size of a single shape in pixels
 simultaneous_shapes = 2     # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
-bar_width = 1              # thickness of elements' bars
+bar_width = 1               # thickness of elements' bars
 noise_level = 0  # 10       # add noise
-shape_types = [0, 1, 2, 6]  # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 1, 2, 9]  # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1       # attributes the same label to the last n shapeTypes
-label_to_shape = {0: 'vernier', 1: 'squares', 2:'circles', 3:'stars'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2:'circles', 3:'stuff'}
 shape_to_label = dict( [ [v, k] for k, v in label_to_shape.items() ] )
 
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
@@ -45,7 +45,7 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 #                                 [6, 1, 6, 1, 6, 1, 6]]]}
 
 # training parameters
-n_batches = 1000000
+n_batches = 150000
 batch_size = 6
 conv_batch_norm = False
 decoder_batch_norm = False
@@ -63,17 +63,17 @@ continue_training_from_checkpoint = False
 # conv layers
 activation_function = tf.nn.relu
 conv1_params = {"filters": 64,
-                "kernel_size": 3,
+                "kernel_size": 5,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
-conv2_params = {"filters": 64,
-                "kernel_size": 3,
-                "strides": 1,
-                "padding": "valid",
-                "activation": activation_function,
-                }
+# conv2_params = {"filters": 64,
+#                 "kernel_size": 3,
+#                 "strides": 1,
+#                 "padding": "valid",
+#                 "activation": activation_function,
+#                 }
 conv2_params = None
 # conv3_params = {"filters": 32,
 #                 "kernel_size": 5,
@@ -84,10 +84,10 @@ conv2_params = None
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
+caps1_n_maps = 32  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 4,
+                    "kernel_size": 6,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -200,7 +200,7 @@ tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
-do_all = 0
+do_all = 1
 if do_all:
     if simultaneous_shapes > 1:
         do_embedding, plot_final_norms, do_output_images, do_color_capsules, do_vernier_decoding = 1, 1, 0, 1, 1
@@ -288,8 +288,8 @@ if do_embedding:
 
     with tf.device('/cpu:0'):
 
-        samples_train = 20  # for train set embedding
-        samples_per_condition = 4  # for test set embedding
+        samples_train = 50  # for train set embedding
+        samples_per_condition = 5  # for test set embedding
 
 
         embedding_train_data, embedding_train_labels, embedding_train_vernier_labels, embedding_train_n_elements = stim_maker.makeBatch(samples_train, shape_types, noise_level, group_last_shapes, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
