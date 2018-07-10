@@ -62,19 +62,19 @@ continue_training_from_checkpoint = False
 
 # conv layers
 activation_function = tf.nn.relu
-conv1_params = {"filters": 64,
-                "kernel_size": 5,
+conv1_params = {"filters": 16,
+                "kernel_size": 3,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
-# conv2_params = {"filters": 64,
-#                 "kernel_size": 3,
-#                 "strides": 1,
-#                 "padding": "valid",
-#                 "activation": activation_function,
-#                 }
-conv2_params = None
+conv2_params = {"filters": 16,
+                "kernel_size": 3,
+                "strides": 1,
+                "padding": "valid",
+                "activation": activation_function,
+                }
+# conv2_params = None
 # conv3_params = {"filters": 32,
 #                 "kernel_size": 5,
 #                 "strides": 1,
@@ -84,7 +84,7 @@ conv2_params = None
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 32  # number of capsules at level 1 of capsules
+caps1_n_maps = 16  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 6,
@@ -105,8 +105,8 @@ m_minus = .1
 lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
-vernier_offset_loss = False
-alpha_vernier_offset = 0
+vernier_offset_loss = True
+alpha_vernier_offset = 1
 
 
 # optional loss requiring output capsules to give the number of shapes in the display
