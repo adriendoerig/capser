@@ -69,5 +69,3 @@ def model_fn(features, labels, mode, params):
 
     return spec
 
-model.train(input_fn=train_input_fn, steps=20000)
-
