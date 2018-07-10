@@ -262,7 +262,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                 for this_shape in range(2):
 
                     with tf.variable_scope('shape_' + str(this_shape)):
-                        # to pump up the reconstruction error when a vernier is present (because there are so few pixels in the vernier)
+                        # set gain > 1 to pump up the reconstruction error when a vernier is present (because there are so few pixels in the vernier)
                         gain = tf.ones_like(y[:, this_shape])
                         mask = tf.cast(tf.equal(y[:, this_shape], tf.zeros_like(y[:, this_shape])), tf.int64)  # find verniers
                         gain = tf.cast(gain*mask*vernier_gain, tf.float32)
