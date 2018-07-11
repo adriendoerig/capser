@@ -7,7 +7,7 @@ data_path = './data'                                # save your tfRecord data fi
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # training set
-create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
+create_new_train_set = False                        # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 n_train_samples = 100000                            # number of different stimuli in an epoch
 batch_size = 16                                     # stimuli per batch
@@ -37,7 +37,7 @@ shape_size = 10                 # size of a single shape in pixels
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
 noise_level = 0                 # add noise
-shape_types = [0, 1, 2, 9]      # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 1, 2]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 
 label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: 'stuff'}
@@ -101,16 +101,16 @@ lambda_ = .5
 
 # optional loss on a decoder trying to determine vernier orientation from the vernier output capsule
 vernier_offset_loss = False
-train_new_vernier_decoder = True  # to use a "fresh" new decoder for the vernier testing.
-plot_uncrowding_during_training = False  # to plot uncrowding results while training
-vernier_label_encoding = 'nothinglr_012'  # 'lr_10' or 'nothinglr_012'
+train_new_vernier_decoder = True                # to use a "fresh" new decoder for the vernier testing.
+plot_uncrowding_during_training = False         # to plot uncrowding results while training
+vernier_label_encoding = 'nothinglr_012'        # 'lr_10' or 'nothinglr_012'
 if simultaneous_shapes > 1:
-    vernier_label_encoding = 'nothinglr_012'  # needs to be nothinglr_012 if we use simultaneous shapes
+    vernier_label_encoding = 'nothinglr_012'    # needs to be nothinglr_012 if we use simultaneous shapes
 alpha_vernier_offset = 1
 
 # optional loss requiring output capsules to give the number of shapes in the display
 n_shapes_loss = False
-if simultaneous_shapes > 1:  # you can't do the n_shapes loss with simultaneous shapes
+if simultaneous_shapes > 1:                     # you can't do the n_shapes loss with simultaneous shapes
     n_shapes_loss = False
 alpha_n_shapes = 0
 
