@@ -3,12 +3,27 @@ import os
 
 ### data  ###
 
-data_path = './data'                        # save your tfRecord data file here
-n_samples = 1000                            # number of stimuli in an epoch
-batch_size = 16                             # stimuli per batch
-buffer_size = 2048                          # number of stimuli simultaneously in memory (I think)
-n_epochs = 10                               # number of epochs
-n_steps = n_samples*n_epochs/batch_size     # number of training steps (CHECK!)
+data_path = './data'                                # save your tfRecord data files here
+check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
+
+# training set
+create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
+train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
+n_train_samples = 100000                            # number of different stimuli in an epoch
+batch_size = 16                                     # stimuli per batch
+buffer_size = 2048                                  # number of stimuli simultaneously in memory (I think)
+n_epochs = 10                                       # number of epochs
+n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
+
+# testing sets
+create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
+n_test_samples = 100                                # number of stimuli for each testing condition
+test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
+                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
+                'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
+                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
+
 
 
 ### stimulus params ###

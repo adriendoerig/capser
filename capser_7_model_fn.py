@@ -1,38 +1,27 @@
-import numpy as np
 from capser_model import capser_model
-from make_tf_dataset import train_input_fn, test_input_fn
-import logging
 from parameters import *
 
 def model_fn(features, labels, mode, params):
 
 
-    # placeholders for input images and labels, and optional stuff
-    # X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
     X = features['X']
     x_image = tf.reshape(X, [-1, im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
     reconstruction_targets = features['reconstruction_targets']
-    # reconstruction_targets = tf.placeholder(shape=[None, im_size[0], im_size[1], simultaneous_shapes], dtype=tf.float32,
-    #                                         name="reconstruction_targets")
+
     if simultaneous_shapes > 1:
         y = tf.cast(features['y'], tf.int64)
         n_shapes = features['n_shapes']
-        # y = tf.placeholder(shape=[None, simultaneous_shapes], dtype=tf.int64, name="y")
-        # n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['batch_size'], simultaneous_shapes)),
-        #                                        shape=[None, simultaneous_shapes], name="n_shapes_labels")
     else:
-        # y = tf.placeholder(shape=[None], dtype=tf.int64, name="y")
         y = tf.cast(features['y'], tf.int64)
         n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['batch_size'])), shape=[None], name="n_shapes_labels")
     vernier_offsets = tf.placeholder_with_default(tf.zeros(shape=(params['batch_size'])), shape=[None],
                                                   name="vernier_offset_labels")
 
-    # create a placeholder that will tell the program whether to use the true or the predicted labels
+    # tell the program whether to use the true or the predicted labels (the placeholder is needed to have a bool in tf).
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name="mask_with_labels")
-    # placeholder specifying if training or not (for batch normalization)
+    # boolean specifying if training or not (for batch normalization)
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
-    is_training = features['is_training']
 
     capser = capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_params, conv3_params,
                           caps1_n_maps, caps1_n_dims, conv_caps_params,

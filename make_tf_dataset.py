@@ -1,15 +1,14 @@
 import sys
-from batchMaker import StimMaker
+import numpy as np
 import matplotlib.pyplot as plt
+from batchMaker import StimMaker
 from parameters import *
 
 data_path = './data'
 if not os.path.exists(data_path):
     os.mkdir(data_path)
 
-# first we create a dataset object with our data
-check_data = False  # set to true if you want to take a look at the processed data at the end
-
+# an instance of the StimMaker class we will use to create stimuli
 stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
 
 # helper functions for later
@@ -33,25 +32,27 @@ def print_progress(count, total):
 
 
 # create the tfRecord file
-def make_tfRecords(stim_maker, shape_types, n_samples, samples_per_file, out_path):
+def make_multi_shape_tfRecords(stim_maker, shape_types, n_samples, out_path):
     # Args:
-    # n_samples             the total number of stimuli.
-    # samples_per_file      We may create several tfRecords files - choose the number here.
-    # out_path              File-path for the TFRecords output file.
+    # stim_maker        an instance of the StimMaker class (see batchMaker script)
+    # shape_types       a list describing which shapes to use (see batchMaker script).
+    # n_samples         the total number of stimuli.
+    # out_path          File-path for the TFRecords output file.
 
-    print("Converting: " + out_path)
+
+    print("\nConverting: " + out_path)
 
     # Number of images. Used when printing the progress.
 
     # Open a TFRecordWriter for the output-file.
     with tf.python_io.TFRecordWriter(out_path) as writer:
+
         # Create images one by one using stimMaker and save them
         for i in range(n_samples):
             # Print the percentage-progress.
             print_progress(count=i, total=n_samples - 1)
 
-            # Load the image-file using matplotlib's imread function.
-            multi_shape_img, single_shape_img, labels, vernier_label, n_elements = stim_maker.makeMultiShapeBatch(1, shape_types, n_shapes=n_simultaneous_shapes)
+            multi_shape_img, single_shape_img, labels, vernier_label, n_elements = stim_maker.makeMultiShapeBatch(1, shape_types, n_shapes=simultaneous_shapes, noiseLevel=noise_level, group_last_shapes=group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
 
             # Convert the image to raw bytes.
             multi_shape_img_bytes = multi_shape_img.tostring()
@@ -84,8 +85,57 @@ def make_tfRecords(stim_maker, shape_types, n_samples, samples_per_file, out_pat
             writer.write(serialized)
 
 
-# variables are in byte form in the tfrecord file. this converts back to the right format.
-def parse(serialized):
+def make_config_tfRecords(stim_maker, stim_matrices, n_samples, out_path):
+    # Kind of stupid, but we must create tfRecords differently for config_batches because they don't return the same
+    # things as multi_shape_batches (see batchMaker script)
+    # Args:
+    # stim_maker        an instance of the StimMaker class (see batchMaker script)
+    # stim_matrices     list of config matrices. See batchMaker script
+    # n_samples         the total number of stimuli.
+    # out_path          File-path for the TFRecords output file.
+
+    print("\nConverting: " + out_path)
+
+    # Number of images. Used when printing the progress.
+
+    # Open a TFRecordWriter for the output-file.
+    with tf.python_io.TFRecordWriter(out_path) as writer:
+
+        # Create images one by one using stimMaker and save them
+        for i in range(n_samples):
+            # Print the percentage-progress.
+            print_progress(count=i, total=n_samples - 1)
+
+            for stim in range(len(stim_matrices)):
+                config_img, vernier_label = stim_maker.makeConfigBatch(1, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
+
+                # Convert the image to raw bytes.
+                config_img_bytes = config_img.tostring()
+                vernier_label_bytes = vernier_label.tostring()
+
+                # Create a dict with the data we want to save in the
+                # TFRecords file. You can add more relevant data here.
+                data = \
+                    {
+                        'config_img': wrap_bytes(config_img_bytes),
+                        'vernier_label': wrap_bytes(vernier_label_bytes),
+                    }
+
+                # Wrap the data as TensorFlow Features.
+                feature = tf.train.Features(feature=data)
+
+                # Wrap again as a TensorFlow Example.
+                example = tf.train.Example(features=feature)
+
+                # Serialize the data.
+                serialized = example.SerializeToString()
+
+                # Write the serialized data to the TFRecords file.
+                writer.write(serialized)
+
+
+def parse_multi_shape(serialized):
+    # variables are in byte form in the tfrecord file. this converts back to the right format.
     # Define a dict with the data-names and types we expect to
     # find in the TFRecords file.
     # It is a bit awkward that this needs to be specified again,
@@ -117,19 +167,38 @@ def parse(serialized):
     vernier_label = tf.decode_raw(vernier_label_raw, tf.int64)
     n_elements = tf.decode_raw(n_elements_raw, tf.int64)
 
-    # The type is now uint8 but we need it to be float.
-    # multi_shape_img = tf.cast(multi_shape_img, tf.float32)
-    # single_shape_img = tf.cast(single_shape_img, tf.float32)
-    # labels = tf.cast(labels, tf.int64)
-    # vernier_label = tf.cast(vernier_label, tf.int64)
-    # n_elements = tf.cast(n_elements, tf.int64)
-
-    # The image and label are now correct TensorFlow types.
     return multi_shape_img, single_shape_img, labels, vernier_label, n_elements
 
 
-# needed for estimators in the main script
-def input_fn(filenames, train, n_epochs=n_epochs, batch_size=batch_size, buffer_size=buffer_size):
+def parse_config(serialized):
+    # variables are in byte form in the tfrecord file. this converts back to the right format.
+    # Define a dict with the data-names and types we expect to
+    # find in the TFRecords file.
+    # It is a bit awkward that this needs to be specified again,
+    # because it could have been written in the header of the
+    # TFRecords file instead.
+    features = \
+        {
+            'config_img': tf.FixedLenFeature([], tf.string),
+            'vernier_label': tf.FixedLenFeature([], tf.string),
+        }
+
+    # Parse the serialized data so we get a dict with our data.
+    parsed_example = tf.parse_single_example(serialized=serialized, features=features)
+
+    # Get the image as raw bytes.
+    config_img_raw = parsed_example['config_img']
+    vernier_label_raw = parsed_example['vernier_label']
+
+    # Decode the raw bytes so it becomes a tensor with type.
+    config_img = tf.decode_raw(config_img_raw, tf.float32)
+    vernier_label = tf.decode_raw(vernier_label_raw, tf.float32)
+
+    return config_img, vernier_label
+
+
+def input_fn_multi_shape(filenames, train, n_epochs=n_epochs, batch_size=batch_size, buffer_size=buffer_size):
+    # needed for estimators in the main script
     # Args:
     # filenames:   Filenames for the TFRecords files.
     # train:       Boolean whether training (True) or testing (False).
@@ -143,7 +212,7 @@ def input_fn(filenames, train, n_epochs=n_epochs, batch_size=batch_size, buffer_
 
     # Parse the serialized data in the TFRecords files.
     # This returns TensorFlow tensors for the image and labels.
-    dataset = dataset.map(parse)
+    dataset = dataset.map(parse_multi_shape)
 
     if train:
         # If training then read a buffer of the given size and
@@ -194,38 +263,88 @@ def input_fn(filenames, train, n_epochs=n_epochs, batch_size=batch_size, buffer_
 
     return feed_dict, labels
 
+
+def input_fn_config(filenames, batch_size=batch_size):
+    # needed for estimators in the main script
+    # Args:
+    # filenames:   Filenames for the TFRecords files.
+    # train:       Boolean whether training (True) or testing (False).
+    # batch_size:  Return batches of this size.
+    # buffer_size: Read buffers of this size. The random shuffling
+    #              is done on the buffer, so it must be big enough.
+
+    # Create a TensorFlow Dataset-object which has functionality
+    # for reading and shuffling data from TFRecords files.
+    dataset = tf.data.TFRecordDataset(filenames=filenames)
+
+    # Parse the serialized data in the TFRecords files.
+    # This returns TensorFlow tensors for the image and labels.
+    dataset = dataset.map(parse_config)
+
+    # Get a batch of data with the given size.
+    dataset = dataset.batch(batch_size)
+
+    # Create an iterator for the dataset and the above modifications.
+    iterator = dataset.make_one_shot_iterator()
+
+    # Get the next batch of images and labels.
+    config_img, vernier_label = iterator.get_next()
+
+    # reshape images (they were flattened when transformed into bytes
+    config_img = tf.reshape(config_img, [-1, im_size[0], im_size[1], 1])
+
+    # this is not very elegant, but in the testing phase we don't need the reconstruction targets nor the shape labels.
+    # but the model expects to receive them, so we fill them with zeros.
+    feed_dict = {'X': config_img,
+                 'reconstruction_targets': np.zeros(shape=(batch_size, im_size[0], im_size[1], simultaneous_shapes)),
+                 'y': vernier_label,
+                 'vernier_offsets': vernier_label,
+                 'mask_with_labels': False,
+                 'is_training': False}
+
+    return feed_dict, vernier_label
+
+
 # these functions are needed to accomodate the estimator API
 def train_input_fn():
-    return input_fn(filenames=os.path.join(data_path, "train.tfrecords"), train=True)
-
-def test_input_fn():
-    return input_fn(filenames=os.path.join(data_path, "test.tfrecords"), train=False)
+    return input_fn_multi_shape(train_data_path, train=True)
 
 
-
-
-#  create en tfRecord file
-make_tfRecords(stim_maker, shape_types, n_samples, 1, os.path.join(data_path, "train.tfrecords"))
+def test_input_fn(test_data_path):
+    return input_fn_config(test_data_path)
 
 
 # if you want to check data at the end to make sure everything is ok.
-if check_data:
-
-    data_out = input_fn('./data/train.tfrecords', 0)
+def show_data(filename, type):
+    # shows processed data from the filename file
+    # type: # 'config' or 'multi_shape'
 
     with tf.Session() as sess:
-        img, single_shape_img, labels, n_elements, vernier_offsets = sess.run([data_out['X'], data_out['reconstruction_targets'], data_out['y'], data_out['n_shapes'], data_out['vernier_offsets']])
 
-        print(img.shape)
-        print(single_shape_img.shape)
-        print(labels)
+        if type is 'multi_shape':
 
-        # Loop over each example in batch
-        for i in range(10):
-            plt.imshow(img[i, :, :, 0])
-            plt.title('Class label = ' + str(labels[i, :]) + ', vernier = ' + str(vernier_offsets[i]) + ', n_elements = ' + str(n_elements[i,:]))
-            plt.show()
-            plt.imshow(single_shape_img[i, :, :, 0])
-            plt.show()
-            plt.imshow(single_shape_img[i, :, :, 1])
-            plt.show()
+            data_out, labels_out = input_fn_multi_shape(filename, 0)
+            img, single_shape_img, labels, n_elements, vernier_offsets = sess.run([data_out['X'], data_out['reconstruction_targets'], data_out['y'], data_out['n_shapes'], data_out['vernier_offsets']])
+
+            # Loop over each example in batch
+            for i in range(10):
+                plt.imshow(img[i, :, :, 0])
+                plt.title('Class label = ' + str(labels[i, :]) + ', vernier = ' + str(vernier_offsets[i]) + ', n_elements = ' + str(n_elements[i,:]))
+                plt.show()
+                plt.imshow(single_shape_img[i, :, :, 0])
+                plt.show()
+                plt.imshow(single_shape_img[i, :, :, 1])
+                plt.show()
+
+        elif type is 'config':
+
+            data_out, labels_out = input_fn_config(filename)
+            img, labels = sess.run([data_out['X'], data_out['y']])
+
+            # Loop over each example in batch
+            for i in range(10):
+                plt.imshow(img[i, :, :, 0])
+                plt.title('Class label = ' + str(labels[i]))
+                plt.show()
+        else:
+            raise Exception('Unknown data type. Enter "multi_shape" or "config" or set check_data = None in parameters')
