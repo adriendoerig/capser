@@ -3,6 +3,7 @@ from __future__ import division, print_function, unicode_literals
 import tensorflow as tf
 import numpy as np
 import tensorflow.contrib.framework
+from tensorflow.contrib.tpu.python.tpu import tpu_optimizer
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
     caps_prediction, compute_margin_loss, compute_primary_caps_loss, create_masked_decoder_input, \
     decoder_with_mask, decoder_with_mask_batch_norm, primary_capsule_reconstruction, \
@@ -37,6 +38,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                  n_shapes_labels=0, n_shapes_max=0, alpha_n_shapes=0,
                  vernier_offset_labels=0, alpha_vernier_offset=0,
                  shape_patch=0, conv_batch_norm=False, decoder_batch_norm=False,
+                 using_TPUEstimator = False,
                  **output_decoder_deconv_params
                  ):
 
@@ -84,10 +86,12 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                 conv2 = batch_norm_conv_layer(conv1, is_training, name='conv2', **conv2_params)
         else:
             conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
-            tf.summary.histogram('1st_conv_layer', conv1)
+            if not using_TPUEstimator:
+                tf.summary.histogram('1st_conv_layer', conv1)
             if conv2_params is not None:
                 conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)
-                tf.summary.histogram('2nd_conv_layer', conv2)
+                if not using_TPUEstimator:
+                    tf.summary.histogram('2nd_conv_layer', conv2)
 
         if conv3_params is not None:
 
@@ -95,7 +99,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                 conv3 = batch_norm_conv_layer(conv2, is_training, name='conv3', **conv3_params)
             else:
                 conv3 = tf.layers.conv2d(conv2, name="conv3", **conv3_params)
-            tf.summary.histogram('3rd_conv_layer', conv3)
+                if not using_TPUEstimator:
+                    tf.summary.histogram('3rd_conv_layer', conv3)
 
     with tf.name_scope('1st_caps'):
 
@@ -128,7 +133,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
 
         # display a histogram of primary capsule norms
         caps1_output_norms = safe_norm(caps1_output, axis=-1, keep_dims=False, name="primary_capsule_norms")
-        tf.summary.histogram('Primary capsule norms', caps1_output_norms)
+        if not using_TPUEstimator:
+                    tf.summary.histogram('Primary capsule norms', caps1_output_norms)
 
 
     ####################################################################################################################
@@ -170,7 +176,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         # get norms of all capsules for the first simulus in the batch to vizualize them
         caps2_output_norm = tf.squeeze(safe_norm(caps2_output[0, :, :, :], axis=-2, keep_dims=False,
                                                  name="caps2_output_norm"))
-        tf.summary.histogram('Output capsule norms', caps2_output_norm)
+        if not using_TPUEstimator:
+                    tf.summary.histogram('Output capsule norms', caps2_output_norm)
 
 
         ####################################################################################################################
@@ -200,7 +207,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
             if do_n_shapes_loss:
                 # create the mask
                 decoder_input_output_caps = create_masked_decoder_input(y, y_pred, caps2_output, caps2_n_caps, caps2_n_dims, mask_with_labels, print_shapes=print_shapes)
-                tf.summary.histogram('decoder_input_no_bn', decoder_input_output_caps)
+                if not using_TPUEstimator:
+                    tf.summary.histogram('decoder_input_no_bn', decoder_input_output_caps)
 
                 n_shapes_loss = compute_n_shapes_loss(decoder_input_output_caps, n_shapes_labels, n_shapes_max, print_shapes)
             else:
@@ -231,7 +239,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                                                                    **output_decoder_deconv_params)
 
                 decoder_output_image_output_caps = tf.reshape(decoder_output_output_caps, [-1, im_size[0], im_size[1], 1])
-                tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
+                if not using_TPUEstimator:
+                    tf.summary.image('decoder_output', decoder_output_image_output_caps, 6)
 
                 # reconstruction loss
                 output_caps_reconstruction_loss, squared_differences = compute_reconstruction_loss(X, decoder_output_output_caps, loss_type=reconstruction_loss_type)
@@ -273,7 +282,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                         output_caps_reconstruction_loss = output_caps_reconstruction_loss + this_output_caps_reconstruction_loss
                         squared_differences = squared_differences + this_squared_differences
 
-                tf.summary.scalar('reconstruction_loss_sum', output_caps_reconstruction_loss)
+                if not using_TPUEstimator:
+                    tf.summary.scalar('reconstruction_loss_sum', output_caps_reconstruction_loss)
 
                 # make an rgb tf.summary image. Note: there's sum fucked up dimension tweaking but it works.
                 color_masks = np.array([[121, 199, 83],  # 0: vernier, green
@@ -288,7 +298,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
 
                 decoder_output_images_sum = decoder_output_images_rgb_0 + decoder_output_images_rgb_1
                 # display the summed output image
-                tf.summary.image('decoder_output', decoder_output_images_sum, 6)
+                if not using_TPUEstimator:
+                    tf.summary.image('decoder_output', decoder_output_images_sum, 6)
 
 
     ####################################################################################################################
@@ -305,7 +316,8 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                          alpha_vernier_offset * training_vernier_loss],
                          name="loss")
 
-        tf.summary.scalar('total_loss', loss)
+        if not using_TPUEstimator:
+                    tf.summary.scalar('total_loss', loss)
 
     with tf.name_scope('accuracy'):
         # the reshape is in case simulataneous_shapes > 1 (in this case we need to reorder y and y_pred in ascending order to have matching labels for shape 1 & 2)
@@ -313,11 +325,14 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         y_pred_sorted = tensorflow.contrib.framework.sort(y_pred, axis=-1, direction='ASCENDING', name='y_pred_sorted')
         correct = tf.equal(y_sorted, y_pred_sorted, name="correct")
         accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
-        tf.summary.scalar('accuracy', accuracy)
+        if not using_TPUEstimator:
+                    tf.summary.scalar('accuracy', accuracy)
 
     # TRAINING OPERATIONS #
 
     optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+    if using_TPUEstimator:
+        optimizer = tpu_optimizer.CrossShardOptimizer(optimizer)
     update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # for batch norm
     loss_training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
     training_op = [loss_training_op, update_batch_norm_ops]

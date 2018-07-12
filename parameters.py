@@ -7,11 +7,11 @@ data_path = './data'                                # save your tfRecord data fi
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # training set
-create_new_train_set = False                        # if you already have a tfRecords training file in data_path, you may set to False
+create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
-n_train_samples = 100000                            # number of different stimuli in an epoch
+n_train_samples = 500000                            # number of different stimuli in an epoch
 batch_size = 16                                     # stimuli per batch
-buffer_size = 2048                                  # number of stimuli simultaneously in memory (I think)
+buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 10                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 
@@ -47,9 +47,7 @@ shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 ### network params ###
 
 # saving/loading
-restore_checkpoint = True
-version_to_restore = None
-continue_training_from_checkpoint = False
+version_to_restore = 0          # None: train new model. n: load last checkpoint of version n.
 
 # batch norm
 conv_batch_norm = False

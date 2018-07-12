@@ -25,7 +25,7 @@ if check_data is not None:
     show_data(check_data, type='config')
 
 # create estimator for model (the model is described in capser_7_model_fn)
-capser = tf.estimator.Estimator(model_fn=model_fn, params={'batch_size': batch_size}, model_dir=LOGDIR)
+capser = tf.estimator.Estimator(model_fn=model_fn_tpu, params={'batch_size': batch_size}, model_dir=LOGDIR)
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress

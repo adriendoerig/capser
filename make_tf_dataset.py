@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from batchMaker import StimMaker
 from parameters import *
+from tensorflow.contrib.data import batch_and_drop_remainder
 
 data_path = './data'
 if not os.path.exists(data_path):
@@ -208,11 +209,13 @@ def input_fn_multi_shape(filenames, train, n_epochs=n_epochs, batch_size=batch_s
 
     # Create a TensorFlow Dataset-object which has functionality
     # for reading and shuffling data from TFRecords files.
-    dataset = tf.data.TFRecordDataset(filenames=filenames)
+    # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
+    dataset = tf.data.TFRecordDataset(filenames=filenames, num_parallel_reads=32)
 
     # Parse the serialized data in the TFRecords files.
     # This returns TensorFlow tensors for the image and labels.
-    dataset = dataset.map(parse_multi_shape)
+    # do the mapping in parallel to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME))
+    dataset = dataset.map(parse_multi_shape, num_parallel_calls=64)
 
     if train:
         # If training then read a buffer of the given size and
@@ -228,10 +231,14 @@ def input_fn_multi_shape(filenames, train, n_epochs=n_epochs, batch_size=batch_s
         num_repeat = 1
 
     # Repeat the dataset the given number of times.
-    dataset = dataset.repeat(num_repeat)
+    dataset = dataset.repeat(num_repeat).apply(batch_and_drop_remainder(batch_size))
+
 
     # Get a batch of data with the given size.
     dataset = dataset.batch(batch_size)
+
+    # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
+    dataset = dataset.prefetch(2)
 
     # Create an iterator for the dataset and the above modifications.
     iterator = dataset.make_one_shot_iterator()
@@ -275,14 +282,19 @@ def input_fn_config(filenames, batch_size=batch_size):
 
     # Create a TensorFlow Dataset-object which has functionality
     # for reading and shuffling data from TFRecords files.
-    dataset = tf.data.TFRecordDataset(filenames=filenames)
+    # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
+    dataset = tf.data.TFRecordDataset(filenames=filenames, num_parallel_reads=32)
 
     # Parse the serialized data in the TFRecords files.
     # This returns TensorFlow tensors for the image and labels.
-    dataset = dataset.map(parse_config)
+    # Apply parsing in parallel to speed up (see https://www.youtube.com/watch?v=SxOsJPaxHME)
+    dataset = dataset.map(parse_config, num_parallel_calls=64)
 
     # Get a batch of data with the given size.
     dataset = dataset.batch(batch_size)
+
+    # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
+    dataset = dataset.prefetch(2)
 
     # Create an iterator for the dataset and the above modifications.
     iterator = dataset.make_one_shot_iterator()
@@ -309,6 +321,9 @@ def input_fn_config(filenames, batch_size=batch_size):
 def train_input_fn():
     return input_fn_multi_shape(train_data_path, train=True)
 
+def train_input_fn_tpu(params):
+    # for a TPUEstimator, a params argument MUST be provided (even though here we don't use it).
+    return input_fn_multi_shape(train_data_path, train=True)
 
 def test_input_fn(test_data_path):
     return input_fn_config(test_data_path)
