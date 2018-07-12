@@ -27,13 +27,10 @@ if FLAGS.use_tpu:
         tpu=[FLAGS.tpu_name],
         zone=my_zone,
         project=my_project_name)
-    master = TPUClusterResolver.get_master(cluster_resolver)
 else:
     master = ''
 
 my_tpu_run_config = tpu_config.RunConfig(
-    master=master,
-    evaluation_master=master,
     model_dir=FLAGS.model_dir,
     save_checkpoints_secs=FLAGS.save_checkpoints_secs,
     save_summary_steps=FLAGS.save_summary_steps,
