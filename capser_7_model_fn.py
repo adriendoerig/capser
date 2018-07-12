@@ -6,7 +6,7 @@ def model_fn(features, labels, mode, params):
 
 
     X = features['X']
-    x_image = tf.reshape(X, [params['batch_size']-1, im_size[0], im_size[1], 1])
+    x_image = tf.reshape(X, [params['model_batch_size'], im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
     reconstruction_targets = features['reconstruction_targets']
 
@@ -15,8 +15,8 @@ def model_fn(features, labels, mode, params):
         n_shapes = features['n_shapes']
     else:
         y = tf.cast(features['y'], tf.int64)
-        n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['batch_size'])), shape=[None], name="n_shapes_labels")
-    vernier_offsets = tf.placeholder_with_default(tf.zeros(shape=(params['batch_size'])), shape=[None],
+        n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size'])), shape=[None], name="n_shapes_labels")
+    vernier_offsets = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size'])), shape=[None],
                                                   name="vernier_offset_labels")
 
     # tell the program whether to use the true or the predicted labels (the placeholder is needed to have a bool in tf).
@@ -64,7 +64,7 @@ def model_fn_tpu(features, labels, mode, params):
 
 
     X = features['X']
-    x_image = tf.reshape(X, [params['batch_size'], im_size[0], im_size[1], 1])
+    x_image = tf.reshape(X, [params['model_batch_size'], im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
     reconstruction_targets = features['reconstruction_targets']
 
@@ -73,8 +73,8 @@ def model_fn_tpu(features, labels, mode, params):
         n_shapes = features['n_shapes']
     else:
         y = tf.cast(features['y'], tf.int64)
-        n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['batch_size'])), shape=[None], name="n_shapes_labels")
-    vernier_offsets = tf.placeholder_with_default(tf.zeros(shape=(params['batch_size'])), shape=[None],
+        n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size'])), shape=[None], name="n_shapes_labels")
+    vernier_offsets = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size'])), shape=[None],
                                                   name="vernier_offset_labels")
 
     # tell the program whether to use the true or the predicted labels (the placeholder is needed to have a bool in tf).
