@@ -43,6 +43,7 @@ my_tpu_run_config = tpu_config.RunConfig(
 capser = tpu_estimator.TPUEstimator(model_fn=model_fn_tpu,
                                     config=my_tpu_run_config,
                                     use_tpu=FLAGS.use_tpu,
+                                    train_batch_size=batch_size,
                                     params={'model_batch_size': batch_size})
 
 # train model
