@@ -45,9 +45,8 @@ my_tpu_run_config = tpu_config.RunConfig(
 # create estimator for model (the model is described in capser_7_model_fn)
 capser = tpu_estimator.TPUEstimator(model_fn=model_fn_tpu,
                                     config=my_tpu_run_config,
-                                    use_tpu=FLAGS.use_tpu,
-                                    params={'batch_size': batch_size})
+                                    use_tpu=FLAGS.use_tpu)
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
-capser.train(input_fn=train_input_fn_tpu, steps=n_steps)
+capser.train(input_fn=train_input_fn_tpu(params={'batch_size': batch_size}), steps=n_steps)
