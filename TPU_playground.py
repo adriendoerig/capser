@@ -2,7 +2,7 @@ import logging
 from tensorflow.contrib.tpu.python.tpu import tpu_config, tpu_estimator, tpu_optimizer
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver
 from capser_7_model_fn import *
-from make_tf_dataset import *
+from capser_7_input_fn import *
 import subprocess
 
 

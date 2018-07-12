@@ -1,4 +1,3 @@
-import sys
 import numpy as np
 from parameters import *
 from tensorflow.contrib.data import batch_and_drop_remainder

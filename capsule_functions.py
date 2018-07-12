@@ -1,7 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
-import io
 
 # define a safe-norm to avoid infinities and zeros
 def safe_norm(s, axis=-1, epsilon=1e-7, keep_dims=False, name=None):
