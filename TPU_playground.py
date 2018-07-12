@@ -7,7 +7,7 @@ import subprocess
 
 
 class FLAGS(object):
-    use_tpu = False
+    use_tpu = True
     tpu_name = None
     # Use a local temporary path for the `model_dir`
     model_dir = LOGDIR
@@ -38,7 +38,7 @@ my_tpu_run_config = tpu_config.RunConfig(
     save_checkpoints_secs=FLAGS.save_checkpoints_secs,
     save_summary_steps=FLAGS.save_summary_steps,
     session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True),
-    tpu_config=tpu_config.TPUConfig(FLAGS.iterations, FLAGS.num_shards),
+    tpu_config=tpu_config.TPUConfig(iterations_per_loop=FLAGS.iterations, num_shards=FLAGS.num_shards),
 )
 
 
@@ -50,4 +50,4 @@ capser = tpu_estimator.TPUEstimator(model_fn=model_fn_tpu,
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
-capser.train(input_fn=train_input_fn_tpu(params={'batch_size': batch_size}), steps=n_steps)
+capser.train(input_fn=train_input_fn_tpu, steps=n_steps)
