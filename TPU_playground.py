@@ -27,7 +27,7 @@ if FLAGS.use_tpu:
         tpu=[FLAGS.tpu_name],
         zone=my_zone,
         project=my_project_name)
-    master = TPUClusterResolver.get_master()
+    master = TPUClusterResolver.get_master(cluster_resolver)
 else:
     master = ''
 
