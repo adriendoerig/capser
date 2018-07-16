@@ -189,6 +189,8 @@ def train_input_fn():
 
 def train_input_fn_tpu(params):
     # for a TPUEstimator, a params argument MUST be provided (even though here we don't use it).
+    
+    # batch_size=params['batch_size']
     return input_fn_multi_shape(train_data_path)
 
 def test_input_fn(test_data_path):

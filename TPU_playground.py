@@ -32,6 +32,10 @@ tf.flags.DEFINE_integer("iterations", 1000,
 
 tf.flags.DEFINE_integer("num_shards", 8, "Number of shards (TPU chips).")
 
+tf.flags.DEFINE_integer("batch_size", 1024,
+                                "Mini-batch size for the training. Note that this "
+                                "is the global batch size and not the per-shard batch.")
+
 FLAGS = tf.flags.FLAGS
 
 # class FLAGS(object):
@@ -73,8 +77,7 @@ my_tpu_run_config = tpu_config.RunConfig(
 capser = tpu_estimator.TPUEstimator(model_fn=model_fn_tpu,
                                     config=my_tpu_run_config,
                                     use_tpu=FLAGS.use_tpu,
-                                    train_batch_size=batch_size,
-                                    params={'model_batch_size': batch_size})
+                                    train_batch_size=batch_size)
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress

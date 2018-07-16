@@ -65,7 +65,7 @@ def model_fn_tpu(features, labels, mode, params):
 
     X = features['X']
     x_image = tf.reshape(X, [params['model_batch_size'], im_size[0], im_size[1], 1])
-    tf.summary.image('input', x_image, 6)
+    #tf.summary.image('input', x_image, 6)
     reconstruction_targets = features['reconstruction_targets']
 
     if simultaneous_shapes > 1:
