@@ -189,20 +189,11 @@ def input_fn_multi_shape_tpu(filenames, train=True, n_epochs=n_epochs, batch_siz
     single_shape_img = tf.reshape(single_shape_img, [-1, im_size[0], im_size[1], 2])
 
     # The input-function must return a dict wrapping the images.
-    if train:
-        feed_dict = {'X': multi_shape_img,
-                     'reconstruction_targets': single_shape_img,
-                     'y': labels,
-                     'n_shapes': n_elements,
-                     'vernier_offsets': vernier_label,
-                     'mask_with_labels': True,
-                     'is_training': True}
-    else:
-        feed_dict = {'X': multi_shape_img,
-                     'reconstruction_targets': single_shape_img,
-                     'y': labels,
-                     'n_shapes': n_elements,
-                     'vernier_offsets': vernier_label}
+    feed_dict = {'X': multi_shape_img,
+                 'reconstruction_targets': single_shape_img,
+                 'y': labels,
+                 'n_shapes': n_elements,
+                 'vernier_offsets': vernier_label}
 
     return feed_dict, labels
 
@@ -298,7 +289,7 @@ def input_fn_config_tpu(filenames, batch_size=batch_size):
 
 # these functions are needed to accomodate the estimator API
 def train_input_fn():
-    return input_fn_multi_shape(train_data_path, train=True)
+    return input_fn_multi_shape(train_data_path)
 
 def train_input_fn_tpu(params):
     # for a TPUEstimator, a params argument MUST be provided (even though here we don't use it).
