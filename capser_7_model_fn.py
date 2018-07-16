@@ -78,9 +78,9 @@ def model_fn_tpu(features, labels, mode, params):
                                                   name="vernier_offset_labels")
 
     # tell the program whether to use the true or the predicted labels (the placeholder is needed to have a bool in tf).
-    mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name="mask_with_labels")
+    mask_with_labels = tf.placeholder_with_default(True, shape=(), name="mask_with_labels")
     # boolean specifying if training or not (for batch normalization)
-    is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
+    is_training = tf.placeholder_with_default(True, shape=(), name='is_training')
 
     capser = capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_params, conv3_params,
                           caps1_n_maps, caps1_n_dims, conv_caps_params,

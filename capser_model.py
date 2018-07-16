@@ -134,7 +134,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         # display a histogram of primary capsule norms
         caps1_output_norms = safe_norm(caps1_output, axis=-1, keep_dims=False, name="primary_capsule_norms")
         if not using_TPUEstimator:
-                    tf.summary.histogram('Primary capsule norms', caps1_output_norms)
+            tf.summary.histogram('Primary capsule norms', caps1_output_norms)
 
 
     ####################################################################################################################
@@ -317,7 +317,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
                          name="loss")
 
         if not using_TPUEstimator:
-                    tf.summary.scalar('total_loss', loss)
+            tf.summary.scalar('total_loss', loss)
 
     with tf.name_scope('accuracy'):
         # the reshape is in case simulataneous_shapes > 1 (in this case we need to reorder y and y_pred in ascending order to have matching labels for shape 1 & 2)
@@ -326,7 +326,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         correct = tf.equal(y_sorted, y_pred_sorted, name="correct")
         accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
         if not using_TPUEstimator:
-                    tf.summary.scalar('accuracy', accuracy)
+            tf.summary.scalar('accuracy', accuracy)
 
     # TRAINING OPERATIONS #
 
