@@ -113,8 +113,8 @@ def input_fn_multi_shape(filenames, train=True, n_epochs=n_epochs, batch_size=ba
     multi_shape_img, single_shape_img, labels, vernier_label, n_elements = iterator.get_next()
 
     # reshape images (they were flattened when transformed into bytes
-    multi_shape_img = tf.reshape(multi_shape_img, [-1, im_size[0], im_size[1], 1])
-    single_shape_img = tf.reshape(single_shape_img, [-1, im_size[0], im_size[1], 2])
+    multi_shape_img = tf.reshape(multi_shape_img, [batch_size, im_size[0], im_size[1], 1])
+    single_shape_img = tf.reshape(single_shape_img, [batch_size, im_size[0], im_size[1], 2])
 
     # The input-function must return a dict wrapping the images.
     if train:
