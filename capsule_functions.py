@@ -74,10 +74,10 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
     with tf.name_scope('primary_to_first_fc'):
         # initialise weights
         init_sigma = 0.01  # stdev of weights
-        W_init = tf.random_normal(
+        W_init = lambda: tf.random_normal(
             shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
             stddev=init_sigma, dtype=tf.float32, name="W_init")
-        W = tf.Variable(W_init, dtype=tf.float32, name="W")
+        W = tf.Variable(W_init, name="W")
 
         # tile weights to [batch_size_per_shard, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
         # i.e. batch_size_per_shard times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
@@ -165,7 +165,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
             caps2_output = tf.zeros(shape=(batch_size_per_shard, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
             caps2_predicted, caps2_output, raw_weights, rba_iter = tf.while_loop(do_routing_cond, routing_by_agreement,
                                                                                  [caps2_predicted, caps2_output,
-                                                                                  raw_weights, rba_iter])
+                                                                                  raw_weights, rba_iter], maximum_iterations=rba_rounds)
 
         # This is the caps2 output!
         # tf.summary.histogram('rba_output', caps2_output)
@@ -194,7 +194,7 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
         W_init = tf.random_normal(
             shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
             stddev=init_sigma, dtype=tf.float32, name="W_init")
-        W = tf.Variable(W_init, dtype=tf.float32, name="W")
+        W = tf.Variable(W_init, name="W")
         W_tiled = tf.tile(W, [batch_size_per_shard, 1, 1, 1, 1], name="W_tiled")
         caps1_output = tf.transpose(caps1_output,[0, 2, 1, 3, 4])
         caps1_output_tiled = tf.tile(caps1_output, [1, 1, caps2_n_caps, 1, 1],

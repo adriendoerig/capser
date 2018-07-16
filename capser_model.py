@@ -177,7 +177,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         caps2_output_norm = tf.squeeze(safe_norm(caps2_output[0, :, :, :], axis=-2, keep_dims=False,
                                                  name="caps2_output_norm"))
         if not using_TPUEstimator:
-                    tf.summary.histogram('Output capsule norms', caps2_output_norm)
+            tf.summary.histogram('Output capsule norms', caps2_output_norm)
 
 
         ####################################################################################################################
