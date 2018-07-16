@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from parameters import *
 
 # define a safe-norm to avoid infinities and zeros
 def safe_norm(s, axis=-1, epsilon=1e-7, keep_dims=False, name=None):
@@ -42,11 +43,11 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
         # in case we want to force the network to use a certain primary capsule map to represent certain shapes, we must
         # conserve all the map dimensions (we don't care about spatial position)
         caps_per_map = tf.cast(caps1_n_caps / caps1_n_maps, dtype=tf.int32, name='caps_per_map')
-        caps1_raw_with_maps = tf.reshape(conv_for_caps, [-1, caps1_n_maps, caps_per_map, caps1_n_dims], name="caps1_raw_with_maps")
+        caps1_raw_with_maps = tf.reshape(conv_for_caps, [batch_size, caps1_n_maps, caps_per_map, caps1_n_dims], name="caps1_raw_with_maps")
 
         # reshape the output to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to
         # keep the [batch,xx,xx,n_feature_maps,caps1_n_dims] so we just flatten it to keep it simple)
-        caps1_raw = tf.reshape(conv_for_caps, [-1, caps1_n_caps, caps1_n_dims], name="caps1_raw")
+        caps1_raw = tf.reshape(conv_for_caps, [batch_size, caps1_n_caps, caps1_n_dims], name="caps1_raw")
         tf.summary.histogram('caps1_raw', caps1_raw)
 
         # squash capsule outputs
@@ -421,7 +422,7 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
         # caps2_output shape is (batch size, 1, 10, 16, 1). We want to multiply it by the reconstruction_mask,
         # but the shape of the reconstruction_mask is (batch size, 10). We must reshape it to (batch size, 1, 10, 1, 1)
         # to make multiplication possible:
-        reconstruction_mask_reshaped = tf.reshape(reconstruction_mask, [-1, 1, n_caps, 1, 1], name="reconstruction_mask_reshaped")
+        reconstruction_mask_reshaped = tf.reshape(reconstruction_mask, [batch_size, 1, n_caps, 1, 1], name="reconstruction_mask_reshaped")
 
         # Apply the mask!
         caps2_output_masked = tf.multiply(caps_output, reconstruction_mask_reshaped, name="caps2_output_masked")
@@ -431,7 +432,7 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
             print('shape of masked output: ' + str(caps2_output_masked))
 
         # flatten the masked output to feed to the decoder
-        decoder_input = tf.reshape(caps2_output_masked, [-1, n_caps * caps_n_dims], name="decoder_input")
+        decoder_input = tf.reshape(caps2_output_masked, [batch_size, n_caps * caps_n_dims], name="decoder_input")
 
         if print_shapes:
             # check shape
@@ -494,7 +495,7 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
 
             if deconv_params['fc_width'] is not None:
                 hidden1 = tf.layers.dense(decoder_input, deconv_params['fc_width']*deconv_params['fc_height'], activation=tf.nn.relu, name="fc_hidden1")
-                hidden1_2d = tf.reshape(hidden1, shape=[-1, deconv_params['fc_height'], deconv_params['fc_width']])
+                hidden1_2d = tf.reshape(hidden1, shape=[batch_size, deconv_params['fc_height'], deconv_params['fc_width']])
                 hidden1_2d = tf.expand_dims(hidden1_2d, axis=-1)
                 tf.summary.histogram('deconv_decoder_hidden1', hidden1_2d)
                 if print_shapes:
@@ -506,7 +507,7 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
                     print('shape of decoder 1st deconv output: ' + str(hidden2))
 
                 if deconv_params['final_fc'] is True:
-                    hidden2_flat = tf.reshape(hidden2, shape=[-1,n_output*deconv_params['deconv_filters2']])
+                    hidden2_flat = tf.reshape(hidden2, shape=[batch_size,n_output*deconv_params['deconv_filters2']])
                     if print_shapes:
                         print('shape of decoder 1st deconv output flat: ' + str(hidden2_flat))
 
@@ -517,7 +518,7 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
                     decoder_output = tf.reduce_sum(hidden2, axis=-1)
                     if print_shapes:
                         print('shape of decoder output: ' + str(decoder_output))
-                    decoder_output = tf.reshape(decoder_output, shape=[-1, n_output])
+                    decoder_output = tf.reshape(decoder_output, shape=[batch_size, n_output])
                     if print_shapes:
                         print('shape of decoder output flat: ' + str(decoder_output))
 
@@ -637,7 +638,7 @@ def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_outp
                                                                    phase=is_training, name='primary_decoder')
 
         decoder_output_image_primary_caps = tf.reshape(decoder_output_primary_caps,
-                                                       [-1, tf.shape(shape_patch)[1], tf.shape(shape_patch)[2], 1])
+                                                       [batch_size, tf.shape(shape_patch)[1], tf.shape(shape_patch)[2], 1])
         tf.summary.image('decoder_output', decoder_output_image_primary_caps, 6)
 
         return decoder_output_primary_caps, highest_norm_capsule[0]
@@ -647,7 +648,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
     with tf.name_scope('reconstruction_loss'):
 
-        X_flat = tf.reshape(input, [-1, tf.shape(reconstruction)[1]], name="X_flat")
+        X_flat = tf.reshape(input, [batch_size, tf.shape(reconstruction)[1]], name="X_flat")
 
         if gain is None:
             gain = tf.ones_like(X_flat[:,0])
