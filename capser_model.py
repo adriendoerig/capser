@@ -335,7 +335,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
     # TRAINING OPERATIONS #
 
     if using_TPUEstimator:
-        optimizer = tf.train.MomentumOptimizer(learning_rate=0.0001)
+        optimizer = tf.train.MomentumOptimizer(learning_rate=0.0001, momentum=0.9, use_nesterov=True)
         optimizer = tpu_optimizer.CrossShardOptimizer(optimizer)
     else:
         optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
