@@ -4,7 +4,6 @@ import os
 ### data  ###
 
 data_path = './data'                                # save your tfRecord data files here
-check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # training set
 create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
@@ -14,6 +13,7 @@ batch_size = 16                                     # stimuli per batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 10                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
+check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
@@ -47,7 +47,7 @@ shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 ### network params ###
 
 # saving/loading
-version_to_restore = 0          # None: train new model. n: load last checkpoint of version n.
+version_to_restore = None          # None: train new model. n: load last checkpoint of version n.
 
 # batch norm
 conv_batch_norm = False

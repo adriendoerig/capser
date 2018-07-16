@@ -22,10 +22,10 @@ if create_new_test_sets:
     for category in test_stimuli.keys():
         make_config_tfRecords(stim_maker, test_stimuli[category], n_test_samples, os.path.join(data_path, "test_" + category + ".tfrecords"))
 if check_data is not None:
-    show_data(check_data, type='config')
+    show_data(check_data, type='multi_shape')
 
 # create estimator for model (the model is described in capser_7_model_fn)
-capser = tf.estimator.Estimator(model_fn=model_fn_tpu, params={'batch_size': batch_size}, model_dir=LOGDIR)
+capser = tf.estimator.Estimator(model_fn=model_fn, params={'model_batch_size': batch_size}, model_dir=LOGDIR)
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress

@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from batchMaker import StimMaker
 from parameters import *
 from tensorflow.contrib.data import batch_and_drop_remainder
@@ -230,12 +230,8 @@ def input_fn_multi_shape(filenames, train, n_epochs=n_epochs, batch_size=batch_s
         # Only go through the data once.
         num_repeat = 1
 
-    # Repeat the dataset the given number of times.
+    # Repeat the dataset the given number of times and get a batch of data with the given size.
     dataset = dataset.repeat(num_repeat).apply(batch_and_drop_remainder(batch_size))
-
-
-    # Get a batch of data with the given size.
-    dataset = dataset.batch(batch_size)
 
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.prefetch(2)
@@ -330,36 +326,38 @@ def test_input_fn(test_data_path):
 
 
 # if you want to check data at the end to make sure everything is ok.
-# def show_data(filename, type):
-#     # shows processed data from the filename file
-#     # type: # 'config' or 'multi_shape'
-#
-#     with tf.Session() as sess:
-#
-#         if type is 'multi_shape':
-#
-#             data_out, labels_out = input_fn_multi_shape(filename, 0)
-#             img, single_shape_img, labels, n_elements, vernier_offsets = sess.run([data_out['X'], data_out['reconstruction_targets'], data_out['y'], data_out['n_shapes'], data_out['vernier_offsets']])
-#
-#             # Loop over each example in batch
-#             for i in range(10):
-#                 plt.imshow(img[i, :, :, 0])
-#                 plt.title('Class label = ' + str(labels[i, :]) + ', vernier = ' + str(vernier_offsets[i]) + ', n_elements = ' + str(n_elements[i,:]))
-#                 plt.show()
-#                 plt.imshow(single_shape_img[i, :, :, 0])
-#                 plt.show()
-#                 plt.imshow(single_shape_img[i, :, :, 1])
-#                 plt.show()
-#
-#         elif type is 'config':
-#
-#             data_out, labels_out = input_fn_config(filename)
-#             img, labels = sess.run([data_out['X'], data_out['y']])
-#
-#             # Loop over each example in batch
-#             for i in range(10):
-#                 plt.imshow(img[i, :, :, 0])
-#                 plt.title('Class label = ' + str(labels[i]))
-#                 plt.show()
-#         else:
-#             raise Exception('Unknown data type. Enter "multi_shape" or "config" or set check_data = None in parameters')
+def show_data(filename, type):
+    # shows processed data from the filename file
+    # type: # 'config' or 'multi_shape'
+
+    with tf.Session() as sess:
+
+        if type is 'multi_shape':
+
+            data_out, labels_out = input_fn_multi_shape(filename, 0)
+            img, single_shape_img, labels, n_elements, vernier_offsets = sess.run([data_out['X'], data_out['reconstruction_targets'], data_out['y'], data_out['n_shapes'], data_out['vernier_offsets']])
+
+            print(labels)
+            print(labels.shape)
+            # Loop over each example in batch
+            for i in range(10):
+                plt.imshow(img[i, :, :, 0])
+                plt.title('Class label = ' + str(labels[i, :]) + ', vernier = ' + str(vernier_offsets[i]) + ', n_elements = ' + str(n_elements[i,:]))
+                plt.show()
+                plt.imshow(single_shape_img[i, :, :, 0])
+                plt.show()
+                plt.imshow(single_shape_img[i, :, :, 1])
+                plt.show()
+
+        elif type is 'config':
+
+            data_out, labels_out = input_fn_config(filename)
+            img, labels = sess.run([data_out['X'], data_out['y']])
+
+            # Loop over each example in batch
+            for i in range(10):
+                plt.imshow(img[i, :, :, 0])
+                plt.title('Class label = ' + str(labels[i]))
+                plt.show()
+        else:
+            raise Exception('Unknown data type. Enter "multi_shape" or "config" or set check_data = None in parameters')

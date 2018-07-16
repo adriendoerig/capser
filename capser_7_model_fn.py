@@ -45,10 +45,10 @@ def model_fn(features, labels, mode, params):
 
     # Define the evaluation metrics,
     # in this case the classification accuracy.
-    metrics = \
-        {
-            "accuracy": tf.metrics.accuracy(labels, capser['y_pred'])
-        }
+    # metrics = \
+        # {
+        #     "accuracy": tf.metrics.accuracy(labels, capser['y_pred'])
+        # }
 
     # Wrap all of this in an EstimatorSpec.
     spec = tf.estimator.EstimatorSpec(

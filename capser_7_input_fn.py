@@ -168,12 +168,8 @@ def input_fn_multi_shape_tpu(filenames, train=True, n_epochs=n_epochs, batch_siz
         # Only go through the data once.
         num_repeat = 1
 
-    # Repeat the dataset the given number of times.
+    # Repeat the dataset the given number of times and get a batch of data with the given size.
     dataset = dataset.repeat(num_repeat).apply(batch_and_drop_remainder(batch_size))
-
-
-    # Get a batch of data with the given size.
-    dataset = dataset.batch(batch_size)
 
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.prefetch(2)
