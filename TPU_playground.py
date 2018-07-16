@@ -4,27 +4,55 @@ from tensorflow.contrib.cluster_resolver import TPUClusterResolver
 from capser_7_model_fn import *
 from capser_7_input_fn import *
 import subprocess
+from absl import flags
 
+flags.DEFINE_bool(
+    'use_tpu', True,
+    'Use TPUs rather than plain CPUs')
 
-class FLAGS(object):
-    use_tpu = True
-    tpu_name = None
-    # Use a local temporary path for the `model_dir`
-    model_dir = LOGDIR
-    # saves a checkpoint each save_checkpoints_secs seconds
-    save_checkpoints_secs = 1000
-    # number of steps which must have run before showing summaries
-    save_summary_steps = 100
-    # Number of training steps to run on the Cloud TPU before returning control.
-    iterations = 1000
-    # A single Cloud TPU has 8 shards.
-    num_shards = 8
+tf.flags.DEFINE_string(
+    "tpu", default=None,
+    help="The Cloud TPU to use for training. This should be either the name "
+    "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 "
+    "url.")
+
+tf.flags.DEFINE_string("model_dir", LOGDIR, "Estimator model_dir")
+
+flags.DEFINE_integer(
+    'save_checkpoints_secs', 1000,
+    'Interval (in seconds) at which the model data '
+'should be checkpointed. Set to 0 to disable.')
+
+flags.DEFINE_integer(
+    'save_summary_steps', 100,
+'Number of steps which must have run before showing summaries.')
+
+tf.flags.DEFINE_integer("iterations", 1000,
+"Number of iterations per TPU training loop.")
+
+tf.flags.DEFINE_integer("num_shards", 8, "Number of shards (TPU chips).")
+
+FLAGS = tf.flags.FLAGS
+
+# class FLAGS(object):
+#     use_tpu = True
+#     tpu_name = None
+#     # Use a local temporary path for the `model_dir`
+#     model_dir = LOGDIR
+#     # saves a checkpoint each save_checkpoints_secs seconds
+#     save_checkpoints_secs = 1000
+#     # number of steps which must have run before showing summaries
+#     save_summary_steps = 100
+#     # Number of training steps to run on the Cloud TPU before returning control.
+#     iterations = 1000
+#     # A single Cloud TPU has 8 shards.
+#     num_shards = 8
 
 if FLAGS.use_tpu:
     my_project_name = subprocess.check_output(['gcloud', 'config', 'get-value', 'project'])
     my_zone = subprocess.check_output(['gcloud', 'config', 'get-value', 'compute/zone'])
     cluster_resolver = TPUClusterResolver(
-        tpu=[FLAGS.tpu_name],
+        tpu=[FLAGS.tpu],
         zone=my_zone,
         project=my_project_name)
 else:
