@@ -334,12 +334,9 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
 
     # TRAINING OPERATIONS #
 
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
     if using_TPUEstimator:
-        optimizer = tf.train.MomentumOptimizer(learning_rate=0.0001, momentum=0.9, use_nesterov=True)
         optimizer = tpu_optimizer.CrossShardOptimizer(optimizer)
-    else:
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
-
     update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # for batch norm
     loss_training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
     training_op = [loss_training_op, update_batch_norm_ops]
