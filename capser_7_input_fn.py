@@ -185,8 +185,8 @@ def input_fn_multi_shape_tpu(filenames, train=True, n_epochs=n_epochs, batch_siz
     multi_shape_img, single_shape_img, labels, vernier_label, n_elements = iterator.get_next()
 
     # reshape images (they were flattened when transformed into bytes
-    multi_shape_img = tf.reshape(multi_shape_img, [-1, im_size[0], im_size[1], 1])
-    single_shape_img = tf.reshape(single_shape_img, [-1, im_size[0], im_size[1], 2])
+    multi_shape_img = tf.reshape(multi_shape_img, [batch_size, im_size[0], im_size[1], 1])
+    single_shape_img = tf.reshape(single_shape_img, [batch_size, im_size[0], im_size[1], 2])
 
     # The input-function must return a dict wrapping the images.
     feed_dict = {'X': multi_shape_img,
@@ -230,7 +230,7 @@ def input_fn_config(filenames, batch_size=batch_size):
     config_img, vernier_label = iterator.get_next()
 
     # reshape images (they were flattened when transformed into bytes
-    config_img = tf.reshape(config_img, [-1, im_size[0], im_size[1], 1])
+    config_img = tf.reshape(config_img, [batch_size, im_size[0], im_size[1], 1])
 
     # this is not very elegant, but in the testing phase we don't need the reconstruction targets nor the shape labels.
     # but the model expects to receive them, so we fill them with zeros.
@@ -275,7 +275,7 @@ def input_fn_config_tpu(filenames, batch_size=batch_size):
     config_img, vernier_label = iterator.get_next()
 
     # reshape images (they were flattened when transformed into bytes
-    config_img = tf.reshape(config_img, [-1, im_size[0], im_size[1], 1])
+    config_img = tf.reshape(config_img, [batch_size, im_size[0], im_size[1], 1])
 
     # this is not very elegant, but in the testing phase we don't need the reconstruction targets nor the shape labels.
     # but the model expects to receive them, so we fill them with zeros.
