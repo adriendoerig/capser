@@ -323,20 +323,23 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
         if not using_TPUEstimator:
             tf.summary.scalar('total_loss', loss)
 
-    with tf.name_scope('accuracy'):
-        # the reshape is in case simulataneous_shapes > 1 (in this case we need to reorder y and y_pred in ascending order to have matching labels for shape 1 & 2)
-        y_sorted = tensorflow.contrib.framework.sort(y, axis=-1, direction='ASCENDING', name='y_sorted')
-        y_pred_sorted = tensorflow.contrib.framework.sort(y_pred, axis=-1, direction='ASCENDING', name='y_pred_sorted')
-        correct = tf.equal(y_sorted, y_pred_sorted, name="correct")
-        accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
-        if not using_TPUEstimator:
+    if not using_TPUEstimator:
+        with tf.name_scope('accuracy'):
+            # the reshape is in case simulataneous_shapes > 1 (in this case we need to reorder y and y_pred in ascending order to have matching labels for shape 1 & 2)
+            y_sorted = tensorflow.contrib.framework.sort(y, axis=-1, direction='ASCENDING', name='y_sorted')
+            y_pred_sorted = tensorflow.contrib.framework.sort(y_pred, axis=-1, direction='ASCENDING', name='y_pred_sorted')
+            correct = tf.equal(y_sorted, y_pred_sorted, name="correct")
+            accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
             tf.summary.scalar('accuracy', accuracy)
 
     # TRAINING OPERATIONS #
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
     if using_TPUEstimator:
+        optimizer = tf.train.MomentumOptimizer(learning_rate=0.0001)
         optimizer = tpu_optimizer.CrossShardOptimizer(optimizer)
+    else:
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+
     update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # for batch norm
     loss_training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
     training_op = [loss_training_op, update_batch_norm_ops]
