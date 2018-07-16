@@ -57,7 +57,7 @@ if FLAGS.use_tpu:
         project=my_project_name)
 
 my_tpu_run_config = tpu_config.RunConfig(
-    cluster=cluster_resolver,
+    master=TPUClusterResolver(tpu=[os.environ['TPU_NAME']]).get_master(),
     model_dir=FLAGS.model_dir,
     save_checkpoints_secs=FLAGS.save_checkpoints_secs,
     save_summary_steps=FLAGS.save_summary_steps,
