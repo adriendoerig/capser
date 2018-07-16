@@ -64,7 +64,7 @@ def parse_config(serialized):
 
     return config_img, vernier_label
 
-def input_fn_multi_shape(filenames, train, n_epochs=n_epochs, batch_size=batch_size, buffer_size=buffer_size):
+def input_fn_multi_shape(filenames, train=True, n_epochs=n_epochs, batch_size=batch_size, buffer_size=buffer_size):
     # needed for estimators in the main script
     # Args:
     # filenames:   Filenames for the TFRecords files.
@@ -189,7 +189,7 @@ def train_input_fn():
 
 def train_input_fn_tpu(params):
     # for a TPUEstimator, a params argument MUST be provided (even though here we don't use it).
-    return input_fn_multi_shape(train_data_path, train=True)
+    return input_fn_multi_shape(train_data_path)
 
 def test_input_fn(test_data_path):
     return input_fn_config(test_data_path)

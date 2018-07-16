@@ -7,7 +7,7 @@ import subprocess
 from absl import flags
 
 flags.DEFINE_bool(
-    'use_tpu', True,
+    'use_tpu', False,
     'Use TPUs rather than plain CPUs')
 
 tf.flags.DEFINE_string(
@@ -55,9 +55,12 @@ if FLAGS.use_tpu:
         tpu=[FLAGS.tpu],
         zone=my_zone,
         project=my_project_name)
+    master = TPUClusterResolver(tpu=[os.environ['TPU_NAME']]).get_master()
+else:
+    master = ''
 
 my_tpu_run_config = tpu_config.RunConfig(
-    master=TPUClusterResolver(tpu=[os.environ['TPU_NAME']]).get_master(),
+    master=master,
     model_dir=FLAGS.model_dir,
     save_checkpoints_secs=FLAGS.save_checkpoints_secs,
     save_summary_steps=FLAGS.save_summary_steps,
