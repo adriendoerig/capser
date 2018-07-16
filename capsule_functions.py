@@ -81,7 +81,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
 
         # tile weights to [batch_size, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
         # i.e. batch_size times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
-        batch_size = tf.shape(input_batch)[0]  # note: tf.shape(X) is undefined until we fill the placeholder
+        # batch_size = tf.shape(input_batch)[0]  # note: tf.shape(X) is undefined until we fill the placeholder
         W_tiled = tf.tile(W, [batch_size, 1, 1, 1, 1], name="W_tiled")
 
         # tile caps1_output to [batch_size, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
@@ -329,11 +329,11 @@ def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lam
         present_error_raw = tf.square(tf.maximum(0., m_plus - caps2_output_norm), name="present_error_raw")
         if print_shapes:
             print('shape of output margin loss function -- present_error_raw: ' + str(present_error_raw))
-        present_error = tf.reshape(present_error_raw, shape=(-1, caps2_n_caps), name="present_error")  # there is a term for each of the caps2ncaps possible outputs
+        present_error = tf.reshape(present_error_raw, shape=(batch_size, caps2_n_caps), name="present_error")  # there is a term for each of the caps2ncaps possible outputs
         if print_shapes:
             print('shape of output margin loss function -- present_error: ' + str(present_error))
         absent_error_raw = tf.square(tf.maximum(0., caps2_output_norm - m_minus), name="absent_error_raw")
-        absent_error = tf.reshape(absent_error_raw, shape=(-1, caps2_n_caps), name="absent_error")    # there is a term for each of the caps2ncaps possible outputs
+        absent_error = tf.reshape(absent_error_raw, shape=(batch_size, caps2_n_caps), name="absent_error")    # there is a term for each of the caps2ncaps possible outputs
 
         # compute the margin loss
         L = tf.add(T * present_error, lambda_ * (1.0 - T) * absent_error, name="L")
@@ -915,21 +915,21 @@ def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_leve
 
             ####### PLOT RESULTS #######
 
-            N = len(x_labels)
-            ind = np.arange(N)  # the x locations for the groups
-            width = 0.25  # the width of the bars
-
-            fig, ax = plt.subplots()
-            plot_color = (0. / 255, 91. / 255, 150. / 255)
-            rects1 = ax.bar(ind, percent_correct, width, color=plot_color)
-
-            # add some text for labels, title and axes ticks, and save figure
-            ax.set_ylabel('Percent correct')
-            # ax.set_title('Vernier decoding from alexnet layers')
-            ax.set_xticks(ind + width / 2)
-            ax.set_xticklabels(x_labels)
-            ax.plot([-0.3, N], [50, 50], 'k--')  # chance level cashed line
-            ax.legend(rects1, ('vernier', '1 ' + category[:-1], '7 ' + category))
-            plt.savefig(res_path + '/' + category + '_uncrowding_plot_' + plot_ID + '.png')
-            plt.close()
+            # N = len(x_labels)
+            # ind = np.arange(N)  # the x locations for the groups
+            # width = 0.25  # the width of the bars
+            #
+            # fig, ax = plt.subplots()
+            # plot_color = (0. / 255, 91. / 255, 150. / 255)
+            # rects1 = ax.bar(ind, percent_correct, width, color=plot_color)
+            #
+            # # add some text for labels, title and axes ticks, and save figure
+            # ax.set_ylabel('Percent correct')
+            # # ax.set_title('Vernier decoding from alexnet layers')
+            # ax.set_xticks(ind + width / 2)
+            # ax.set_xticklabels(x_labels)
+            # ax.plot([-0.3, N], [50, 50], 'k--')  # chance level cashed line
+            # ax.legend(rects1, ('vernier', '1 ' + category[:-1], '7 ' + category))
+            # plt.savefig(res_path + '/' + category + '_uncrowding_plot_' + plot_ID + '.png')
+            # plt.close()
 
