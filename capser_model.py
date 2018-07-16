@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 import tensorflow.contrib.framework
 from tensorflow.contrib.tpu.python.tpu import tpu_optimizer
-from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, \
+from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, primary_to_fc_caps_layer_tpu, \
     caps_prediction, compute_margin_loss, compute_primary_caps_loss, create_masked_decoder_input, \
     decoder_with_mask, decoder_with_mask_batch_norm, primary_capsule_reconstruction, \
     compute_reconstruction_loss, safe_norm, compute_n_shapes_loss, \
@@ -170,8 +170,12 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
 
     with tf.name_scope('2nd_caps'):
         # it is all taken care of by the function
-        caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
-                                                rba_rounds=rba_rounds, print_shapes=print_shapes)
+        if using_TPUEstimator:
+            caps2_output = primary_to_fc_caps_layer_tpu(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
+                                                    rba_rounds=rba_rounds, print_shapes=print_shapes)
+        else:
+            caps2_output = primary_to_fc_caps_layer(X, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
+                                                    rba_rounds=rba_rounds, print_shapes=print_shapes)
 
         # get norms of all capsules for the first simulus in the batch to vizualize them
         caps2_output_norm = tf.squeeze(safe_norm(caps2_output[0, :, :, :], axis=-2, keep_dims=False,

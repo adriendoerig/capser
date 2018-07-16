@@ -176,6 +176,116 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
         return caps2_output
 
 
+def primary_to_fc_caps_layer_tpu(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
+                             rba_rounds=3, print_shapes=False):
+    # Now the tricky part: create the predictions of secondary capsules' activities!
+    # in essence, this is creating random weights from each dimension of each layer 1 capsule
+    # to each dimension of each layer 2 capsule -- initializing random transforms on caps1 output vectors.
+    # To make it efficient we use only tensorflow-friendly matrix multiplications. To this end,
+    # we use tf.matmul, which performs element wise matrix in multidimensional arrays. To create
+    # these arrays we use tf.tile a lot. See ageron github & video for more explanations.
+
+    with tf.name_scope('primary_to_first_fc'):
+        # initialise weights
+        init_sigma = 0.01  # stdev of weights
+        W_init = lambda: tf.random_normal(
+            shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
+            stddev=init_sigma, dtype=tf.float32, name="W_init")
+        W = tf.Variable(W_init, name="W")
+
+        # tile weights to [batch_size_per_shard, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
+        # i.e. batch_size_per_shard times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
+        # batch_size_per_shard = tf.shape(input_batch)[0]  # note: tf.shape(X) is undefined until we fill the placeholder
+        W_tiled = tf.tile(W, [batch_size_per_shard, 1, 1, 1, 1], name="W_tiled")
+
+        # tile caps1_output to [batch_size_per_shard, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
+        # to do so, first we need to add the required dimensions with tf.expand_dims
+        caps1_output_expanded = tf.expand_dims(caps1_output, -1,
+                                               name="caps1_output_expanded")  # expand last dimension
+        caps1_output_tile = tf.expand_dims(caps1_output_expanded, 2,
+                                           name="caps1_output_tile")  # expand third dimension
+        caps1_output_tiled = tf.tile(caps1_output_tile, [1, 1, caps2_n_caps, 1, 1],
+                                     name="caps1_output_tiled")  # tile
+        # check shapes
+        if print_shapes:
+            print('shape of tiled W: ' + str(W_tiled))
+            print('shape of tiled caps1_output: ' + str(caps1_output_tiled))
+
+        # Thanks to all this hard work, computing the secondary capsules' predicted activities is easy peasy:
+        caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled,
+                                    name="caps2_predicted")
+
+        # tf.summary.histogram('rba_0', caps2_predicted)
+
+        # check shape
+        if print_shapes:
+            print('shape of caps2_predicted: ' + str(caps2_predicted))
+
+        ################################################################################################################
+        # ROUTING BY AGREEMENT iterative algorithm
+        ################################################################################################################
+
+        with tf.name_scope('routing_by_agreement'):
+
+            # initialize routing weights
+            raw_weights = tf.zeros([batch_size_per_shard, caps1_n_caps, caps2_n_caps, 1, 1],
+                                   dtype=np.float32, name="raw_weights")
+
+            # softmax on weights
+            routing_weights = tf.nn.softmax(raw_weights, dim=2, name="routing_weights")
+
+            # weighted sum of the lower layer predictions according to the routing weights
+            weighted_predictions = tf.multiply(routing_weights, caps2_predicted,
+                                               name="weighted_predictions")
+            weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keep_dims=True,
+                                         name="weighted_sum")
+
+            # squash
+            caps2_rba1_output = squash(weighted_sum, axis=-2,
+                                  name="caps2_rba_output")
+
+            # check shape
+            if print_shapes:
+                print('shape of caps2_output after after RbA round: ' + str(caps2_rba1_output))
+
+            # to measure agreement, we just compute dot products between predictions and actual activations.
+            # to do so, we will again use tf.matmul and tiling
+            caps2_rba1_output_tiled = tf.tile(
+                caps2_rba1_output, [1, caps1_n_caps, 1, 1, 1],
+                name="caps2_rba_output_tiled")
+
+            # check shape
+            if print_shapes:
+                print('shape of TILED caps2_output after RbA round: ' + str(caps2_rba1_output_tiled))
+
+            # comput agreement is simple now
+            agreement = tf.matmul(caps2_predicted, caps2_rba1_output_tiled,
+                                  transpose_a=True, name="agreement")
+
+            # update routing weights based on agreement
+            raw_weights_round2 = tf.add(raw_weights, agreement,
+                                     name="raw_weights_round_new")
+
+            # weighted sum of the lower layer predictions according to the routing weights
+            weighted_predictions_round2 = tf.multiply(routing_weights, caps2_predicted,
+                                               name="weighted_predictions")
+            weighted_sum_round2 = tf.reduce_sum(weighted_predictions, axis=1, keep_dims=True,
+                                         name="weighted_sum")
+
+            # squash
+            caps2_rba_output_round2 = squash(weighted_sum, axis=-2,
+                                       name="caps2_rba_output")
+
+            # check shape
+            if print_shapes:
+                print('shape of caps2_output after after RbA round: ' + str(caps2_rba_output_round2))
+
+            if print_shapes:
+                print('shape of caps2_output after RbA termination: ' + str(caps2_rba_output_round2))
+
+        return caps2_rba_output_round2
+
+
 # takes a fc capsule layer output (caps1) as input and creates a new fully connected capsule layer (caps2)
 # difference with primary_to_fc_caps_layer is that there is no need to tile.
 def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims,
