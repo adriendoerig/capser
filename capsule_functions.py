@@ -43,11 +43,11 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
         # in case we want to force the network to use a certain primary capsule map to represent certain shapes, we must
         # conserve all the map dimensions (we don't care about spatial position)
         caps_per_map = tf.cast(caps1_n_caps / caps1_n_maps, dtype=tf.int32, name='caps_per_map')
-        caps1_raw_with_maps = tf.reshape(conv_for_caps, [batch_size, caps1_n_maps, caps_per_map, caps1_n_dims], name="caps1_raw_with_maps")
+        caps1_raw_with_maps = tf.reshape(conv_for_caps, [batch_size_per_shard, caps1_n_maps, caps_per_map, caps1_n_dims], name="caps1_raw_with_maps")
 
         # reshape the output to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to
         # keep the [batch,xx,xx,n_feature_maps,caps1_n_dims] so we just flatten it to keep it simple)
-        caps1_raw = tf.reshape(conv_for_caps, [batch_size, caps1_n_caps, caps1_n_dims], name="caps1_raw")
+        caps1_raw = tf.reshape(conv_for_caps, [batch_size_per_shard, caps1_n_caps, caps1_n_dims], name="caps1_raw")
         tf.summary.histogram('caps1_raw', caps1_raw)
 
         # squash capsule outputs
@@ -79,12 +79,12 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
             stddev=init_sigma, dtype=tf.float32, name="W_init")
         W = tf.Variable(W_init, name="W")
 
-        # tile weights to [batch_size, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
-        # i.e. batch_size times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
-        # batch_size = tf.shape(input_batch)[0]  # note: tf.shape(X) is undefined until we fill the placeholder
-        W_tiled = tf.tile(W, [batch_size, 1, 1, 1, 1], name="W_tiled")
+        # tile weights to [batch_size_per_shard, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
+        # i.e. batch_size_per_shard times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
+        # batch_size_per_shard = tf.shape(input_batch)[0]  # note: tf.shape(X) is undefined until we fill the placeholder
+        W_tiled = tf.tile(W, [batch_size_per_shard, 1, 1, 1, 1], name="W_tiled")
 
-        # tile caps1_output to [batch_size, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
+        # tile caps1_output to [batch_size_per_shard, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
         # to do so, first we need to add the required dimensions with tf.expand_dims
         caps1_output_expanded = tf.expand_dims(caps1_output, -1,
                                                name="caps1_output_expanded")  # expand last dimension
@@ -158,11 +158,11 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
                 return caps2_predicted, caps2_rba_output, raw_weights_new, tf.add(rba_iter, 1)
 
             # initialize routing weights
-            raw_weights = tf.zeros([batch_size, caps1_n_caps, caps2_n_caps, 1, 1],
+            raw_weights = tf.zeros([batch_size_per_shard, caps1_n_caps, caps2_n_caps, 1, 1],
                                    dtype=np.float32, name="raw_weights")
 
             rba_iter = tf.constant(1, name='rba_iteration_counter')
-            caps2_output = tf.zeros(shape=(batch_size, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
+            caps2_output = tf.zeros(shape=(batch_size_per_shard, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
             caps2_predicted, caps2_output, raw_weights, rba_iter = tf.while_loop(do_routing_cond, routing_by_agreement,
                                                                                  [caps2_predicted, caps2_output,
                                                                                   raw_weights, rba_iter])
@@ -187,7 +187,7 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
     # we use tf.matmul, which performs element wise matrix in multidimensional arrays. To create
     # these arrays we use tf.tile a lot. See ageron github & video for more explanations.
     with tf.name_scope('caps_fc_to_caps_fc'):
-        batch_size = tf.shape(input_batch)[0]  # note: tf.shape(X) is undefined until we actually fill the placeholder
+        batch_size_per_shard = tf.shape(input_batch)[0]  # note: tf.shape(X) is undefined until we actually fill the placeholder
 
         # initialise weights
         init_sigma = 0.01  # stdev of weights
@@ -195,7 +195,7 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
             shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
             stddev=init_sigma, dtype=tf.float32, name="W_init")
         W = tf.Variable(W_init, name="W")
-        W_tiled = tf.tile(W, [batch_size, 1, 1, 1, 1], name="W_tiled")
+        W_tiled = tf.tile(W, [batch_size_per_shard, 1, 1, 1, 1], name="W_tiled")
         caps1_output = tf.transpose(caps1_output,[0, 2, 1, 3, 4])
         caps1_output_tiled = tf.tile(caps1_output, [1, 1, caps2_n_caps, 1, 1],
                                      name="caps1_output_tiled")  # tile
@@ -261,11 +261,11 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
                 return caps2_predicted, caps2_rba_output, raw_weights_new, tf.add(rba_iter, 1)
 
             # initialize routing weights
-            raw_weights = tf.zeros([batch_size, caps1_n_caps, caps2_n_caps, 1, 1],
+            raw_weights = tf.zeros([batch_size_per_shard, caps1_n_caps, caps2_n_caps, 1, 1],
                                    dtype=np.float32, name="raw_weights")
 
             rba_iter = tf.constant(1, name='rba_iteration_counter')
-            caps2_output = tf.zeros(shape=(batch_size, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
+            caps2_output = tf.zeros(shape=(batch_size_per_shard, 1, caps2_n_caps, caps2_n_dims, 1), name='caps2_output')
             caps2_predicted, caps2_output, raw_weights, rba_iter = tf.while_loop(do_routing_cond, routing_by_agreement,
                                                                                  [caps2_predicted, caps2_output,
                                                                                   raw_weights, rba_iter])
@@ -329,11 +329,11 @@ def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lam
         present_error_raw = tf.square(tf.maximum(0., m_plus - caps2_output_norm), name="present_error_raw")
         if print_shapes:
             print('shape of output margin loss function -- present_error_raw: ' + str(present_error_raw))
-        present_error = tf.reshape(present_error_raw, shape=(batch_size, caps2_n_caps), name="present_error")  # there is a term for each of the caps2ncaps possible outputs
+        present_error = tf.reshape(present_error_raw, shape=(batch_size_per_shard, caps2_n_caps), name="present_error")  # there is a term for each of the caps2ncaps possible outputs
         if print_shapes:
             print('shape of output margin loss function -- present_error: ' + str(present_error))
         absent_error_raw = tf.square(tf.maximum(0., caps2_output_norm - m_minus), name="absent_error_raw")
-        absent_error = tf.reshape(absent_error_raw, shape=(batch_size, caps2_n_caps), name="absent_error")    # there is a term for each of the caps2ncaps possible outputs
+        absent_error = tf.reshape(absent_error_raw, shape=(batch_size_per_shard, caps2_n_caps), name="absent_error")    # there is a term for each of the caps2ncaps possible outputs
 
         # compute the margin loss
         L = tf.add(T * present_error, lambda_ * (1.0 - T) * absent_error, name="L")
@@ -422,7 +422,7 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
         # caps2_output shape is (batch size, 1, 10, 16, 1). We want to multiply it by the reconstruction_mask,
         # but the shape of the reconstruction_mask is (batch size, 10). We must reshape it to (batch size, 1, 10, 1, 1)
         # to make multiplication possible:
-        reconstruction_mask_reshaped = tf.reshape(reconstruction_mask, [batch_size, 1, n_caps, 1, 1], name="reconstruction_mask_reshaped")
+        reconstruction_mask_reshaped = tf.reshape(reconstruction_mask, [batch_size_per_shard, 1, n_caps, 1, 1], name="reconstruction_mask_reshaped")
 
         # Apply the mask!
         caps2_output_masked = tf.multiply(caps_output, reconstruction_mask_reshaped, name="caps2_output_masked")
@@ -432,7 +432,7 @@ def create_masked_decoder_input(labels, labels_pred, caps_output, n_caps, caps_n
             print('shape of masked output: ' + str(caps2_output_masked))
 
         # flatten the masked output to feed to the decoder
-        decoder_input = tf.reshape(caps2_output_masked, [batch_size, n_caps * caps_n_dims], name="decoder_input")
+        decoder_input = tf.reshape(caps2_output_masked, [batch_size_per_shard, n_caps * caps_n_dims], name="decoder_input")
 
         if print_shapes:
             # check shape
@@ -495,7 +495,7 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
 
             if deconv_params['fc_width'] is not None:
                 hidden1 = tf.layers.dense(decoder_input, deconv_params['fc_width']*deconv_params['fc_height'], activation=tf.nn.relu, name="fc_hidden1")
-                hidden1_2d = tf.reshape(hidden1, shape=[batch_size, deconv_params['fc_height'], deconv_params['fc_width']])
+                hidden1_2d = tf.reshape(hidden1, shape=[batch_size_per_shard, deconv_params['fc_height'], deconv_params['fc_width']])
                 hidden1_2d = tf.expand_dims(hidden1_2d, axis=-1)
                 tf.summary.histogram('deconv_decoder_hidden1', hidden1_2d)
                 if print_shapes:
@@ -507,7 +507,7 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
                     print('shape of decoder 1st deconv output: ' + str(hidden2))
 
                 if deconv_params['final_fc'] is True:
-                    hidden2_flat = tf.reshape(hidden2, shape=[batch_size,n_output*deconv_params['deconv_filters2']])
+                    hidden2_flat = tf.reshape(hidden2, shape=[batch_size_per_shard,n_output*deconv_params['deconv_filters2']])
                     if print_shapes:
                         print('shape of decoder 1st deconv output flat: ' + str(hidden2_flat))
 
@@ -518,7 +518,7 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
                     decoder_output = tf.reduce_sum(hidden2, axis=-1)
                     if print_shapes:
                         print('shape of decoder output: ' + str(decoder_output))
-                    decoder_output = tf.reshape(decoder_output, shape=[batch_size, n_output])
+                    decoder_output = tf.reshape(decoder_output, shape=[batch_size_per_shard, n_output])
                     if print_shapes:
                         print('shape of decoder output flat: ' + str(decoder_output))
 
@@ -638,7 +638,7 @@ def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_outp
                                                                    phase=is_training, name='primary_decoder')
 
         decoder_output_image_primary_caps = tf.reshape(decoder_output_primary_caps,
-                                                       [batch_size, tf.shape(shape_patch)[1], tf.shape(shape_patch)[2], 1])
+                                                       [batch_size_per_shard, tf.shape(shape_patch)[1], tf.shape(shape_patch)[2], 1])
         tf.summary.image('decoder_output', decoder_output_image_primary_caps, 6)
 
         return decoder_output_primary_caps, highest_norm_capsule[0]
@@ -648,7 +648,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
     with tf.name_scope('reconstruction_loss'):
 
-        X_flat = tf.reshape(input, [batch_size, tf.shape(reconstruction)[1]], name="X_flat")
+        X_flat = tf.reshape(input, [batch_size_per_shard, tf.shape(reconstruction)[1]], name="X_flat")
 
         if gain is None:
             gain = tf.ones_like(X_flat[:,0])
@@ -757,7 +757,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 def vernier_classifier(input, is_training=True, n_hidden1=None, n_hidden2=None, batch_norm=False, dropout=False, name=''):
 
     with tf.name_scope(name):
-        batch_size = tf.shape(input)[0]
+        batch_size_per_shard = tf.shape(input)[0]
 
         # find how many units are in this layer to flatten it
         items_to_multiply = len(np.shape(input)) - 1
@@ -765,7 +765,7 @@ def vernier_classifier(input, is_training=True, n_hidden1=None, n_hidden2=None, 
         for i in range(1, items_to_multiply + 1):
             n_units = n_units * int(np.shape(input)[i])
 
-        flat_input = tf.reshape(input, [batch_size, n_units])
+        flat_input = tf.reshape(input, [batch_size_per_shard, n_units])
         tf.summary.histogram('classifier_input_no_bn', flat_input)
 
         if batch_norm:
@@ -844,7 +844,7 @@ def vernier_correct_mean(prediction, label):
         return correct_mean
 
 
-def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_level, normalize_images, fixed_stim_position, simultaneous_shapes,
+def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size_per_shard, noise_level, normalize_images, fixed_stim_position, simultaneous_shapes,
                      capser, X, y, reconstruction_targets, vernier_offsets, mask_with_labels, sess, LOGDIR,
                      label_encoding='lr_01', res_path=None, plot_ID=None, saver=False, checkpoint_path=None,
                      summary_writer=None, global_step=None):
@@ -862,13 +862,13 @@ def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size, noise_leve
 
         for this_stim in range(3):
 
-            n_batches = n_stimuli // batch_size
+            n_batches = n_stimuli // batch_size_per_shard
 
             for batch in range(n_batches):
                 curr_stim = stim_matrices[this_stim]
 
                 # get a batch of the current stimulus
-                batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size, curr_stim, noiseLevel=noise_level,
+                batch_data, vernier_labels = stim_maker.makeConfigBatch(batch_size_per_shard, curr_stim, noiseLevel=noise_level,
                                                                         normalize=normalize_images,
                                                                         fixed_position=fixed_stim_position)
 
