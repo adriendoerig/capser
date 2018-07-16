@@ -77,7 +77,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
         W_init = lambda: tf.random_normal(
             shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
             stddev=init_sigma, dtype=tf.float32, name="W_init")
-        W = tf.Variable(W_init, name="W")
+        W = tf.Variable(W_init, dtype=tf.float32, name="W")
 
         # tile weights to [batch_size_per_shard, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
         # i.e. batch_size_per_shard times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
