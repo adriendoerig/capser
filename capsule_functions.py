@@ -48,12 +48,12 @@ def primary_caps_layer(conv_output, caps1_n_maps, caps1_n_caps, caps1_n_dims,
         # reshape the output to be caps1_n_dims-Dim capsules (since the next layer is FC, we don't need to
         # keep the [batch,xx,xx,n_feature_maps,caps1_n_dims] so we just flatten it to keep it simple)
         caps1_raw = tf.reshape(conv_for_caps, [batch_size_per_shard, caps1_n_caps, caps1_n_dims], name="caps1_raw")
-        tf.summary.histogram('caps1_raw', caps1_raw)
+        # tf.summary.histogram('caps1_raw', caps1_raw)
 
         # squash capsule outputs
         caps1_output = squash(caps1_raw, name="caps1_output")
         caps1_output_with_maps = squash(caps1_raw_with_maps, name="caps1_output_with_maps")
-        tf.summary.histogram('caps1_output', caps1_output)
+        # tf.summary.histogram('caps1_output', caps1_output)
         if print_shapes:
             print('shape of caps1_output: '+str(caps1_output))
             print('shape of caps1_output_with_maps: ' + str(caps1_output_with_maps))
@@ -77,7 +77,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
         W_init = tf.random_normal(
             shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
             stddev=init_sigma, dtype=tf.float32, name="W_init")
-        W = tf.Variable(W_init, name="W")
+        W = tf.Variable(W_init, dtype=tf.float32, name="W")
 
         # tile weights to [batch_size_per_shard, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims]
         # i.e. batch_size_per_shard times a caps2_n_dims*caps1_n_dims array of [caps1_n_caps*caps2_n_caps] weight matrices
@@ -101,7 +101,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
         caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled,
                                     name="caps2_predicted")
 
-        tf.summary.histogram('rba_0', caps2_predicted)
+        # tf.summary.histogram('rba_0', caps2_predicted)
 
         # check shape
         if print_shapes:
@@ -168,7 +168,7 @@ def primary_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_di
                                                                                   raw_weights, rba_iter])
 
         # This is the caps2 output!
-        tf.summary.histogram('rba_output', caps2_output)
+        # tf.summary.histogram('rba_output', caps2_output)
 
         if print_shapes:
             print('shape of caps2_output after RbA termination: ' + str(caps2_output))
@@ -194,7 +194,7 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
         W_init = tf.random_normal(
             shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
             stddev=init_sigma, dtype=tf.float32, name="W_init")
-        W = tf.Variable(W_init, name="W")
+        W = tf.Variable(W_init, dtype=tf.float32, name="W")
         W_tiled = tf.tile(W, [batch_size_per_shard, 1, 1, 1, 1], name="W_tiled")
         caps1_output = tf.transpose(caps1_output,[0, 2, 1, 3, 4])
         caps1_output_tiled = tf.tile(caps1_output, [1, 1, caps2_n_caps, 1, 1],
@@ -208,7 +208,7 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
         # Thanks to all this hard work, computing the secondary capsules' predicted activities is easy peasy:
         caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled,
                                     name="caps2_predicted")
-        tf.summary.histogram('rba_0', caps2_predicted)
+        # tf.summary.histogram('rba_0', caps2_predicted)
 
         # check shape
         if print_shapes:
@@ -271,7 +271,7 @@ def fc_to_fc_caps_layer(input_batch, caps1_output, caps1_n_caps, caps1_n_dims, c
                                                                                   raw_weights, rba_iter])
 
             # This is the caps2 output!
-            tf.summary.histogram('rba_output', caps2_output)
+            # tf.summary.histogram('rba_output', caps2_output)
 
         if print_shapes:
             print('shape of caps2_output after RbA termination: ' + str(caps2_output))
@@ -340,7 +340,7 @@ def compute_margin_loss(labels, caps2_output, caps2_n_caps, m_plus, m_minus, lam
         if print_shapes:
             print('shape of output margin loss function -- L: ' + str(L))
         margin_loss = tf.reduce_mean(tf.reduce_sum(L, axis=1), name="margin_loss")
-        tf.summary.scalar('margin_loss_output', margin_loss)
+        # tf.summary.scalar('margin_loss_output', margin_loss)
 
         return margin_loss
 
@@ -370,17 +370,17 @@ def compute_primary_caps_loss(labels, caps1_output_with_maps, caps1_n_maps,  m_p
 
         # the norms of the capsules
         caps1_output_norm = safe_norm(caps1_output_with_maps, axis=-1, keep_dims=False, name="caps1_output_norm")
-        tf.summary.histogram('primary_capsule_norms_map_0', caps1_output_norm[0, 0, :])
+        # tf.summary.histogram('primary_capsule_norms_map_0', caps1_output_norm[0, 0, :])
         if print_shapes:
             print('shape of primary caps loss function -- caps1_output_norm: ' + str(caps1_output_norm))
         # we see these norms as one vector per class and squash them + take the norm (i.e., if many capsules are active
         # for a given class, this class has a high norm. We wish the irrelevant classes to have low norms.
         caps1_output_squash = squash(caps1_output_norm, axis=-1, name='caps1_output_squash')
-        tf.summary.histogram('primary_capsule_squash', caps1_output_squash[0, 0, :])
+        # tf.summary.histogram('primary_capsule_squash', caps1_output_squash[0, 0, :])
         if print_shapes:
             print('shape of primary caps loss function -- caps1_output_squash: ' + str(caps1_output_squash))
         caps1_output_class_norm = safe_norm(caps1_output_squash, axis=-1, keep_dims=False, name="caps1_output_class_norm")
-        tf.summary.histogram('primary_capsule_class_norms', caps1_output_class_norm[0, :])
+        # tf.summary.histogram('primary_capsule_class_norms', caps1_output_class_norm[0, :])
         if print_shapes:
             print('shape of primary caps loss function -- caps1_output_class_norm: ' + str(caps1_output_class_norm))
 
@@ -396,7 +396,7 @@ def compute_primary_caps_loss(labels, caps1_output_with_maps, caps1_n_maps,  m_p
         if print_shapes:
             print('shape of primary caps loss function -- L: ' + str(L))
         margin_loss = tf.reduce_mean(tf.reduce_sum(L, axis=1), name="margin_loss")
-        tf.summary.scalar('loss', margin_loss)
+        # tf.summary.scalar('loss', margin_loss)
 
         return margin_loss
 
@@ -450,10 +450,10 @@ def compute_n_shapes_loss(masked_input, n_shapes, n_shapes_max, print_shapes=Fal
             one_hot_n_shapes = tf.minimum(one_hot_n_shapes, 1)
         n_shapes_logits = tf.layers.dense(masked_input, n_shapes_max, activation=tf.nn.relu, name="n_shapes_logits")
         n_shapes_xent = tf.losses.softmax_cross_entropy(one_hot_n_shapes, n_shapes_logits)
-        tf.summary.scalar('n_shapes_xentropy', n_shapes_xent)
+        # tf.summary.scalar('n_shapes_xentropy', n_shapes_xent)
         correct = tf.equal(n_shapes, tf.cast(tf.argmax(n_shapes_logits, axis=1), tf.float32), name="correct")
         accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
-        tf.summary.scalar('accuracy', accuracy)
+        # tf.summary.scalar('accuracy', accuracy)
 
         if print_shapes:
             print('shape of compute_n_shapes_loss -- one_hot_n_shapes: ' + str(one_hot_n_shapes))
@@ -471,10 +471,10 @@ def compute_vernier_offset_loss(vernier_capsule, labels, print_shapes=False):
         one_hot_offsets = tf.one_hot(tf.cast(labels, tf.int32), 3)
         offset_logits = tf.layers.dense(vernier_capsule, 3, activation=tf.nn.relu, name="offset_logits")
         offset_xent = tf.losses.softmax_cross_entropy(one_hot_offsets, offset_logits)
-        tf.summary.scalar('training_vernier_offset_xentropy', offset_xent)
+        # tf.summary.scalar('training_vernier_offset_xentropy', offset_xent)
         correct = tf.equal(labels, tf.cast(tf.argmax(offset_logits, axis=1), tf.float32), name="correct")
         accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name="accuracy")
-        tf.summary.scalar('accuracy', accuracy)
+        # tf.summary.scalar('accuracy', accuracy)
 
         if print_shapes:
             print('shape of compute_vernier_offset_loss -- input to decoder: ' + str(vernier_capsule))
@@ -497,12 +497,12 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
                 hidden1 = tf.layers.dense(decoder_input, deconv_params['fc_width']*deconv_params['fc_height'], activation=tf.nn.relu, name="fc_hidden1")
                 hidden1_2d = tf.reshape(hidden1, shape=[batch_size_per_shard, deconv_params['fc_height'], deconv_params['fc_width']])
                 hidden1_2d = tf.expand_dims(hidden1_2d, axis=-1)
-                tf.summary.histogram('deconv_decoder_hidden1', hidden1_2d)
+                # tf.summary.histogram('deconv_decoder_hidden1', hidden1_2d)
                 if print_shapes:
                     print('shape of decoder first fc: ' + str(hidden1_2d))
 
                 hidden2 = tf.layers.conv2d_transpose(hidden1_2d, deconv_params['deconv_filters2'], deconv_params['deconv_kernel2'],  deconv_params['deconv_strides2'], activation=tf.nn.relu, name="deconv_hidden2")
-                tf.summary.histogram('deconv_decoder_hidden2', hidden2)
+                # tf.summary.histogram('deconv_decoder_hidden2', hidden2)
                 if print_shapes:
                     print('shape of decoder 1st deconv output: ' + str(hidden2))
 
@@ -530,17 +530,17 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
                 hidden1 = tf.layers.dense(decoder_input, n_hidden1,
                                           activation=tf.nn.relu,
                                           name="hidden1")
-                tf.summary.histogram('decoder_hidden1', hidden1)
+                # tf.summary.histogram('decoder_hidden1', hidden1)
                 if n_hidden2 is not None:
                     hidden2 = tf.layers.dense(hidden1, n_hidden2,
                                               activation=tf.nn.relu,
                                               name="hidden2")
-                    tf.summary.histogram('decoder_hidden2', hidden2)
+                    # tf.summary.histogram('decoder_hidden2', hidden2)
                     if n_hidden3 is not None:
                         hidden3 = tf.layers.dense(hidden2, n_hidden3,
                                                   activation=tf.nn.relu,
                                                   name="hidden2")
-                        tf.summary.histogram('decoder_hidden3', hidden3)
+                        # tf.summary.histogram('decoder_hidden3', hidden3)
                         decoder_output = tf.layers.dense(hidden3, n_output,
                                                          activation=tf.nn.sigmoid,
                                                          name="decoder_output")
@@ -557,7 +557,7 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
                                                  activation=tf.nn.sigmoid,
                                                  name="decoder_output")
 
-            tf.summary.histogram('decoder_output', decoder_output)
+            # tf.summary.histogram('decoder_output', decoder_output)
 
             return decoder_output
 
@@ -581,13 +581,13 @@ def decoder_with_mask_batch_norm(decoder_input, n_output, n_hidden1=None, n_hidd
 
         if n_hidden1 is not None:
             hidden1 = batch_norm_fc_layer(decoder_input, n_hidden1, phase, name=name+'hidden1', activation=tf.nn.elu)
-            tf.summary.histogram(name+'_hidden1_bn', hidden1)
+            # tf.summary.histogram(name+'_hidden1_bn', hidden1)
             if n_hidden2 is not None:
                 hidden2 = batch_norm_fc_layer(hidden1, n_hidden2, phase, name=name+'hidden2', activation=tf.nn.elu)
-                tf.summary.histogram(name+'_hidden2_bn', hidden2)
+                # tf.summary.histogram(name+'_hidden2_bn', hidden2)
                 if n_hidden3 is not None:
                     hidden3 = batch_norm_fc_layer(hidden2, n_hidden3, phase, name=name + 'hidden2', activation=tf.nn.elu)
-                    tf.summary.histogram(name + '_hidden3_bn', hidden3)
+                    # tf.summary.histogram(name + '_hidden3_bn', hidden3)
                     decoder_output = tf.layers.dense(hidden3, n_output,
                                                      activation=tf.nn.sigmoid,
                                                      name=name + "_output")
@@ -604,7 +604,7 @@ def decoder_with_mask_batch_norm(decoder_input, n_output, n_hidden1=None, n_hidd
                                              activation=tf.nn.sigmoid,
                                              name=name + "_output")
 
-        tf.summary.histogram(name+'_output', decoder_output)
+        # tf.summary.histogram(name+'_output', decoder_output)
 
         return decoder_output
 
@@ -639,7 +639,7 @@ def primary_capsule_reconstruction(shape_patch, labels, caps1_output, caps1_outp
 
         decoder_output_image_primary_caps = tf.reshape(decoder_output_primary_caps,
                                                        [batch_size_per_shard, tf.shape(shape_patch)[1], tf.shape(shape_patch)[2], 1])
-        tf.summary.image('decoder_output', decoder_output_image_primary_caps, 6)
+        # tf.summary.image('decoder_output', decoder_output_image_primary_caps, 6)
 
         return decoder_output_primary_caps, highest_norm_capsule[0]
 
@@ -664,20 +664,20 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
         if loss_type is 'squared_difference':
             reconstruction_loss = tf.reduce_sum(squared_difference,  name="reconstruction_loss")
-            if no_tensorboard is False:
-                tf.summary.scalar('reconstruction_loss_squared_diff', reconstruction_loss)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('reconstruction_loss_squared_diff', reconstruction_loss)
             stimuli_square_differences = tf.reduce_sum(squared_difference, axis=1, name="square_diff_for_each_stimulus")
 
         elif loss_type is 'sparse':
             reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
-            if no_tensorboard is False:
-                tf.summary.scalar('squared_difference_loss', reconstruction_loss_sparse)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('squared_difference_loss', reconstruction_loss_sparse)
             sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction-sparsity_floor))
-            if no_tensorboard is False:
-                tf.summary.scalar('sparsity_loss', sparsity_loss)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('sparsity_loss', sparsity_loss)
             reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
-            if no_tensorboard is False:
-                tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
             reconstruction_loss = reconstruction_loss_sparse
             stimuli_square_differences = tf.reduce_sum(squared_difference + sparsity_constant * tf.reduce_sum(tf.square(reconstruction)), axis=1,  name="sparse_square_diff_for_each_stimulus")
 
@@ -704,23 +704,23 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
 
         elif loss_type is 'plot_all':
             reconstruction_loss_square_diff = tf.reduce_sum(squared_difference, name="reconstruction_loss_square_diff")
-            if no_tensorboard is False:
-                tf.summary.scalar('reconstruction_loss_square_diff', reconstruction_loss_square_diff)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('reconstruction_loss_square_diff', reconstruction_loss_square_diff)
 
             reconstruction_loss_sparse = tf.reduce_sum(squared_difference, name="reconstruction_loss")
             sparsity_loss = sparsity_constant * tf.reduce_sum(tf.square(reconstruction))
-            if no_tensorboard is False:
-                tf.summary.scalar('sparsity_loss', sparsity_loss)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('sparsity_loss', sparsity_loss)
             reconstruction_loss_sparse = tf.add(reconstruction_loss_sparse, sparsity_loss, name='sparsity_constraint')
-            if no_tensorboard is False:
-                tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('reconstruction_loss_sparse', reconstruction_loss_sparse)
 
             squared_difference_sum = tf.reduce_sum(squared_difference, axis=1, name="squared_difference_sum")
             scales = tf.reduce_sum(X_flat, axis=1, name='scales')
             diff_rescale = rescale_constant * squared_difference_sum / scales
             reconstruction_loss_rescale = tf.reduce_sum(diff_rescale, name="reconstruction_loss")
-            if no_tensorboard is False:
-                tf.summary.scalar('reconstruction_loss_rescale', reconstruction_loss_rescale)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('reconstruction_loss_rescale', reconstruction_loss_rescale)
 
             threshold = 0
             template = tf.maximum(X_flat, reconstruction, name='template')
@@ -734,8 +734,8 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
             n_above_threshold = tf.count_nonzero(template, dtype=tf.float32)
             thresholded_squared_difference = tf.multiply(squared_difference, template)
             reconstruction_loss_threshold = tf.reduce_sum(thresholded_squared_difference, name="reconstruction_loss") / n_above_threshold * threshold_constant
-            if no_tensorboard is False:
-                tf.summary.scalar('reconstruction_loss_threshold', reconstruction_loss_threshold)
+            # if no_tensorboard is False:
+                # tf.summary.scalar('reconstruction_loss_threshold', reconstruction_loss_threshold)
 
             if used_loss is 'squared_difference':
                 reconstruction_loss = reconstruction_loss_square_diff
@@ -766,12 +766,12 @@ def vernier_classifier(input, is_training=True, n_hidden1=None, n_hidden2=None, 
             n_units = n_units * int(np.shape(input)[i])
 
         flat_input = tf.reshape(input, [batch_size_per_shard, n_units])
-        tf.summary.histogram('classifier_input_no_bn', flat_input)
+        # tf.summary.histogram('classifier_input_no_bn', flat_input)
 
         if batch_norm:
             print('Applying batch normalization to vernier decoder input.')
             flat_input = tf.contrib.layers.batch_norm(flat_input, center=True, scale=True, is_training=is_training, scope=name + 'input_bn')
-            tf.summary.histogram('classifier_input_bn', flat_input)
+            # tf.summary.histogram('classifier_input_bn', flat_input)
 
         if n_hidden1 is None:
 
@@ -781,7 +781,7 @@ def vernier_classifier(input, is_training=True, n_hidden1=None, n_hidden2=None, 
             else:
                 print('Using a single batch norm fc layer as vernier decoder.')
                 classifier_fc = batch_norm_fc_layer(flat_input, 2, is_training, name='classifier_top_fc')
-            tf.summary.histogram(name + '_fc', classifier_fc)
+            # tf.summary.histogram(name + '_fc', classifier_fc)
 
         else:
 
@@ -798,7 +798,7 @@ def vernier_classifier(input, is_training=True, n_hidden1=None, n_hidden2=None, 
                     classifier_hidden1 = tf.nn.dropout(classifier_hidden1, keep_prob=1.0, name='vernier_fc_dropout')
                     # classifier_hidden = batch_norm_layer(flat_input, n_hidden, is_training,
                     # activation=tf.nn.relu, name='classifier_hidden_fc')
-                tf.summary.histogram(name + '_hidden', classifier_hidden1)
+                # tf.summary.histogram(name + '_hidden', classifier_hidden1)
 
             if n_hidden2 is None:
                 if not batch_norm:
@@ -806,21 +806,21 @@ def vernier_classifier(input, is_training=True, n_hidden1=None, n_hidden2=None, 
                 else:
                     print('Applying batch normalization to output layer.')
                     classifier_fc = batch_norm_fc_layer(classifier_hidden1, 2, is_training, activation=tf.nn.elu, name='classifier_top_fc')
-                tf.summary.histogram(name + '_fc', classifier_fc)
+                # tf.summary.histogram(name + '_fc', classifier_fc)
             else:
                 if not batch_norm:
                     classifier_hidden2 = tf.layers.dense(classifier_hidden1, 2, activation=tf.nn.elu, name=name + '_hidden2')
                 else:
                     print('Applying batch normalization to hidden2 layer.')
                     classifier_hidden2 = batch_norm_fc_layer(classifier_hidden1, 2, is_training, activation=tf.nn.elu, name='classifier_hidden2')
-                tf.summary.histogram(name + '_hidden2', classifier_hidden2)
+                # tf.summary.histogram(name + '_hidden2', classifier_hidden2)
 
                 if not batch_norm:
                     classifier_fc = tf.layers.dense(classifier_hidden2, 2, activation=tf.nn.elu, name=name + '_top_fc')
                 else:
                     print('Applying batch normalization to output layer.')
                     classifier_fc = batch_norm_fc_layer(classifier_hidden2, 2, is_training, activation=tf.nn.elu, name='classifier_top_fc')
-                tf.summary.histogram(name + '_fc', classifier_fc)
+                # tf.summary.histogram(name + '_fc', classifier_fc)
 
         classifier_out = tf.nn.softmax(classifier_fc, name='softmax')
 
@@ -832,7 +832,7 @@ def vernier_x_entropy(prediction_vector, label):
         xent = tf.reduce_mean(
             tf.nn.softmax_cross_entropy_with_logits(
                 logits=prediction_vector, labels=tf.one_hot(label, 2)), name="xent")
-        tf.summary.scalar("xent", xent)
+        # tf.summary.scalar("xent", xent)
         return xent
 
 
@@ -840,7 +840,7 @@ def vernier_correct_mean(prediction, label):
     with tf.name_scope('correct_mean'):
         correct = tf.equal(prediction, label, name="correct")
         correct_mean = tf.reduce_mean(tf.cast(correct, tf.float32), name="correct_mean")
-        tf.summary.scalar('correct_mean', correct_mean)
+        # tf.summary.scalar('correct_mean', correct_mean)
         return correct_mean
 
 
@@ -895,7 +895,7 @@ def run_test_stimuli(test_stimuli, n_stimuli, stim_maker, batch_size_per_shard, 
         percent_correct = correct_responses * 100 / n_batches
 
         if saver is False:
-            summary = tf.Summary()
+            summary = tf.summary()
             summary.value.add(tag='zzz_uncrowding_exp/' + category + '_0_vernier', simple_value=percent_correct[0] / 100)
             summary.value.add(tag='zzz_uncrowding_exp/' + category + '_1_crowded', simple_value=percent_correct[1] / 100)
             summary.value.add(tag='zzz_uncrowding_exp/' + category + '_2_uncrowded', simple_value=percent_correct[2] / 100)
