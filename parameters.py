@@ -9,7 +9,7 @@ check_data = None                                   # specify the path to a data
 # training set
 create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
-n_train_samples = 500000                            # number of different stimuli in an epoch
+n_train_samples = 500                            # number of different stimuli in an epoch
 batch_size = 16                                     # stimuli per batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 10                                       # number of epochs

@@ -11,7 +11,7 @@ flags.DEFINE_bool(
     'Use TPUs rather than plain CPUs')
 
 tf.flags.DEFINE_string(
-    "tpu", default=None,
+    "tpu", default='$TPU_NAME',
     help="The Cloud TPU to use for training. This should be either the name "
     "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 "
     "url.")
