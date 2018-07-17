@@ -6,13 +6,13 @@ import os
 data_path = './data'                                # save your tfRecord data files here
 
 # training set
-create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
+create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train_tiny.tfrecords'      # where the training data file is located
-n_train_samples = 500                            # number of different stimuli in an epoch
-batch_size = 16                                     # stimuli per batch
-batch_size_per_shard = int(batch_size/8)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
+n_train_samples = 100000                            # number of different stimuli in an epoch
+batch_size = 64                                     # stimuli per batch
+batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
-n_epochs = 10                                       # number of epochs
+n_epochs = 40                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
@@ -57,13 +57,13 @@ decoder_batch_norm = False
 # conv layers
 activation_function = tf.nn.relu
 conv1_params = {"filters": 16,
-                "kernel_size": 5,
+                "kernel_size": 4,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
 conv2_params = {"filters": 16,
-                "kernel_size": 5,
+                "kernel_size": 4,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
@@ -90,7 +90,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
 caps2_n_dims = 16  # of n dimensions
-rba_rounds = 3
+rba_rounds = 2
 
 # margin loss parameters
 alpha_margin = 3.333

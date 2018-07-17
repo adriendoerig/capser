@@ -1,5 +1,6 @@
 from capser_7_model_fn import *
 from make_tf_dataset import *
+from tensorflow.python import debug as tf_debug
 import logging
 
 # reproducibility
@@ -29,4 +30,5 @@ capser = tf.estimator.Estimator(model_fn=model_fn, params={'model_batch_size': b
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
-capser.train(input_fn=train_input_fn, steps=n_steps)
+hook = tf_debug.TensorBoardDebugHook("DESKTOP-U4JQCIG:7000")  # for tensorboard debugger
+capser.train(input_fn=train_input_fn, steps=n_steps, hooks=hook)
