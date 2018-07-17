@@ -1,6 +1,9 @@
 from capser_7_model_fn import *
 from make_tf_dataset import *
 from tensorflow.python import debug as tf_debug
+from tensorflow.python.training import basic_session_run_hooks
+from tensorboard.plugins.beholder import Beholder
+from tensorboard.plugins.beholder import BeholderHook
 import logging
 
 # reproducibility
@@ -30,5 +33,8 @@ capser = tf.estimator.Estimator(model_fn=model_fn, params={'model_batch_size': b
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
-hook = tf_debug.TensorBoardDebugHook("DESKTOP-U4JQCIG:7000")  # for tensorboard debugger
-capser.train(input_fn=train_input_fn, steps=n_steps, hooks=hook)
+metadata_hook = basic_session_run_hooks.ProfilerHook(output_dir=LOGDIR, save_steps=1000)  # to get metadata (e.g. how much time is spent loading data, or processing it on the GPU, etc)
+debug_hook = tf_debug.TensorBoardDebugHook('localhost:7000')  # for tensorboard debugger
+beholder = Beholder(LOGDIR)
+beholder_hook = BeholderHook(LOGDIR)
+capser.train(input_fn=train_input_fn, steps=n_steps, hooks=[metadata_hook, beholder_hook, debug_hook])
