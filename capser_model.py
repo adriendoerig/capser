@@ -3,7 +3,6 @@ from __future__ import division, print_function, unicode_literals
 import tensorflow as tf
 import numpy as np
 import tensorflow.contrib.framework
-from tensorflow.contrib.tpu.python.tpu import tpu_optimizer
 from capsule_functions import primary_caps_layer, primary_to_fc_caps_layer, primary_to_fc_caps_layer_tpu, \
     caps_prediction, compute_margin_loss, compute_primary_caps_loss, create_masked_decoder_input, \
     decoder_with_mask, decoder_with_mask_batch_norm, primary_capsule_reconstruction, \

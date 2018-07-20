@@ -1,6 +1,5 @@
 import numpy as np
 from parameters import *
-from tensorflow.contrib.data import batch_and_drop_remainder
 
 def parse_multi_shape(serialized):
     # variables are in byte form in the tfrecord file. this converts back to the right format.
@@ -97,7 +96,7 @@ def input_fn_multi_shape(filenames, train=True, n_epochs=n_epochs, batch_size=ba
         num_repeat = 1
 
     # Repeat the dataset the given number of times and get a batch of data with the given size.
-    dataset = dataset.repeat(num_repeat).apply(batch_and_drop_remainder(batch_size))
+    dataset = dataset.repeat(num_repeat).apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.prefetch(2)
@@ -165,7 +164,7 @@ def input_fn_multi_shape_tpu(filenames, train=True, n_epochs=n_epochs, batch_siz
         num_repeat = 1
 
     # Repeat the dataset the given number of times and get a batch of data with the given size.
-    dataset = dataset.repeat(num_repeat).apply(batch_and_drop_remainder(batch_size))
+    dataset = dataset.repeat(num_repeat).apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.prefetch(2)

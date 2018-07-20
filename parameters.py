@@ -3,11 +3,11 @@ import os
 
 ### data  ###
 
-data_path = './data'                                # save your tfRecord data files here
+data_path = 'gs://capser-data'                                # save your tfRecord data files here
 
 # training set
-create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
-train_data_path = data_path+'/train_colab.tfrecords'      # where the training data file is located
+create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
+train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 10000                            # number of different stimuli in an epoch
 batch_size = 16                                     # stimuli per batch
@@ -172,7 +172,7 @@ else:
 
 LOGDIR = './' + MODEL_NAME + '_logdir/version_' + str(version)
 image_output_dir = LOGDIR + '/output_images/'
-checkpoint_path = LOGDIR + '/' + MODEL_NAME + '_' + str(version) + "_model.ckpt"
+checkpoint_path = data_path + '/LOGDIR'
 
 
 ### save parameters to text file for future reference ###

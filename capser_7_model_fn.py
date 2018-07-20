@@ -1,5 +1,4 @@
 from capser_model import capser_model
-from tensorflow.contrib.tpu.python.tpu import tpu_estimator
 from parameters import *
 
 def model_fn(features, labels, mode, params):
@@ -11,7 +10,7 @@ def model_fn(features, labels, mode, params):
 
     if simultaneous_shapes > 1:
         y = tf.cast(features['y'], tf.int64)
-        n_shapes = features['n_shapes']
+        n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size',simultaneous_shapes])), shape=(params['model_batch_size',simultaneous_shapes]))
     else:
         y = tf.cast(features['y'], tf.int64)
         n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size'])), shape=[None], name="n_shapes_labels")
