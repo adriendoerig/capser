@@ -26,7 +26,7 @@ def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
             return activation(norm_conv)
 
 
-def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_params, conv3_params,
+def capser_model(X, y, reconstruction_targets, im_size, learning_rate, conv1_params, conv2_params, conv3_params,
                  caps1_n_maps, caps1_n_dims, conv_caps_params,
                  primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2, primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
                  caps2_n_caps, caps2_n_dims, rba_rounds,
@@ -334,7 +334,7 @@ def capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_para
 
     # TRAINING OPERATIONS #
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     if using_TPUEstimator:
         optimizer = tpu_optimizer.CrossShardOptimizer(optimizer)
     update_batch_norm_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)  # for batch norm

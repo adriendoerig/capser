@@ -96,12 +96,8 @@ def input_fn_multi_shape(filenames, train=True, n_epochs=n_epochs, batch_size=ba
         # Only go through the data once.
         num_repeat = 1
 
-    # Repeat the dataset the given number of times.
+    # Repeat the dataset the given number of times and get a batch of data with the given size.
     dataset = dataset.repeat(num_repeat).apply(batch_and_drop_remainder(batch_size))
-
-
-    # Get a batch of data with the given size.
-    dataset = dataset.batch(batch_size)
 
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.prefetch(2)
@@ -113,8 +109,8 @@ def input_fn_multi_shape(filenames, train=True, n_epochs=n_epochs, batch_size=ba
     multi_shape_img, single_shape_img, labels, vernier_label, n_elements = iterator.get_next()
 
     # reshape images (they were flattened when transformed into bytes
-    multi_shape_img = tf.reshape(multi_shape_img, [batch_size, im_size[0], im_size[1], 1])
-    single_shape_img = tf.reshape(single_shape_img, [batch_size, im_size[0], im_size[1], 2])
+    multi_shape_img = tf.reshape(multi_shape_img, [-1, im_size[0], im_size[1], 1])
+    single_shape_img = tf.reshape(single_shape_img, [-1, im_size[0], im_size[1], 2])
 
     # The input-function must return a dict wrapping the images.
     if train:
@@ -293,5 +289,5 @@ def train_input_fn_tpu(params):
     # batch_size=params['batch_size']
     return input_fn_multi_shape_tpu(train_data_path)
 
-def test_input_fn(test_data_path):
+def test_input_fn():
     return input_fn_config(test_data_path)

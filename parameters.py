@@ -6,13 +6,14 @@ import os
 data_path = './data'                                # save your tfRecord data files here
 
 # training set
-create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
-train_data_path = data_path+'/train_tiny.tfrecords'      # where the training data file is located
-n_train_samples = 100000                            # number of different stimuli in an epoch
-batch_size = 8                                     # stimuli per batch
+create_new_train_set = True                         # if you already have a tfRecords training file in data_path, you may set to False
+train_data_path = data_path+'/train_colab.tfrecords'      # where the training data file is located
+test_data_path = data_path+'/test_squares.tfrecords'
+n_train_samples = 10000                            # number of different stimuli in an epoch
+batch_size = 16                                     # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
-n_epochs = 40                                       # number of epochs
+n_epochs = 25                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
@@ -30,7 +31,7 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
 ### stimulus params ###
 
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
-normalize_images = False        # make each image mean=0, std=1
+normalize_images = True        # make each image mean=0, std=1
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 im_size = (30, 60)              # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
@@ -41,7 +42,7 @@ noise_level = 0                 # add noise
 shape_types = [0, 1, 2]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: 'stuff'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles'}
 shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 
 
@@ -49,6 +50,9 @@ shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 
 # saving/loading
 version_to_restore = None          # None: train new model. n: load last checkpoint of version n.
+
+# learning rate
+learning_rate=0.001
 
 # batch norm
 conv_batch_norm = False
@@ -78,7 +82,7 @@ conv2_params = {"filters": 16,
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = 16  # number of capsules at level 1 of capsules
+caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 8  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 5,

@@ -14,8 +14,6 @@ tf.set_random_seed(42)
 # directory management
 print('#################### MODEL_NAME_VERSION: ' + MODEL_NAME + '_' + str(version) + ' ####################')
 
-if not os.path.exists(image_output_dir):
-    os.makedirs(image_output_dir)
 if version_to_restore is None:
     save_params()
 
@@ -37,4 +35,8 @@ metadata_hook = basic_session_run_hooks.ProfilerHook(output_dir=LOGDIR, save_ste
 debug_hook = tf_debug.TensorBoardDebugHook('localhost:7000')  # for tensorboard debugger
 beholder = Beholder(LOGDIR)
 beholder_hook = BeholderHook(LOGDIR)
-capser.train(input_fn=train_input_fn, steps=n_steps, hooks=[metadata_hook, beholder_hook])
+
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps, hooks=[metadata_hook, beholder_hook])
+eval_spec = tf.estimator.EvalSpec(test_input_fn, steps=100)
+
+tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)

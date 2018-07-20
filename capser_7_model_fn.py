@@ -4,7 +4,6 @@ from parameters import *
 
 def model_fn(features, labels, mode, params):
 
-
     X = features['X']
     x_image = tf.reshape(X, [params['model_batch_size'], im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
@@ -24,7 +23,7 @@ def model_fn(features, labels, mode, params):
     # boolean specifying if training or not (for batch normalization)
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
 
-    capser = capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_params, conv3_params,
+    capser = capser_model(X, y, reconstruction_targets, im_size, learning_rate, conv1_params, conv2_params, conv3_params,
                           caps1_n_maps, caps1_n_dims, conv_caps_params,
                           primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2,
                           primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
@@ -62,7 +61,6 @@ def model_fn(features, labels, mode, params):
 
 def model_fn_tpu(features, labels, mode, params):
 
-
     X = features['X']
     # x_image = tf.reshape(X, [params['model_batch_size'], im_size[0], im_size[1], 1])
     #tf.summary.image('input', x_image, 6)
@@ -82,7 +80,7 @@ def model_fn_tpu(features, labels, mode, params):
     # boolean specifying if training or not (for batch normalization)
     is_training = tf.placeholder_with_default(True, shape=(), name='is_training')
 
-    capser = capser_model(X, y, reconstruction_targets, im_size, conv1_params, conv2_params, conv3_params,
+    capser = capser_model(X, y, reconstruction_targets, im_size, learning_rate, conv1_params, conv2_params, conv3_params,
                           caps1_n_maps, caps1_n_dims, conv_caps_params,
                           primary_caps_decoder_n_hidden1, primary_caps_decoder_n_hidden2,
                           primary_caps_decoder_n_hidden3, primary_caps_decoder_n_output,
