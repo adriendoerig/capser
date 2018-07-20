@@ -759,6 +759,7 @@ def compute_reconstruction_loss(input, reconstruction, loss_type='squared_differ
     with tf.name_scope('reconstruction_loss'):
 
         X_flat = tf.reshape(input, [batch_size_per_shard, tf.shape(reconstruction)[1]], name="X_flat")
+        X_flat = tf.cast(X_flat, tf.float32)
 
         if gain is None:
             gain = tf.ones_like(X_flat[:,0])
