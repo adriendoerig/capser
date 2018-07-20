@@ -18,6 +18,6 @@ capser = tf.estimator.Estimator(model_fn=model_fn, params={'model_batch_size': b
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
 
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps)
-eval_spec = tf.estimator.EvalSpec(test_input_fn, steps=100)
+eval_spec = tf.estimator.EvalSpec(train_input_fn, steps=100)
 
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
