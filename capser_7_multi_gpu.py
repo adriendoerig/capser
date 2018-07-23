@@ -17,7 +17,13 @@ capser = tf.estimator.Estimator(model_fn=model_fn, params={'model_batch_size': b
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
 
-train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps)
-eval_spec = tf.estimator.EvalSpec(train_input_fn, steps=100)
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=100)
+eval_spec = tf.estimator.EvalSpec(lambda: input_fn_config(data_path+'/test_squares.tfrecords'), steps=100)
 
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
+
+
+# evaluate on each kind of test stimuli
+for this_name in test_filenames:
+    capser.evaluate(input_fn=lambda: input_fn_config(this_name))
+

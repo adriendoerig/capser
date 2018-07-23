@@ -53,7 +53,9 @@ def model_fn(features, labels, mode, params):
         mode=mode,
         loss=capser["loss"],
         train_op=train_op,
-        eval_metric_ops={})
+        eval_metric_ops={},
+        evaluation_hooks=[capser['eval_summary_hook']])   # to write summaries during evaluation too
+
 
     return spec
 

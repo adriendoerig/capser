@@ -288,5 +288,3 @@ def train_input_fn_tpu(params):
     # batch_size=params['batch_size']
     return input_fn_multi_shape_tpu(train_data_path)
 
-def test_input_fn():
-    return input_fn_config(test_data_path)
