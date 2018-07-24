@@ -9,7 +9,7 @@ data_path = './data'                                # save your tfRecord data fi
 create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
-n_train_samples = 10000                            # number of different stimuli in an epoch
+n_train_samples = 100000                            # number of different stimuli in an epoch
 batch_size = 16                                     # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
@@ -172,7 +172,7 @@ else:
 
 LOGDIR = './' + MODEL_NAME + '_logdir/version_' + str(version)
 image_output_dir = LOGDIR + '/output_images/'
-checkpoint_path = LOGDIR[1:]
+checkpoint_path = data_path+LOGDIR[1:]
 
 
 ### save parameters to text file for future reference ###

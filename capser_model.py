@@ -1,5 +1,6 @@
 # a function form of capser to make param changes easy
 from __future__ import division, print_function, unicode_literals
+from time import time
 import tensorflow as tf
 import numpy as np
 from parameters import checkpoint_path
@@ -43,7 +44,7 @@ def capser_model(X, y, reconstruction_targets, im_size, learning_rate, conv1_par
                  ):
 
 
-    print_shapes = True  # to print the size of each layer during graph construction
+    print_shapes = False  # to print the size of each layer during graph construction
 
 
     ####################################################################################################################
@@ -321,7 +322,6 @@ def capser_model(X, y, reconstruction_targets, im_size, learning_rate, conv1_par
                          name="loss")
 
         if not using_TPUEstimator:
-            tf.summary.scalar('vernier_loss', training_vernier_loss)
             tf.summary.scalar('total_loss', loss)
 
     if not using_TPUEstimator:
@@ -342,8 +342,9 @@ def capser_model(X, y, reconstruction_targets, im_size, learning_rate, conv1_par
     loss_training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
     training_op = [loss_training_op, update_batch_norm_ops]
 
-    # to write summaries during evaluation too
+    # to write summaries during and prediction too
     eval_summary_hook = tf.train.SummarySaverHook(save_steps=25, output_dir=checkpoint_path + '/eval',
                                                   summary_op=tf.summary.merge_all())
-
+    pred_summary_hook = tf.train.SummarySaverHook(save_steps=1, output_dir=checkpoint_path + '/pred-' + str(time()),
+                                                  summary_op=tf.summary.merge_all())
     return locals()

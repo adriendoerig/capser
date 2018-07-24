@@ -31,7 +31,7 @@ def parse_multi_shape(serialized):
     multi_shape_img = tf.decode_raw(multi_shape_img_raw, tf.float32)
     single_shape_img = tf.decode_raw(single_shape_img_raw, tf.float32)
     labels = tf.decode_raw(labels_raw, tf.float32)
-    vernier_label = tf.decode_raw(vernier_label_raw, tf.int64)
+    vernier_label = tf.squeeze(tf.decode_raw(vernier_label_raw, tf.float32))
     n_elements = tf.decode_raw(n_elements_raw, tf.int64)
 
     return multi_shape_img, single_shape_img, labels, vernier_label, n_elements
@@ -59,7 +59,7 @@ def parse_config(serialized):
 
     # Decode the raw bytes so it becomes a tensor with type.
     config_img = tf.decode_raw(config_img_raw, tf.float32)
-    vernier_label = tf.decode_raw(vernier_label_raw, tf.float32)
+    vernier_label = tf.squeeze(tf.decode_raw(vernier_label_raw, tf.float32))
 
     return config_img, vernier_label
 
@@ -208,8 +208,11 @@ def input_fn_config(filenames, batch_size=batch_size):
     # Apply parsing in parallel to speed up (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.map(parse_config, num_parallel_calls=64)
 
-    # Get a batch of data with the given size.
-    dataset = dataset.batch(batch_size)
+    # Only go through the data once.
+    num_repeat = 1
+
+    # Repeat the dataset the given number of times and get a batch of data with the given size.
+    dataset = dataset.repeat(num_repeat).apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.prefetch(2)
@@ -221,13 +224,13 @@ def input_fn_config(filenames, batch_size=batch_size):
     config_img, vernier_label = iterator.get_next()
 
     # reshape images (they were flattened when transformed into bytes
-    config_img = tf.reshape(config_img, [batch_size, im_size[0], im_size[1], 1])
+    config_img = tf.reshape(config_img, [-1, im_size[0], im_size[1], 1])
 
     # this is not very elegant, but in the testing phase we don't need the reconstruction targets nor the shape labels.
     # but the model expects to receive them, so we fill them with zeros.
     feed_dict = {'X': config_img,
-                 'reconstruction_targets': np.zeros(shape=(batch_size, im_size[0], im_size[1], simultaneous_shapes)),
-                 'y': vernier_label,
+                 'reconstruction_targets': tf.zeros(shape=(batch_size, im_size[0], im_size[1], simultaneous_shapes)),
+                 'y':  tf.zeros(shape=(batch_size, simultaneous_shapes)),
                  'vernier_offsets': vernier_label,
                  'mask_with_labels': False,
                  'is_training': False}

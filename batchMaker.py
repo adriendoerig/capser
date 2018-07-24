@@ -299,7 +299,7 @@ class StimMaker:
         batchImages = numpy.zeros(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
         batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
         nElements = numpy.zeros(batchSize, dtype=numpy.int64)
-        vernierLabels = numpy.zeros(batchSize, dtype=numpy.int64)  # 0 -> not a vernier, 1 -> left, 2 -> right
+        vernierLabels = numpy.zeros(batchSize, dtype=numpy.float32)  # 0 -> not a vernier, 1 -> left, 2 -> right
 
         if vernier_grids:  # verniers come in grids, like all other shapes.
 
@@ -374,7 +374,7 @@ class StimMaker:
         batchSingleShapeImages =  numpy.zeros(shape=(batchSize, self.imSize[0], self.imSize[1], n_shapes), dtype=numpy.float32)
         batchLabels = numpy.zeros(shape=(batchSize, n_shapes), dtype=numpy.float32)
         nElements = numpy.zeros(shape=(batchSize, n_shapes), dtype=numpy.int64)
-        vernierLabels = numpy.zeros(shape=(batchSize, n_shapes), dtype=numpy.int64)  # 0 -> not a vernier, 1 -> left, 2 -> right
+        vernierLabels = numpy.zeros(shape=(batchSize, n_shapes), dtype=numpy.float32)  # 0 -> not a vernier, 1 -> left, 2 -> right
 
         if vernier_grids:  # verniers come in grids, like all other shapes.
 

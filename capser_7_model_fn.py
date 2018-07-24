@@ -7,6 +7,20 @@ def model_fn(features, labels, mode, params):
     x_image = tf.reshape(X, [params['model_batch_size'], im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
     reconstruction_targets = features['reconstruction_targets']
+    vernier_offsets = features['vernier_offsets']
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
+    print(vernier_offsets)
 
     if simultaneous_shapes > 1:
         y = tf.cast(features['y'], tf.int64)
@@ -14,8 +28,6 @@ def model_fn(features, labels, mode, params):
     else:
         y = tf.cast(features['y'], tf.int64)
         n_shapes = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size'])), shape=[None], name="n_shapes_labels")
-    vernier_offsets = tf.placeholder_with_default(tf.zeros(shape=(params['model_batch_size'])), shape=[None],
-                                                  name="vernier_offset_labels")
 
     # tell the program whether to use the true or the predicted labels (the placeholder is needed to have a bool in tf).
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name="mask_with_labels")
@@ -49,12 +61,19 @@ def model_fn(features, labels, mode, params):
         # }
 
     # Wrap all of this in an EstimatorSpec.
-    spec = tf.estimator.EstimatorSpec(
-        mode=mode,
-        loss=capser["loss"],
-        train_op=train_op,
-        eval_metric_ops={},
-        evaluation_hooks=[capser['eval_summary_hook']])   # to write summaries during evaluation too
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        # the following line is
+        predictions = {'vernier_accuracy': tf.tile(tf.expand_dims(capser['vernier_accuracy'], -1), [batch_size_per_shard])}
+        spec = tf.estimator.EstimatorSpec(mode=mode,
+                                          predictions=predictions,
+                                          prediction_hooks=[capser['pred_summary_hook']])    # to write summaries during prediction too)
+    else:
+        spec = tf.estimator.EstimatorSpec(
+            mode=mode,
+            loss=capser["loss"],
+            train_op=train_op,
+            eval_metric_ops={},
+            evaluation_hooks=[capser['eval_summary_hook']])    # to write summaries during evaluatino too
 
 
     return spec
