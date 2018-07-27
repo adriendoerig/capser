@@ -112,7 +112,7 @@ def make_config_tfRecords(stim_maker, stim_matrices, n_samples, out_path):
                 n_stim_types = len(stim_matrices)
 
             for stim in range(n_stim_types):
-                config_img, vernier_label = stim_maker.makeConfigBatch(1, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, fixed_position=fixed_stim_position)
+                config_img, vernier_label = stim_maker.makeConfigBatch(1, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, fixed_position=fixed_stim_position, vernierLabelEncoding='nothinglr_012')
 
                 # Convert the image to raw bytes.
                 config_img_bytes = config_img.tostring()

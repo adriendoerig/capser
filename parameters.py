@@ -13,7 +13,7 @@ n_train_samples = 100000                            # number of different stimul
 batch_size = 16                                     # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
-n_epochs = 25                                       # number of epochs
+n_epochs = 10                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
@@ -21,10 +21,10 @@ check_data = None                                   # specify the path to a data
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
 n_test_samples = 100                                # number of stimuli for each testing condition
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
-                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-                'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
-                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]]}
+                # '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
+                # 'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
+                # 'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
 test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 
 
@@ -38,7 +38,7 @@ im_size = (30, 60)              # IF USING THE DECONVOLUTION DECODER NEED TO BE 
 shape_size = 10                 # size of a single shape in pixels
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
-noise_level = 0                 # add noise
+noise_level = .1                 # add noise
 shape_types = [0, 1, 2]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 

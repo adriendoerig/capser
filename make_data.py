@@ -6,12 +6,13 @@ verniers = 0
 testing_categories = 1
 testing_individual_stimuli = 1
 
+show_samples = False
+
 # create tfRecord data files
 # training set
-# show_data(train_data_path, 'multi_shape')
 if training:
     make_multi_shape_tfRecords(stim_maker, shape_types, n_train_samples, train_data_path)
-    if 1:
+    if show_samples:
         show_data(train_data_path, 'multi_shape')
 # verniers
 if verniers:
@@ -21,7 +22,7 @@ if verniers:
 if testing_categories:
     for category in test_stimuli.keys():
         make_config_tfRecords(stim_maker, test_stimuli[category], n_test_samples, os.path.join(data_path, "test_" + category + ".tfrecords"))
-        if 0:
+        if show_samples:
             show_data(os.path.join(data_path, "test_" + category + ".tfrecords"), 'config')
 
 if testing_individual_stimuli:
