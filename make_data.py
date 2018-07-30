@@ -1,7 +1,7 @@
 from make_tf_dataset import *
 
 # choose which sets to create
-training = 1
+training = 0
 verniers = 0
 testing_categories = 1
 testing_individual_stimuli = 1

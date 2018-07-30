@@ -52,7 +52,7 @@ def make_multi_shape_tfRecords(stim_maker, shape_types, n_samples, out_path):
             # Print the percentage-progress.
             print_progress(count=i, total=n_samples - 1)
 
-            multi_shape_img, single_shape_img, labels, vernier_label, n_elements = stim_maker.makeMultiShapeBatch(1, shape_types, n_shapes=simultaneous_shapes, noiseLevel=noise_level, group_last_shapes=group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, fixed_position=fixed_stim_position)
+            multi_shape_img, single_shape_img, labels, vernier_label, n_elements = stim_maker.makeMultiShapeBatch(1, shape_types, n_shapes=simultaneous_shapes, noiseLevel=noise_level, group_last_shapes=group_last_shapes, vernierLabelEncoding=vernier_label_encoding, max_rows=max_rows, max_cols=max_cols, vernier_grids=vernier_grids, normalize=normalize_images, normalize_sets=normalize_sets, fixed_position=fixed_stim_position)
 
             # Convert the image to raw bytes.
             multi_shape_img_bytes = multi_shape_img.tostring()
@@ -112,7 +112,7 @@ def make_config_tfRecords(stim_maker, stim_matrices, n_samples, out_path):
                 n_stim_types = len(stim_matrices)
 
             for stim in range(n_stim_types):
-                config_img, vernier_label = stim_maker.makeConfigBatch(1, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, fixed_position=fixed_stim_position, vernierLabelEncoding='nothinglr_012')
+                config_img, vernier_label = stim_maker.makeConfigBatch(1, configMatrix=stim_matrices[stim], noiseLevel=noise_level, normalize=normalize_images, normalize_sets=normalize_sets,  fixed_position=fixed_stim_position, vernierLabelEncoding='nothinglr_012')
 
                 # Convert the image to raw bytes.
                 config_img_bytes = config_img.tostring()

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import os
+import random
 
 ### data  ###
 
@@ -10,10 +11,10 @@ create_new_train_set = False                         # if you already have a tfR
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 100000                            # number of different stimuli in an epoch
-batch_size = 16                                     # stimuli per batch
+batch_size = random.randint(4,16)                                     # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
-n_epochs = 10                                       # number of epochs
+n_epochs = 25                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
@@ -31,18 +32,19 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 ### stimulus params ###
 
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
-normalize_images = True        # make each image mean=0, std=1
+normalize_images = False        # make each image mean=0, std=1
+normalize_sets = True           # compute mean and std over 100 images and use this estimate to normalize each image
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 im_size = (30, 60)              # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
 shape_size = 10                 # size of a single shape in pixels
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
-noise_level = .1                 # add noise
-shape_types = [0, 1, 2]         # see batchMaker.drawShape for number-shape correspondences
+noise_level = .05                 # add noise
+shape_types = [0, 1, 2, 9]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: 'stuff'}
 shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 
 
@@ -52,7 +54,8 @@ shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 version_to_restore = None          # None: train new model. n: load last checkpoint of version n.
 
 # learning rate
-learning_rate=0.001
+lr_exponent = random.uniform(-4,-2)
+learning_rate=10**lr_exponent
 
 # batch norm
 conv_batch_norm = False
@@ -83,7 +86,7 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = 8  # number of dimension per capsule
+caps1_n_dims = random.randint(4,16)  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 5,
                     "strides": 2,
@@ -93,7 +96,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = 16  # of n dimensions
+caps2_n_dims = random.randint(4,16)  # of n dimensions
 rba_rounds = 2
 
 # margin loss parameters
