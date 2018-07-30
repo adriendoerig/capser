@@ -155,8 +155,8 @@ output_decoder_deconv_params = {'use_deconvolution_decoder': False,
 
 ### directories ###
 
-MODEL_NAME = 'capser_7'
-LOGDIR = data_path + '/' + MODEL_NAME + '_logdir/'  # will be redefined below
+MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)
+LOGDIR = data_path + '/' + MODEL_NAME + '/'  # will be redefined below
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)
 
