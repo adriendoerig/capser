@@ -4,7 +4,7 @@ import random
 
 ### data  ###
 
-data_path = './data'                                # save your tfRecord data files here
+data_path = 'gs://capser-data'                                # save your tfRecord data files here
 
 # training set
 create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
@@ -156,7 +156,7 @@ output_decoder_deconv_params = {'use_deconvolution_decoder': False,
 ### directories ###
 
 MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)
-LOGDIR = data_path + '/' + MODEL_NAME + '/'  # will be redefined below
+LOGDIR = data_path + '/LOGDIR/' + MODEL_NAME + '/'  # will be redefined below
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)
 
@@ -173,7 +173,7 @@ if version_to_restore is None:
 else:
     version = version_to_restore
 
-LOGDIR = './' + MODEL_NAME + '_logdir/version_' + str(version)
+LOGDIR = './' + MODEL_NAME
 image_output_dir = LOGDIR + '/output_images/'
 checkpoint_path = data_path+LOGDIR[1:]
 
