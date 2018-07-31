@@ -1,3 +1,4 @@
+# HELLO JUST CHECKİNG GİT
 import tensorflow as tf
 import os
 import random
