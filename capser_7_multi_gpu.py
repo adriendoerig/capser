@@ -1,4 +1,4 @@
-from capser_7_model_fn import *
+from capser_7_model_fn_temp import *
 from capser_7_input_fn import *
 import logging
 import numpy as np
@@ -12,7 +12,7 @@ tf.set_random_seed(42)
 print('#################### MODEL_NAME_VERSION: ' + MODEL_NAME + '_' + str(version) + ' ####################')
 
 # create estimator for model (the model is described in capser_7_model_fn)
-capser = tf.estimator.Estimator(model_fn=model_fn, params={'model_batch_size': batch_size}, model_dir=checkpoint_path)
+capser = tf.estimator.Estimator(model_fn=model_fn_temp, params={'model_batch_size': batch_size}, model_dir=checkpoint_path)
 
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress

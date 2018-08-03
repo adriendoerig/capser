@@ -417,9 +417,10 @@ class StimMaker:
 
             for n in range(batchSize):
 
+                shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
+
                 for shape in range(n_shapes):
 
-                    shapes = numpy.random.permutation(n_shapes)
                     thisType = shapes[shape]
                     shapeType = shapeTypes[thisType]
                     nRows = random.randint(1, max_rows)
@@ -448,16 +449,24 @@ class StimMaker:
         else:  # if vernier_grids is false, the vernier stimuli always comprise a single vernier
 
             for n in range(batchSize):
-                shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
+
+                # use a vernier every other trial
+                if n % 2:
+                    shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
+                    shapes[0] = 0
+                else:
+                    shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
 
                 for shape in range(n_shapes):
                     if shapes[shape] == 0:  # 1/len(shapeTypes):
                         thisOffset = random.randint(0, 1)
                         batchSingleShapeImages[n, :, :, shape] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                        batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
-                        # note, we normalize batchSingleShapeImages AFTER adding it to the multishape image, to avoid normalizing the multishape image several times
                         if normalize:
                             batchSingleShapeImages[n, :, :, shape] = (batchSingleShapeImages[n, :, :, shape] - numpy.mean(batchSingleShapeImages[n, :, :, shape])) / numpy.std(batchSingleShapeImages[n, :, :, shape])
+                        batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
+
+                        # note, we could normalize batchSingleShapeImages AFTER adding it to the multishape image, to avoid normalizing the multishape image several times
+
                         batchLabels[n, shape] = 0
                         nElements[n, shape] = 1
                         if vernierLabelEncoding is 'lr_10':
@@ -472,18 +481,21 @@ class StimMaker:
                         nCols = random.randint(1, max_cols)
                         shapeConfig = shapeType*numpy.ones((nRows, nCols))
                         batchSingleShapeImages[n, :, :, shape] = self.drawStim(0, shapeConfig, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                        batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
-                        # note, we normalize batchSingleShapeImages AFTER adding it to the multishape image, to avoid normalizing the multishape image several times
                         if normalize:
                             batchSingleShapeImages[n, :, :, shape] = (batchSingleShapeImages[n, :, :, shape] - numpy.mean(batchSingleShapeImages[n, :, :, shape])) / numpy.std(batchSingleShapeImages[n, :, :, shape])
+
+                        batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
+
+                        # note, we could normalize batchSingleShapeImages AFTER adding it to the multishape image, to avoid normalizing the multishape image several times
+
                         batchLabels[n, shape] = shapeLabels[thisType]
                         nElements[n, shape] = nRows * nCols
                         if vernierLabelEncoding is 'lr_10':
                             vernierLabels[n, shape] = random.randint(0, 1)
                         elif vernierLabelEncoding is 'nothinglr_012':
                             vernierLabels[n, shape] = 0
-                if normalize:
-                    batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
+                # if normalize:
+                #     batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
 
         if normalize_sets:
             batchImages[batchImages > 1.2] = 1.2  # to avoid overlapping pixels to by twice as high as the rest

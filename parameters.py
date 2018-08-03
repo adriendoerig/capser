@@ -4,17 +4,17 @@ import random
 
 ### data  ###
 
-data_path = 'gs://capser-data'                                # save your tfRecord data files here
+data_path = './data'                                # save your tfRecord data files here
 
 # training set
 create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 100000                            # number of different stimuli in an epoch
-batch_size = random.randint(4,16)                                     # stimuli per batch
+batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
-n_epochs = 25                                       # number of epochs
+n_epochs = 50                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
@@ -32,19 +32,19 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 ### stimulus params ###
 
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
-normalize_images = False        # make each image mean=0, std=1
-normalize_sets = True           # compute mean and std over 100 images and use this estimate to normalize each image
+normalize_images = True        # make each image mean=0, std=1
+normalize_sets = False           # compute mean and std over 100 images and use this estimate to normalize each image
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 im_size = (30, 60)              # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
 shape_size = 10                 # size of a single shape in pixels
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
-noise_level = .05                 # add noise
-shape_types = [0, 1, 2, 9]         # see batchMaker.drawShape for number-shape correspondences
+noise_level = 0.0                 # add noise
+shape_types = [0, 1, 2]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 3: 'stuff'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles'}
 shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 
 
@@ -54,24 +54,24 @@ shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 version_to_restore = None          # None: train new model. n: load last checkpoint of version n.
 
 # learning rate
-lr_exponent = random.uniform(-4,-2)
-learning_rate=10**lr_exponent
+lr_exponent = random.uniform(-3, -2.5)
+learning_rate=.0005 # 10**lr_exponent
 
 # batch norm
-conv_batch_norm = False
+conv_batch_norm = True
 decoder_batch_norm = False
 
 # conv layers
-activation_function = tf.nn.relu
+activation_function = tf.nn.elu
 conv1_params = {"filters": 16,
-                "kernel_size": 4,
+                "kernel_size": 3,
                 "strides": 1,
                 "padding": "valid",
                 "activation": activation_function,
                 }
 conv2_params = {"filters": 16,
                 "kernel_size": 4,
-                "strides": 1,
+                "strides": 2,
                 "padding": "valid",
                 "activation": activation_function,
                 }
@@ -86,9 +86,9 @@ conv3_params = None
 
 # primary capsules
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
-caps1_n_dims = random.randint(4,16)  # number of dimension per capsule
+caps1_n_dims = 16#random.randint(8, 16)  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 5,
+                    "kernel_size": 4,
                     "strides": 2,
                     "padding": "valid",
                     "activation": activation_function,
@@ -96,7 +96,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
 
 # output capsules
 caps2_n_caps = len(label_to_shape)  # number of capsules
-caps2_n_dims = random.randint(4,16)  # of n dimensions
+caps2_n_dims = 16#random.randint(8, 16)  # of n dimensions
 rba_rounds = 2
 
 # margin loss parameters
@@ -155,7 +155,7 @@ output_decoder_deconv_params = {'use_deconvolution_decoder': False,
 
 ### directories ###
 
-MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)
+MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+'_CONVBN_'+str(conv_batch_norm)+'_DECODERBN_'+str(decoder_batch_norm)
 LOGDIR = data_path + '/LOGDIR/' + MODEL_NAME + '/'  # will be redefined below
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)

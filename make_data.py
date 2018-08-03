@@ -1,12 +1,12 @@
 from make_tf_dataset import *
 
 # choose which sets to create
-training = 0
+training = 1
 verniers = 0
 testing_categories = 1
 testing_individual_stimuli = 1
 
-show_samples = False
+show_samples = 0
 
 # create tfRecord data files
 # training set
