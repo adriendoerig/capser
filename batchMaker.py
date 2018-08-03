@@ -545,13 +545,15 @@ class StimMaker:
                     batchImages[n, :, :] = clipped_zoom(batchImages[n, :, :], zoom_factor)
                     for shape in range(n_shapes):
                         batchSingleShapeImages[n, :, :, shape] = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
+
+                    batchImages[batchImages > 0.2] = 1
+                    batchImages[batchImages < 0] = 0
+                    batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
+                    batchSingleShapeImages[batchSingleShapeImages < 0] = 0
                 # if normalize:
                 #     batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
 
-        batchImages[batchImages > 0.2] = 1
-        batchImages[batchImages < 0] = 0
-        batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
-        batchSingleShapeImages[batchSingleShapeImages < 0] = 0
+
 
         if normalize_sets:
             batchImages[batchImages > 1.2] = 1.2  # to avoid overlapping pixels to by twice as high as the rest
@@ -608,9 +610,8 @@ class StimMaker:
             if random_size:
                 zoom_factor = random.uniform(0.8, 1.2)
                 batchImages[n, :, :] = clipped_zoom(batchImages[n, :, :], zoom_factor)
-
-        batchImages[batchImages > 0.2] = 1
-        batchImages[batchImages < 0] = 0
+                batchImages[batchImages > 0.2] = 1
+                batchImages[batchImages < 0] = 0
 
         if normalize_sets:
             batchImages = (batchImages - self.mean) / self.std
