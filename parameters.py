@@ -10,11 +10,11 @@ data_path = './data'                                # save your tfRecord data fi
 create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
-n_train_samples = 100000                            # number of different stimuli in an epoch
+n_train_samples = 10000                            # number of different stimuli in an epoch
 batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
-n_epochs = 50                                       # number of epochs
+n_epochs = 30                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
@@ -32,8 +32,8 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 ### stimulus params ###
 
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
-normalize_images = False        # make each image mean=0, std=1
-normalize_sets = True           # compute mean and std over 100 images and use this estimate to normalize each image
+normalize_images = True        # make each image mean=0, std=1
+normalize_sets = False           # compute mean and std over 100 images and use this estimate to normalize each image
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 im_size = (45, 100)              # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
