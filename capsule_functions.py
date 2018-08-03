@@ -603,20 +603,20 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
         if deconv_params['use_deconvolution_decoder'] is True:
 
             if deconv_params['fc_width'] is not None:
-                hidden1 = tf.layers.dense(decoder_input, deconv_params['fc_width']*deconv_params['fc_height'], activation=tf.nn.relu, name="fc_hidden1")
+                hidden1 = tf.layers.dense(decoder_input, deconv_params['fc_width']*deconv_params['fc_height'], activation=decoder_activation_function, name="fc_hidden1")
                 hidden1_2d = tf.reshape(hidden1, shape=[batch_size_per_shard, deconv_params['fc_height'], deconv_params['fc_width']])
                 hidden1_2d = tf.expand_dims(hidden1_2d, axis=-1)
                 # tf.summary.histogram('deconv_decoder_hidden1', hidden1_2d)
                 if print_shapes:
                     print('shape of decoder first fc: ' + str(hidden1_2d))
 
-                hidden2 = tf.layers.conv2d_transpose(hidden1_2d, deconv_params['deconv_filters2'], deconv_params['deconv_kernel2'],  deconv_params['deconv_strides2'], activation=tf.nn.relu, name="deconv_hidden2")
+                hidden2 = tf.layers.conv2d_transpose(hidden1_2d, deconv_params['deconv_filters2'], deconv_params['deconv_kernel2'],  deconv_params['deconv_strides2'], activation=decoder_activation_function, name="deconv_hidden2")
                 # tf.summary.histogram('deconv_decoder_hidden2', hidden2)
                 if print_shapes:
                     print('shape of decoder 1st deconv output: ' + str(hidden2))
 
                 if deconv_params['final_fc'] is True:
-                    hidden2_flat = tf.reshape(hidden2, shape=[batch_size_per_shard,n_output*deconv_params['deconv_filters2']])
+                    hidden2_flat = tf.reshape(hidden2, shape=[batch_size_per_shard, n_output*deconv_params['deconv_filters2']], activation=decoder_activation_function)
                     if print_shapes:
                         print('shape of decoder 1st deconv output flat: ' + str(hidden2_flat))
 
@@ -637,17 +637,17 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
 
             if n_hidden1 is not None:
                 hidden1 = tf.layers.dense(decoder_input, n_hidden1,
-                                          activation=tf.nn.relu,
+                                          activation=decoder_activation_function,
                                           name="hidden1")
                 # tf.summary.histogram('decoder_hidden1', hidden1)
                 if n_hidden2 is not None:
                     hidden2 = tf.layers.dense(hidden1, n_hidden2,
-                                              activation=tf.nn.relu,
+                                              activation=decoder_activation_function,
                                               name="hidden2")
                     # tf.summary.histogram('decoder_hidden2', hidden2)
                     if n_hidden3 is not None:
                         hidden3 = tf.layers.dense(hidden2, n_hidden3,
-                                                  activation=tf.nn.relu,
+                                                  activation=decoder_activation_function,
                                                   name="hidden2")
                         # tf.summary.histogram('decoder_hidden3', hidden3)
                         decoder_output = tf.layers.dense(hidden3, n_output,
@@ -671,17 +671,17 @@ def decoder_with_mask(decoder_input, output_width, output_height, n_hidden1=None
             return decoder_output
 
 
-def batch_norm_fc_layer(x, n_out, phase, name='', activation=None):
-    with tf.variable_scope('batch_norm_layer'):
-        h1 = tf.layers.dense(x, n_out, activation=None, name=name)
-        h2 = tf.contrib.layers.batch_norm(h1,
-                                          center=True, scale=True,
-                                          is_training=phase,
-                                          scope=name+'bn')
-    if activation is None:
-        return h2
-    else:
-        return activation(h2)
+# def batch_norm_fc_layer(x, n_out, phase, name='', activation=None):
+#     with tf.variable_scope('batch_norm_layer'):
+#         h1 = tf.layers.dense(x, n_out, activation=None, name=name)
+#         h2 = tf.contrib.layers.batch_norm(h1,
+#                                           center=True, scale=True,
+#                                           is_training=phase,
+#                                           scope=name+'bn')
+#     if activation is None:
+#         return h2
+#     else:
+#         return activation(h2)
 
 
 def decoder_with_mask_batch_norm(decoder_input, n_output, n_hidden1=None, n_hidden2=None, n_hidden3=None, phase=True, name=''):
@@ -689,31 +689,29 @@ def decoder_with_mask_batch_norm(decoder_input, n_output, n_hidden1=None, n_hidd
     with tf.name_scope(name+"decoder"):
 
         if n_hidden1 is not None:
-            hidden1 = batch_norm_fc_layer(decoder_input, n_hidden1, phase, name=name+'hidden1', activation=tf.nn.elu)
-            # tf.summary.histogram(name+'_hidden1_bn', hidden1)
+            hidden1 = tf.layers.dense(decoder_input, n_hidden1, use_bias=False, name=name+'hidden1', activation=None)
+            hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name=name+'hidden1_bn')
+            hidden1 = decoder_activation_function(hidden1, name='hidden1_activation')
+            tf.summary.histogram(name+'_hidden1_bn', hidden1)
             if n_hidden2 is not None:
-                hidden2 = batch_norm_fc_layer(hidden1, n_hidden2, phase, name=name+'hidden2', activation=tf.nn.elu)
-                # tf.summary.histogram(name+'_hidden2_bn', hidden2)
+                hidden2 = tf.layers.dense(hidden1, n_hidden2, use_bias=False, name=name + 'hidden2', activation=None)
+                hidden2 = tf.layers.batch_normalization(hidden2, training=phase, name=name + 'hidden2_bn')
+                hidden2 = decoder_activation_function(hidden2, name='hidden2_activation')
+                tf.summary.histogram(name+'_hidden2_bn', hidden2)
                 if n_hidden3 is not None:
-                    hidden3 = batch_norm_fc_layer(hidden2, n_hidden3, phase, name=name + 'hidden2', activation=tf.nn.elu)
-                    # tf.summary.histogram(name + '_hidden3_bn', hidden3)
-                    decoder_output = tf.layers.dense(hidden3, n_output,
-                                                     activation=tf.nn.sigmoid,
-                                                     name=name + "_output")
+                    hidden3 = tf.layers.dense(hidden2, n_hidden3, use_bias=False, name=name + 'hidden3', activation=None)
+                    hidden3 = tf.layers.batch_normalization(hidden3, training=phase, name=name + 'hidden3_bn')
+                    hidden3 = decoder_activation_function(hidden3, name='hidden3_activation')
+                    tf.summary.histogram(name + '_hidden3_bn', hidden3)
+                    decoder_output = tf.layers.dense(hidden3, n_output, activation=tf.nn.sigmoid, name=name + "_output")
                 else:
-                    decoder_output = tf.layers.dense(hidden2, n_output,
-                                                 activation=tf.nn.sigmoid,
-                                                 name=name+"_output")
+                    decoder_output = tf.layers.dense(hidden2, n_output, activation=tf.nn.sigmoid, name=name+"_output")
             else:
-                decoder_output = tf.layers.dense(hidden1, n_output,
-                                                 activation=tf.nn.sigmoid,
-                                                 name=name + "_output")
+                decoder_output = tf.layers.dense(hidden1, n_output, activation=tf.nn.sigmoid, name=name + "_output")
         else:
-            decoder_output = tf.layers.dense(decoder_input, n_output,
-                                             activation=tf.nn.sigmoid,
-                                             name=name + "_output")
+            decoder_output = tf.layers.dense(decoder_input, n_output, activation=tf.nn.sigmoid, name=name + "_output")
 
-        # tf.summary.histogram(name+'_output', decoder_output)
+        tf.summary.histogram(name+'_output', decoder_output)
 
         return decoder_output
 

@@ -59,28 +59,31 @@ learning_rate=.0005 # 10**lr_exponent
 
 # batch norm
 conv_batch_norm = True
-decoder_batch_norm = False
+decoder_batch_norm = True
 
 # conv layers
-activation_function = tf.nn.elu
+if conv_batch_norm:
+    conv_activation_function = None
+else:
+    conv_activation_function = tf.nn.elu
 conv1_params = {"filters": 16,
                 "kernel_size": 3,
                 "strides": 1,
                 "padding": "valid",
-                "activation": activation_function,
+                "activation": conv_activation_function,
                 }
 conv2_params = {"filters": 16,
                 "kernel_size": 4,
                 "strides": 2,
                 "padding": "valid",
-                "activation": activation_function,
+                "activation": conv_activation_function,
                 }
 # conv2_params = None
 # conv3_params = {"filters": 32,
 #                 "kernel_size": 5,
 #                 "strides": 1,
 #                 "padding": "valid",
-#                 "activation": activation_function,
+#                 "activation": conv_activation_function,
 #                 }
 conv3_params = None
 
@@ -91,7 +94,7 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 4,
                     "strides": 2,
                     "padding": "valid",
-                    "activation": activation_function,
+                    "activation": conv_activation_function,
                     }
 
 # output capsules
@@ -139,6 +142,7 @@ primary_caps_decoder_n_hidden2 = 512
 primary_caps_decoder_n_hidden3 = None
 primary_caps_decoder_n_output = shape_size ** 2
 
+decoder_activation_function = tf.nn.elu
 output_caps_decoder_n_hidden1 = 512
 output_caps_decoder_n_hidden2 = 1024
 output_caps_decoder_n_hidden3 = None

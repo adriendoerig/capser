@@ -4,7 +4,7 @@ from time import time
 from capsule_functions import *
 
 def model_fn_temp(features, labels, mode, params):
-    
+
     print('USING MODEL_FN_TEMP')
     using_TPUEstimator = False
     simultaneous_shapes = 2
@@ -27,20 +27,6 @@ def model_fn_temp(features, labels, mode, params):
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name="mask_with_labels")
     # boolean specifying if training or not (for batch normalization)
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
-
-    # def batch_norm_conv_layer(x, phase, name='', activation=None, **conv_params):
-    #     with tf.variable_scope('batch_norm_conv_layer'):
-    #         conv = tf.layers.conv2d(x, activation=None, name=name + "conv", **conv_params)
-    #         norm_conv = tf.layers.batch_normalization(conv,
-    #                                                   center=True, scale=True,
-    #                                                   training=phase,
-    #                                                   name=name + 'bn')
-    #         tf.summary.histogram(name, conv)
-    #         tf.summary.histogram(name + '_batch_norm', norm_conv)
-    #         if activation is None:
-    #             return norm_conv
-    #         else:
-    #             return activation(norm_conv)
 
     print_shapes = False  # to print the size of each layer during graph construction
 
@@ -83,12 +69,14 @@ def model_fn_temp(features, labels, mode, params):
         # create early conv layers
         if conv_batch_norm:
             print('Using conv_batch_norm: layer 1')
-            conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
-            conv1 = tf.layers.batch_normalization(conv1, training=True, name='conv1_bn')
+            conv1 = tf.layers.conv2d(X, name="conv1", use_bias=False, **conv1_params)
+            conv1 = tf.layers.batch_normalization(conv1, training=is_training, name='conv1_bn')
+            conv1 = tf.nn.elu(conv1, name='conv1_activation')
             if conv2_params is not None:
                 print('Using conv_batch_norm: layer 2')
-                conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)
-                conv2 = tf.layers.batch_normalization(conv2, training=True, name='conv2_bn')
+                conv2 = tf.layers.conv2d(conv1, name="conv2", use_bias=False, **conv2_params)
+                conv2 = tf.layers.batch_normalization(conv2, training=is_training, name='conv2_bn')
+                conv2 = tf.nn.elu(conv2, name='conv2_activation')
         else:
             conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
             if not using_TPUEstimator:
