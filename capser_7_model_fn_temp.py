@@ -27,6 +27,7 @@ def model_fn_temp(features, labels, mode, params):
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name="mask_with_labels")
     # boolean specifying if training or not (for batch normalization)
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
+    is_training = True
 
     print_shapes = False  # to print the size of each layer during graph construction
 

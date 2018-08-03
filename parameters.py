@@ -13,7 +13,7 @@ test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 100000                            # number of different stimuli in an epoch
 batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
-buffer_size = 8*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
+buffer_size = 1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 50                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
@@ -32,12 +32,13 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 ### stimulus params ###
 
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
-normalize_images = True        # make each image mean=0, std=1
-normalize_sets = False           # compute mean and std over 100 images and use this estimate to normalize each image
+normalize_images = False        # make each image mean=0, std=1
+normalize_sets = True           # compute mean and std over 100 images and use this estimate to normalize each image
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-im_size = (30, 60)              # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
-shape_size = 10                 # size of a single shape in pixels
+im_size = (45, 100)              # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
+shape_size = 18                 # size of a single shape in pixels
+random_size = True              # shape_size will vary around shape_size
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
 noise_level = 0.0                 # add noise
@@ -58,7 +59,7 @@ lr_exponent = random.uniform(-3, -2.5)
 learning_rate=.0005 # 10**lr_exponent
 
 # batch norm
-conv_batch_norm = True
+conv_batch_norm = False
 decoder_batch_norm = True
 
 # conv layers
@@ -67,13 +68,13 @@ if conv_batch_norm:
 else:
     conv_activation_function = tf.nn.elu
 conv1_params = {"filters": 16,
-                "kernel_size": 3,
+                "kernel_size": 7,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
 conv2_params = {"filters": 16,
-                "kernel_size": 4,
+                "kernel_size": 7,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,
@@ -91,7 +92,7 @@ conv3_params = None
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 16#random.randint(8, 16)  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 4,
+                    "kernel_size": 6,
                     "strides": 2,
                     "padding": "valid",
                     "activation": conv_activation_function,
