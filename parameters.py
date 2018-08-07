@@ -22,10 +22,12 @@ check_data = None                                   # specify the path to a data
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
 n_test_samples = 100                                # number of stimuli for each testing condition
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]]}
-                # '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-                # 'irreg':         [None, [[7]], [[7, 7, 7, 7, 7]]],
-                # 'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
+                'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
+                'octagons':      [None, [[4]], [[4, 4, 4, 4, 4]]],
+                '4stars':        [None, [[5]], [[5, 5, 5, 5, 5]]],
+                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
+                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
 test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 
 
@@ -43,10 +45,10 @@ random_size = True              # shape_size will vary around shape_size
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
 noise_level = 0.0               # add noise
-shape_types = [0, 1, 2]         # see batchMaker.drawShape for number-shape correspondences
+shape_types = [0, 1, 2, 3, 4, 5, 6, 9]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles'}
+label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 4: 'hexagons', 5: 'octagons', 6: '4stars', 7: '7stars', 8: 'stuff'}
 shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
 
 
