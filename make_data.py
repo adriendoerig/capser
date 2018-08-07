@@ -1,7 +1,7 @@
 from make_tf_dataset import *
 
 # choose which sets to create
-training = 0
+training = 1
 verniers = 0
 testing_categories = 1
 testing_individual_stimuli = 1
@@ -11,7 +11,7 @@ show_samples = 0
 # create tfRecord data files
 # training set
 if training:
-    make_multi_shape_tfRecords(stim_maker, shape_types, 100, train_data_path)
+    make_multi_shape_tfRecords(stim_maker, shape_types, n_train_samples, train_data_path)
     if show_samples:
         show_data(train_data_path, 'multi_shape')
 # verniers
