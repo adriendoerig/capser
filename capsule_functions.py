@@ -577,8 +577,14 @@ def compute_n_shapes_loss(masked_input, n_shapes, n_shapes_max, print_shapes=Fal
 def compute_vernier_offset_loss(vernier_capsule, labels, print_shapes=False):
 
     with tf.name_scope('vernier_offset_loss'):
-        one_hot_offsets = tf.one_hot(tf.cast(labels, tf.int32), 3)
-        offset_logits = tf.layers.dense(vernier_capsule, 3, activation=tf.nn.relu, name="offset_logits")
+
+        if vernier_label_encoding is 'lr_01':
+            depth = 2
+        elif vernier_label_encoding is 'nothinlr_012':
+            depth = 3
+
+        one_hot_offsets = tf.one_hot(tf.cast(labels, tf.int32), depth)
+        offset_logits = tf.layers.dense(vernier_capsule, depth, activation=tf.nn.relu, name="offset_logits")
         offset_xent = tf.losses.softmax_cross_entropy(one_hot_offsets, offset_logits)
         tf.summary.scalar('training_vernier_offset_xentropy', offset_xent)
         correct = tf.equal(labels, tf.cast(tf.argmax(offset_logits, axis=1), tf.float32), name="correct")

@@ -10,11 +10,11 @@ data_path = './data'                                # save your tfRecord data fi
 create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
-n_train_samples = 10000                            # number of different stimuli in an epoch
+n_train_samples = 100000                            # number of different stimuli in an epoch
 batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
-n_epochs = 30                                       # number of epochs
+n_epochs = 50                                       # number of epochs
 n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
@@ -32,16 +32,17 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 ### stimulus params ###
 
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
-normalize_images = True        # make each image mean=0, std=1
-normalize_sets = False           # compute mean and std over 100 images and use this estimate to normalize each image
+normalize_images = True         # make each image mean=0, std=1
+normalize_sets = False          # compute mean and std over 100 images and use this estimate to normalize each image
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-im_size = (45, 100)              # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
+vernier_normalization_exp = 1/4   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
+im_size = (45, 100)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
 shape_size = 18                 # size of a single shape in pixels
 random_size = True              # shape_size will vary around shape_size
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
-noise_level = 0.0                 # add noise
+noise_level = 0.0               # add noise
 shape_types = [0, 1, 2]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 
@@ -113,9 +114,9 @@ lambda_ = .5
 vernier_offset_loss = True
 train_new_vernier_decoder = True                # to use a "fresh" new decoder for the vernier testing.
 plot_uncrowding_during_training = False         # to plot uncrowding results while training
-vernier_label_encoding = 'nothinglr_012'        # 'lr_10' or 'nothinglr_012'
-if simultaneous_shapes > 1:
-    vernier_label_encoding = 'nothinglr_012'    # needs to be nothinglr_012 if we use simultaneous shapes
+vernier_label_encoding = 'lr_01'        # 'lr_01' or 'nothinglr_012'
+# if simultaneous_shapes > 1:
+#     vernier_label_encoding = 'lr_01'    # needs to be nothinglr_012 if we use simultaneous shapes
 alpha_vernier_offset = 1
 
 # optional loss requiring output capsules to give the number of shapes in the display
@@ -160,7 +161,7 @@ output_decoder_deconv_params = {'use_deconvolution_decoder': False,
 
 ### directories ###
 
-MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+'_CONVBN_'+str(conv_batch_norm)+'_DECODERBN_'+str(decoder_batch_norm)
+MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+'_CONVBN_'+str(conv_batch_norm)+'_DECODERBN_'+str(decoder_batch_norm)+'_VERNIERNORMEXP_'+str(vernier_normalization_exp)
 LOGDIR = data_path + '/LOGDIR/' + MODEL_NAME + '/'  # will be redefined below
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)

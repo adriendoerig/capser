@@ -11,7 +11,7 @@ show_samples = 0
 # create tfRecord data files
 # training set
 if training:
-    make_multi_shape_tfRecords(stim_maker, shape_types, n_train_samples, train_data_path)
+    make_multi_shape_tfRecords(stim_maker, shape_types, 100, train_data_path)
     if show_samples:
         show_data(train_data_path, 'multi_shape')
 # verniers
