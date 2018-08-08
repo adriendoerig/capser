@@ -45,7 +45,7 @@ shape_size = 25                 # size of a single shape in pixels
 random_size = True              # shape_size will vary around shape_size
 random_pixels = .4              # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
-bar_width = 1                   # thickness of elements' bars
+bar_width = 2                   # thickness of elements' bars
 noise_level = 0.1               # add noise
 shape_types = [0, 1, 2, 3, 4, 5, 6, 7, 9]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
@@ -73,13 +73,13 @@ if conv_batch_norm:
 else:
     conv_activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
-                "kernel_size": 7,
-                "strides": 2,
+                "kernel_size": 9,
+                "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 5,
+                "kernel_size": 9,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,
@@ -97,7 +97,7 @@ conv3_params = None
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 16#random.randint(8, 16)  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 4,
+                    "kernel_size": 7,
                     "strides": 2,
                     "padding": "valid",
                     "activation": conv_activation_function,
