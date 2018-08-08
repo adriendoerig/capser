@@ -4,14 +4,14 @@ import random
 
 ### data  ###
 
-data_path = './data'                                # save your tfRecord data files here
+data_path = 'gs://capser-data-3'                                # save your tfRecord data files here
 
 # training set
 create_new_train_set = False                         # if you already have a tfRecords training file in data_path, you may set to False
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 100000                            # number of different stimuli in an epoch
-batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
+batch_size = 16 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 50                                       # number of epochs
