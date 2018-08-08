@@ -34,14 +34,15 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 ### stimulus params ###
 
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
-normalize_images = True         # make each image mean=0, std=1
+normalize_images = False         # make each image mean=0, std=1
 normalize_sets = False          # compute mean and std over 100 images and use this estimate to normalize each image
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-vernier_normalization_exp = 1/4   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
+vernier_normalization_exp = 0   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
 im_size = (45, 100)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
 shape_size = 18                 # size of a single shape in pixels
 random_size = True              # shape_size will vary around shape_size
+random_pixels = .4              # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                   # thickness of elements' bars
 noise_level = 0.0               # add noise
@@ -70,13 +71,13 @@ if conv_batch_norm:
     conv_activation_function = None
 else:
     conv_activation_function = tf.nn.elu
-conv1_params = {"filters": 16,
+conv1_params = {"filters": 32,
                 "kernel_size": 7,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
-conv2_params = {"filters": 16,
+conv2_params = {"filters": 32,
                 "kernel_size": 7,
                 "strides": 2,
                 "padding": "valid",
@@ -162,8 +163,12 @@ output_decoder_deconv_params = {'use_deconvolution_decoder': False,
 
 
 ### directories ###
-
-MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+'_CONVBN_'+str(conv_batch_norm)+'_DECODERBN_'+str(decoder_batch_norm)+'_VERNIERNORMEXP_'+str(vernier_normalization_exp)
+normalization_text = ''
+if normalize_images is True:
+    normalization_text += '_VERNIERNORMEXP_'+str(vernier_normalization_exp)
+if normalize_sets is True:
+    normalzation_text += '_NORMSETS'
+MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+'_CONVBN_'+str(conv_batch_norm)+'_DECODERBN_'+str(decoder_batch_norm)+normalization_text
 LOGDIR = data_path + '/LOGDIR/' + MODEL_NAME + '/'  # will be redefined below
 if not os.path.exists(LOGDIR):
     os.makedirs(LOGDIR)

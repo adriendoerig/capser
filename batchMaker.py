@@ -5,7 +5,7 @@ import numpy, random, matplotlib.pyplot as plt
 from skimage import draw
 from scipy.ndimage import zoom
 from datetime import datetime
-from parameters import shape_types, simultaneous_shapes, noise_level, max_cols, max_rows, vernier_normalization_exp
+from parameters import shape_types, simultaneous_shapes, noise_level, max_cols, max_rows, vernier_normalization_exp, random_pixels
 
 
 def clipped_zoom(img, zoom_factor, **kwargs):
@@ -110,10 +110,10 @@ class StimMaker:
         firstCol = firstRow
         sideSize = int(self.shapeSize/resizeFactor)
 
-        patch[firstRow         :firstRow+self.barWidth,          firstCol:firstCol+sideSize+self.barWidth] = 1.0
-        patch[firstRow+sideSize:firstRow+self.barWidth+sideSize, firstCol:firstCol+sideSize+self.barWidth] = 1.0
-        patch[firstRow:firstRow+sideSize+self.barWidth, firstCol         :firstCol+self.barWidth         ] = 1.0
-        patch[firstRow:firstRow+sideSize+self.barWidth, firstRow+sideSize:firstRow+self.barWidth+sideSize] = 1.0
+        patch[firstRow         :firstRow+self.barWidth,          firstCol:firstCol+sideSize+self.barWidth] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[firstRow+sideSize:firstRow+self.barWidth+sideSize, firstCol:firstCol+sideSize+self.barWidth] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[firstRow:firstRow+sideSize+self.barWidth, firstCol         :firstCol+self.barWidth         ] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[firstRow:firstRow+sideSize+self.barWidth, firstRow+sideSize:firstRow+self.barWidth+sideSize] = random.uniform(1-random_pixels, 1+random_pixels)
 
         return patch
 
@@ -130,7 +130,7 @@ class StimMaker:
 
                 distance = numpy.sqrt((row-center[0])**2 + (col-center[1])**2)
                 if radius-self.barWidth < distance < radius:
-                    patch[row, col] = 1.0
+                    patch[row, col] = random.uniform(1-random_pixels, 1+random_pixels)
 
         return patch
 
@@ -154,7 +154,7 @@ class StimMaker:
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
-        patch[RR, CC] = 1.0
+        patch[RR, CC] = random.uniform(1-random_pixels, 1+random_pixels)
         patch[rr, cc] = 0.0
 
         return patch
@@ -184,7 +184,7 @@ class StimMaker:
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
-        patch[RR, CC] = 1.0
+        patch[RR, CC] = random.uniform(1-random_pixels, 1+random_pixels)
         patch[rr, cc] = 0.0
 
         return patch
@@ -219,7 +219,7 @@ class StimMaker:
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
-        patch[RR, CC] = 1.0
+        patch[RR, CC] = random.uniform(1-random_pixels, 1+random_pixels)
         patch[rr, cc] = 0.0
 
         if repeatShape:
@@ -236,7 +236,7 @@ class StimMaker:
 
             (r1, c1, r2, c2) = numpy.random.randint(self.shapeSize, size=4)
             rr, cc = draw.line(r1, c1, r2, c2)
-            patch[rr, cc] = 1.0
+            patch[rr, cc] = random.uniform(1-random_pixels, 1+random_pixels)
 
         return patch
 
@@ -247,7 +247,7 @@ class StimMaker:
             offset_size = random.randint(1, int(self.barHeight/2.0))
         patch = numpy.zeros((2*self.barHeight+self.offsetHeight, 2*self.barWidth+offset_size))
         patch[0:self.barHeight, 0:self.barWidth] = 1.0
-        patch[self.barHeight+self.offsetHeight:, self.barWidth+offset_size:] = 1.0
+        patch[self.barHeight+self.offsetHeight:, self.barWidth+offset_size:] = random.uniform(1-random_pixels, 1+random_pixels)
 
         if offset is None:
             if random.randint(0, 1):
