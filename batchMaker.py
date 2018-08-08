@@ -27,7 +27,7 @@ def clipped_zoom(img, zoom_factor, **kwargs):
         left = (w - zw) // 2
 
         # Zero-padding
-        out = numpy.zeros_like(img)
+        out = numpy.random.normal(0, noise_level, size=(h,w))
         out[top:top+zh, left:left+zw] = zoom(img, zoom_tuple, **kwargs)
 
     # Zooming in
@@ -523,8 +523,8 @@ class StimMaker:
                     if shapes[shape] == 0:  # 1/len(shapeTypes):
                         thisOffset = random.randint(0, 1)
                         batchSingleShapeImages[n, :, :, shape] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                        batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
-                        batchSingleShapeImages[batchSingleShapeImages < 0] = 0
+                        #batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
+                        #batchSingleShapeImages[batchSingleShapeImages < 0] = 0
                         if normalize:
                             batchSingleShapeImages[n, :, :, shape] = (batchSingleShapeImages[n, :, :, shape] - numpy.mean(batchSingleShapeImages[n, :, :, shape])) / (numpy.std(batchSingleShapeImages[n, :, :, shape]))**vernier_normalization_exp
                             # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
@@ -553,8 +553,8 @@ class StimMaker:
                         nCols = random.randint(1, max_cols)
                         shapeConfig = shapeType*numpy.ones((nRows, nCols))
                         batchSingleShapeImages[n, :, :, shape] = self.drawStim(0, shapeConfig, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                        batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
-                        batchSingleShapeImages[batchSingleShapeImages < 0] = 0
+                        #batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
+                        #batchSingleShapeImages[batchSingleShapeImages < 0] = 0
                         if normalize:
                             batchSingleShapeImages[n, :, :, shape] = (batchSingleShapeImages[n, :, :, shape] - numpy.mean(batchSingleShapeImages[n, :, :, shape])) / numpy.std(batchSingleShapeImages[n, :, :, shape])**vernier_normalization_exp
                             # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
@@ -744,6 +744,6 @@ class StimMaker:
 
 if __name__ == "__main__":
 
-    rufus = StimMaker((45, 100), 18, 2)
+    rufus = StimMaker((60, 145), 25, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0., group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01')
+    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.1, group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01')
