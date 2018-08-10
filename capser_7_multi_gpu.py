@@ -9,7 +9,7 @@ np.random.seed(42)
 tf.set_random_seed(42)
 
 # directory management
-print('#################### MODEL_NAME_VERSION: ' + MODEL_NAME + '_' + str(version) + ' ####################')
+print('#################### MODEL_NAME_VERSION: ' + MODEL_NAME + ' ####################')
 
 # create estimator for model (the model is described in capser_7_model_fn)
 capser = tf.estimator.Estimator(model_fn=model_fn_temp, params={'model_batch_size': batch_size}, model_dir=checkpoint_path)
@@ -17,7 +17,7 @@ capser = tf.estimator.Estimator(model_fn=model_fn_temp, params={'model_batch_siz
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
 
-train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps)
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=123000)
 eval_spec = tf.estimator.EvalSpec(lambda: input_fn_config(data_path+'/test_squares.tfrecords'), steps=100)
 
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
@@ -29,6 +29,7 @@ logging.getLogger().setLevel(logging.CRITICAL)  # to show less info in the conso
 #     capser_out = list(capser.predict(input_fn=lambda: input_fn_config(this_name)))
 
 n_expt_batches = 1
+
 for category in test_stimuli.keys():
     print('COMPUTING VERNIER OFFSET FOR ' + category)
     uncrowding_expt_result = np.zeros(shape=(3,))
@@ -43,3 +44,9 @@ for category in test_stimuli.keys():
     print('# Uncrowding experiment result for ' + category + ':')
     print('# ' + str(uncrowding_expt_result))
     print('###################################################################')
+    if not os.path.exists(checkpoint_path + '/uncrowding_exp_results_step_'+str(tf.train.get_global_step())+'.txt'):
+        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(tf.train.get_global_step())+'.txt', 'w') as f:
+            f.write(category + ' : \t' + str(uncrowding_expt_result) + '\n')
+    else:
+        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(tf.train.get_global_step())+'.txt', 'a') as f:
+            f.write(category + ' : \t' + str(uncrowding_expt_result) + '\n')

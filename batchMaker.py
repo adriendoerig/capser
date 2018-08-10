@@ -744,6 +744,6 @@ class StimMaker:
 
 if __name__ == "__main__":
 
-    rufus = StimMaker((60, 145), 25, 2)
+    rufus = StimMaker((45, 100), 18, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
     rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.1, group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01')
