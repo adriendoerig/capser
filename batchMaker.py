@@ -246,7 +246,7 @@ class StimMaker:
         if offset_size is None:
             offset_size = random.randint(1, int(self.barHeight/2.0))
         patch = numpy.zeros((2*self.barHeight+self.offsetHeight, 2*self.barWidth+offset_size))
-        patch[0:self.barHeight, 0:self.barWidth] = 1.0
+        patch[0:self.barHeight, 0:self.barWidth] = random.uniform(1-random_pixels, 1+random_pixels)
         patch[self.barHeight+self.offsetHeight:, self.barWidth+offset_size:] = random.uniform(1-random_pixels, 1+random_pixels)
 
         if offset is None:
@@ -477,7 +477,7 @@ class StimMaker:
                     thisOffset = random.randint(0, 1)
                     batchSingleShapeImages[n, :, :, shape] = self.drawStim(0, shapeConfig, fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
                     if random_size:
-                        zoom_factor = random.uniform(0.8, 1.2)
+                        zoom_factor = random.uniform(0.7, 1.3)
                         for shape in range(n_shapes):
                             tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
                             if tempImage.shape == batchSingleShapeImages[n, :, :,
@@ -530,7 +530,7 @@ class StimMaker:
                             # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
 
                         if random_size:
-                            zoom_factor = random.uniform(0.8, 1.2)
+                            zoom_factor = random.uniform(0.7, 2)
                             tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
                             if tempImage.shape == batchSingleShapeImages[n, :, :, shape].shape:  # because sometimes the zooming fucks up the image
                                 batchSingleShapeImages[n, :, :, shape] = tempImage
@@ -560,7 +560,7 @@ class StimMaker:
                             # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
 
                         if random_size:
-                            zoom_factor = random.uniform(0.8, 1.2)
+                            zoom_factor = random.uniform(0.7, 1.3)
                             tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
                             if tempImage.shape == batchSingleShapeImages[n, :, :, shape].shape:  # because sometimes the zooming fucks up the image
                                 batchSingleShapeImages[n, :, :, shape] = tempImage
@@ -746,4 +746,4 @@ if __name__ == "__main__":
 
     rufus = StimMaker((45, 100), 18, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig='no_config', noiseLevel=0.1, group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01')
+    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig=[[1]], noiseLevel=0.1, group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01', fixed_position=[random.randint(0,10),random.randint(0,10)])

@@ -44,9 +44,9 @@ for category in test_stimuli.keys():
     print('# Uncrowding experiment result for ' + category + ':')
     print('# ' + str(uncrowding_expt_result))
     print('###################################################################')
-    if not os.path.exists(checkpoint_path + '/uncrowding_exp_results_step_'+str(tf.train.get_global_step())+'.txt'):
-        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(tf.train.get_global_step())+'.txt', 'w') as f:
+    if not os.path.exists(checkpoint_path + '/uncrowding_exp_results_step_'+str(n_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt'):
+        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(n_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt', 'w') as f:
             f.write(category + ' : \t' + str(uncrowding_expt_result) + '\n')
     else:
-        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(tf.train.get_global_step())+'.txt', 'a') as f:
+        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(n_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt', 'a') as f:
             f.write(category + ' : \t' + str(uncrowding_expt_result) + '\n')

@@ -15,19 +15,19 @@ batch_size = 64 #random.randint(4,16) * 4                                    # s
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 10                                        # number of epochs
-n_steps = n_train_samples*n_epochs/batch_size       # number of training steps
+n_steps = 40000#n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
 n_test_samples = 100                                # number of stimuli for each testing condition
-test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
-                'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
-                'octagons':      [None, [[4]], [[4, 4, 4, 4, 4]]],
-                '4stars':        [None, [[5]], [[5, 5, 5, 5, 5]]],
-                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
+test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
+                'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3, 3, 3]]],
+                'octagons':      [None, [[4]], [[4, 4, 4, 4, 4, 4, 4]]],
+                '4stars':        [None, [[5]], [[5, 5, 5, 5, 5, 5, 5]]],
+                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6, 6, 6]]],
+                'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6, 1, 6]]]}
 test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 
 
@@ -36,17 +36,17 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
 normalize_images = False        # make each image mean=0, std=1
 normalize_sets = False          # compute mean and std over 100 images and use this estimate to normalize each image
-max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
+max_rows, max_cols = 1, 7       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 vernier_normalization_exp = 0   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
-im_size = (45, 100)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
-shape_size = 18                 # size of a single shape in pixels
+im_size = (60, 128)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
+shape_size = 15                 # size of a single shape in pixels
 random_size = True              # shape_size will vary around shape_size
 test_random_size = False        # same for test set
 random_pixels = .5              # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 2                   # thickness of elements' bars
-noise_level = 0.                # add noise
+noise_level = 0.025             # add noise
 test_noise_level = 0.025        # same for test set
 shape_types = [0, 1, 2, 3, 4, 5, 6, 9]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
@@ -74,13 +74,13 @@ if conv_batch_norm:
 else:
     conv_activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
-                "kernel_size": 7,
+                "kernel_size": 6,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 7,
+                "kernel_size": 6,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,
