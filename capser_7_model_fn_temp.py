@@ -335,10 +335,10 @@ def model_fn_temp(features, labels, mode, params):
     # Wrap all of this in an EstimatorSpec.
     if mode == tf.estimator.ModeKeys.PREDICT:
         # the following line is
-        predictions = {'vernier_accuracy': tf.tile(tf.expand_dims(vernier_accuracy, -1), [batch_size_per_shard])}
+        predictions = {'vernier_accuracy': tf.tile(tf.expand_dims(vernier_accuracy, -1), [batch_size_per_shard]), 'reconstructions': decoder_output_images_sum, 'vernier_offsets': vernier_offsets}
         spec = tf.estimator.EstimatorSpec(mode=mode,
-                                          predictions=predictions,
-                                          prediction_hooks=[pred_summary_hook])    # to write summaries during prediction too)
+                                          predictions=predictions)#,
+                                          # prediction_hooks=[pred_summary_hook])    # to write summaries during prediction too)
         return spec
 
     else:
