@@ -20,7 +20,7 @@ check_data = None                                   # specify the path to a data
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
-n_test_samples = 640                                # number of stimuli for each testing condition
+n_test_samples = 200                                # number of stimuli for each testing condition
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],

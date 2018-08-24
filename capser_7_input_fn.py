@@ -208,6 +208,8 @@ def input_fn_config(filenames, batch_size=batch_size):
     # Apply parsing in parallel to speed up (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.map(parse_config, num_parallel_calls=64)
 
+    dataset = dataset.shuffle(buffer_size=buffer_size)
+
     # Only go through the data once.
     num_repeat = 1
 

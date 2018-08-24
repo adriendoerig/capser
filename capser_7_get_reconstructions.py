@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
+save_np_arrays = True  # true -> np array, false -> png images
 
 # reproducibility
 tf.reset_default_graph()
@@ -26,7 +27,10 @@ n_expt_batches = 1
 for category in test_stimuli.keys():
 
     print('CREATING RECONSCTRUCTIONS FOR ' + category)
-    this_dir = common_dir+'/'+category
+    if save_np_arrays:
+        this_dir = common_dir + '/np_arrays_' + category
+    else:
+        this_dir = common_dir+'/'+category
     if not os.path.exists(this_dir):
         os.mkdir(this_dir)
 
@@ -41,7 +45,11 @@ for category in test_stimuli.keys():
             for im in range(reconstructions.shape[0]):
 
                 if im < 10:
-                    this_ID = '0'+str(im)
+                    this_ID = '000'+str(im)
+                elif im <100:
+                    this_ID = '00' + str(im)
+                elif im < 1000:
+                    this_ID = '0' + str(im)
                 else:
                     this_ID = str(im)
 
@@ -52,8 +60,15 @@ for category in test_stimuli.keys():
                 else:
                     this_offset = 'R'
 
-                plt.figure()
-                plt.imshow(this_reconstruction)
-                plt.axis('off')
-                plt.savefig(this_dir+'/'+category+str(stim)+'_'+this_offset+'_'+this_ID+'.png', transparent=True, bbox_inches='tight', pad_inches=0)  # additional arguments make sure that we have only the picture, no frame, axes, etc.
-                plt.close()
+                if save_np_arrays:
+                    curr_dir = this_dir+'/'+str(stim)
+                    if not os.path.exists(curr_dir):
+                        os.mkdir(curr_dir)
+                    np.save(curr_dir+'/'+category+str(stim)+'_'+this_offset+'_'+this_ID, this_reconstruction)  # additional arguments make sure that we have only the picture, no frame, axes, etc.
+
+                else:
+                    plt.figure()
+                    plt.imshow(this_reconstruction)
+                    plt.axis('off')
+                    plt.savefig(this_dir+'/'+category+str(stim)+'_'+this_offset+'_'+this_ID+'.png', transparent=True, bbox_inches='tight', pad_inches=0)  # additional arguments make sure that we have only the picture, no frame, axes, etc.
+                    plt.close()

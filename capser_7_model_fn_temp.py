@@ -5,7 +5,6 @@ from capsule_functions import *
 
 def model_fn_temp(features, labels, mode, params):
 
-    print('USING MODEL_FN_TEMP')
     using_TPUEstimator = False
     simultaneous_shapes = 2
     n_shapes_loss = False
@@ -296,6 +295,8 @@ def model_fn_temp(features, labels, mode, params):
                     tf.expand_dims(decoder_output_images[:, :, :, 1], axis=-1)) * color_masks[1, :, :, :]
 
                 decoder_output_images_sum = decoder_output_images_rgb_0 + decoder_output_images_rgb_1
+                if print_shapes:
+                    print('shape of decoder_output_images_sum: ' + str(decoder_output_images_sum))
                 # display the summed output image
                 if not using_TPUEstimator:
                     tf.summary.image('decoder_output', decoder_output_images_sum, 6)
