@@ -2,6 +2,9 @@ from capser_7_model_fn_temp import *
 from capser_7_input_fn import *
 import logging
 import numpy as np
+from tensorflow.python.training import basic_session_run_hooks
+from tensorboard.plugins.beholder import Beholder
+from tensorboard.plugins.beholder import BeholderHook
 
 # reproducibility
 tf.reset_default_graph()
@@ -17,7 +20,11 @@ capser = tf.estimator.Estimator(model_fn=model_fn_temp, params={'model_batch_siz
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
 
-train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps)
+metadata_hook = basic_session_run_hooks.ProfilerHook(output_dir=checkpoint_path, save_steps=1000)  # to get metadata (e.g. how much time is spent loading data, or processing it on the GPU, etc)
+beholder = Beholder(checkpoint_path)
+beholder_hook = BeholderHook(checkpoint_path)
+
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps, hooks=[metadata_hook, beholder_hook])
 eval_spec = tf.estimator.EvalSpec(lambda: input_fn_config(data_path+'/test_squares.tfrecords'), steps=100)
 
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
