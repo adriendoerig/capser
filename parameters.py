@@ -20,21 +20,21 @@ check_data = None                                   # specify the path to a data
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
-n_test_samples = 200                                    # number of stimuli for each testing condition
-test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
-                'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
-                'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
-                'octagons':      [None, [[4]], [[4, 4, 4, 4, 4]]],
-                '4stars':        [None, [[5]], [[5, 5, 5, 5, 5]]],
-                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-                'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6]]]}
-# test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
-#                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
-#                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3, 3, 3]]],
-#                 'octagons':      [None, [[4]], [[4, 4, 4, 4, 4, 4, 4]]],
-#                 '4stars':        [None, [[5]], [[5, 5, 5, 5, 5, 5, 5]]],
-#                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6, 6, 6]]],
-#                 'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6, 1, 6]]]}
+n_test_samples = 64                                    # number of stimuli for each testing condition
+# test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
+#                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
+#                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
+#                 'octagons':      [None, [[4]], [[4, 4, 4, 4, 4]]],
+#                 '4stars':        [None, [[5]], [[5, 5, 5, 5, 5]]],
+#                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
+#                 'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6]]]}
+test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
+                'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
+                'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3, 3, 3]]],
+                'octagons':      [None, [[4]], [[4, 4, 4, 4, 4, 4, 4]]],
+                '4stars':        [None, [[5]], [[5, 5, 5, 5, 5, 5, 5]]],
+                '7stars':        [None, [[6]], [[6, 6, 6, 6, 6, 6, 6]]],
+                'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6, 1, 6]]]}
 test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 
 
@@ -43,7 +43,7 @@ test_filenames = [data_path+'/test_'+keys+'.tfrecords' for keys in test_stimuli]
 fixed_stim_position = None      # put top left corner of all stimuli at fixed_position
 normalize_images = False        # make each image mean=0, std=1
 normalize_sets = False          # compute mean and std over 100 images and use this estimate to normalize each image
-max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
+max_rows, max_cols = 1, 7       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 vernier_normalization_exp = 0   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
 im_size = (60, 128)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
@@ -81,13 +81,13 @@ if conv_batch_norm:
 else:
     conv_activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
-                "kernel_size": 7,
+                "kernel_size": 5,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 7,
+                "kernel_size": 5,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,
@@ -105,7 +105,7 @@ conv3_params = None
 caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
 caps1_n_dims = 16#random.randint(8, 16)  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                    "kernel_size": 6,
+                    "kernel_size": 5,
                     "strides": 2,
                     "padding": "valid",
                     "activation": conv_activation_function,

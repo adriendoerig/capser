@@ -4,7 +4,8 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
-save_np_arrays = True  # true -> np array, false -> png images
+save_np_arrays = False  # true -> np array, false -> png images
+n_expt_batches = 1
 
 # reproducibility
 tf.reset_default_graph()
@@ -23,7 +24,6 @@ common_dir = image_output_dir+'reconstructions_'+str(n_steps)+'_noise_'+str(test
 if not os.path.exists(common_dir):
     os.mkdir(common_dir)
 
-n_expt_batches = 1
 for category in test_stimuli.keys():
 
     print('CREATING RECONSCTRUCTIONS FOR ' + category)

@@ -113,8 +113,7 @@ def model_fn_temp(features, labels, mode, params):
                                                                           conv_caps_params["kernel_size"],
                                                                           conv_caps_params["strides"],
                                                                           conv_padding=conv_caps_params['padding'],
-                                                                          conv_activation=conv_caps_params[
-                                                                              'activation'],
+                                                                          conv_activation=conv_caps_params['activation'],
                                                                           print_shapes=print_shapes)
 
             else:
