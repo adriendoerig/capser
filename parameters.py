@@ -11,7 +11,7 @@ create_new_train_set = False                         # if you already have a tfR
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 500000                            # number of different stimuli in an epoch
-batch_size = 16 #random.randint(4,16) * 4                                    # stimuli per batch
+batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 1                                        # number of epochs
@@ -27,7 +27,7 @@ test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 'octagons':      [None, [[4]], [[4, 4, 4, 4, 4]]],
                 '4stars':        [None, [[5]], [[5, 5, 5, 5, 5]]],
                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-                'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6]]]}
+                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
 # test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
 #                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
 #                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3, 3, 3]]],
@@ -47,7 +47,7 @@ max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 vernier_normalization_exp = 0   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
 im_size = (45, 100)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
-shape_size = 17                 # size of a single shape in pixels
+shape_size = 15                 # size of a single shape in pixels
 random_size = True              # shape_size will vary around shape_size
 test_random_size = False        # same for test set
 random_pixels = .5              # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
@@ -213,7 +213,6 @@ def save_params(variables=locals()):
                      and ('function' not in str(value) and ('TextIOWrapper' not in str(value)))}
         [f.write(str(key) + ' : ' + str(value) + '\n') for key, value in variables.items()]
         print('Parameter values saved.')
-save_params()
 
 
 ### choose from optional plots, etc ###

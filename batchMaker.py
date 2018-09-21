@@ -530,7 +530,7 @@ class StimMaker:
                             # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
 
                         if random_size:
-                            zoom_factor = random.uniform(0.7, 2)
+                            zoom_factor = random.uniform(0.7, 1.3)
                             tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
                             if tempImage.shape == batchSingleShapeImages[n, :, :, shape].shape:  # because sometimes the zooming fucks up the image
                                 batchSingleShapeImages[n, :, :, shape] = tempImage

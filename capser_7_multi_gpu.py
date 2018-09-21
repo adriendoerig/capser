@@ -28,6 +28,7 @@ train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps, hooks=[me
 eval_spec = tf.estimator.EvalSpec(lambda: input_fn_config(data_path+'/test_squares.tfrecords'), steps=100)
 
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
+save_params()
 
 logging.getLogger().setLevel(logging.CRITICAL)  # to show less info in the console
 
