@@ -20,7 +20,7 @@ check_data = None                                   # specify the path to a data
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
-n_test_samples = 200                                    # number of stimuli for each testing condition
+n_test_samples = 64                                    # number of stimuli for each testing condition
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
@@ -81,13 +81,13 @@ if conv_batch_norm:
 else:
     conv_activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
-                "kernel_size": 7,
+                "kernel_size": 6,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 7,
+                "kernel_size": 6,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,
@@ -177,7 +177,15 @@ if normalize_images is True:
     normalization_text += '_VERNIERNORMEXP_'+str(vernier_normalization_exp)
 if normalize_sets is True:
     normalization_text += '_NORMSETS'
-MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+'_CONVBN_'+str(conv_batch_norm)+'_DECODERBN_'+str(decoder_batch_norm)+'_DECONVDECODER_'+str(output_decoder_deconv_params['use_deconvolution_decoder'])+normalization_text
+deconv_decoder_text = ''
+if output_decoder_deconv_params['use_deconvolution_decoder']:
+    deconv_decoder_text = '_DECONVDECODER_'+str(output_decoder_deconv_params['use_deconvolution_decoder'])
+bn_text=''
+if conv_batch_norm:
+    bn_text += '_CONVBN_'+str(conv_batch_norm)
+if decoder_batch_norm:
+    bn_text += '_DECODERBN_'+str(decoder_batch_norm)
+MODEL_NAME = 'BS_'+str(batch_size)+'_CONV1KER_'+str(conv1_params['kernel_size'])+'_CONV2KER_'+str(conv2_params['kernel_size'])+'_CONVCAPSKER_'+str(conv_caps_params['kernel_size'])+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+bn_text+deconv_decoder_text+normalization_text
 LOGDIR = data_path + '/LOGDIR/' + MODEL_NAME + '/'  # will be redefined below
 # if not os.path.exists(LOGDIR):
 #     os.makedirs(LOGDIR)
