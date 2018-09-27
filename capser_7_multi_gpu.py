@@ -24,7 +24,7 @@ metadata_hook = basic_session_run_hooks.ProfilerHook(output_dir=checkpoint_path,
 beholder = Beholder(checkpoint_path)
 beholder_hook = BeholderHook(checkpoint_path)
 
-train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps, hooks=[metadata_hook, beholder_hook])
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=number_of_steps, hooks=[metadata_hook, beholder_hook])
 eval_spec = tf.estimator.EvalSpec(lambda: input_fn_config(data_path+'/test_squares.tfrecords'), steps=100)
 
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
@@ -47,9 +47,9 @@ for category in test_stimuli.keys():
     print('# Uncrowding experiment result for ' + category + ':')
     print('# ' + str(uncrowding_expt_result))
     print('###################################################################')
-    if not os.path.exists(checkpoint_path + '/uncrowding_exp_results_step_'+str(n_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt'):
-        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(n_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt', 'w') as f:
+    if not os.path.exists(checkpoint_path + '/uncrowding_exp_results_step_'+str(number_of_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt'):
+        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(number_of_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt', 'w') as f:
             f.write(category + ' : \t' + str(uncrowding_expt_result) + '\n')
     else:
-        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(n_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt', 'a') as f:
+        with open(checkpoint_path + '//uncrowding_exp_results_step_'+str(number_of_steps)+'_noise_'+str(test_noise_level)+'_shape_size_'+str(shape_size)+'.txt', 'a') as f:
             f.write(category + ' : \t' + str(uncrowding_expt_result) + '\n')
