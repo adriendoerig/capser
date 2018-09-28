@@ -137,7 +137,7 @@ class StimMaker:
 
     def drawPolygon(self, nSides, phi):
 
-        resizeFactor = 1.0
+        resizeFactor = 0.98
         patch  = numpy.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
         radius = self.shapeSize/(2*resizeFactor)
@@ -162,7 +162,7 @@ class StimMaker:
 
     def drawStar(self, nTips, ratio, phi):
 
-        resizeFactor = 0.8
+        resizeFactor = 0.7
         patch  = numpy.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
         radius = self.shapeSize/(2*resizeFactor)
@@ -276,9 +276,9 @@ class StimMaker:
         if shapeID == 4:
             patch = self.drawPolygon(8, numpy.pi/8)
         if shapeID == 5:
-            patch = self.drawStar(4, 1.8, 0)
+            patch = self.drawStar(4, 1.9, 0)
         if shapeID == 6:
-            patch = self.drawStar(7, 1.7, -numpy.pi/14)
+            patch = self.drawStar(7, 1.8, -numpy.pi/14)
         if shapeID == 7:
             patch = self.drawIrreg(15, False)
         if shapeID == 8:
@@ -530,7 +530,7 @@ class StimMaker:
                             # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
 
                         if random_size:
-                            zoom_factor = random.uniform(0.7, 1.3)
+                            zoom_factor = random.uniform(0.7, 2)
                             tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
                             if tempImage.shape == batchSingleShapeImages[n, :, :, shape].shape:  # because sometimes the zooming fucks up the image
                                 batchSingleShapeImages[n, :, :, shape] = tempImage
@@ -743,7 +743,8 @@ class StimMaker:
 
 
 if __name__ == "__main__":
-
-    rufus = StimMaker((45, 100), 18, 2)
+    plt.close('all')
+    rufus = StimMaker((65, 120), 17, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig=[[1]], noiseLevel=0.1, group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01', fixed_position=[random.randint(0,10),random.randint(0,10)])
+    rufus.showBatch(5, [0, 1, 2, 3, 4, 5, 6, 9] , n_shapes=2, showPatch=False, showVernier=False, showConfig=[[2,3,5,6,9]], noiseLevel=0.05 , group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01', fixed_position=None)
+# e.g. fixed_position=[random.randint(0,10),random.randint(0,10)]
