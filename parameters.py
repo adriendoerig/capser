@@ -11,7 +11,7 @@ create_new_train_set = False                         # if you already have a tfR
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 500000                            # number of different stimuli in an epoch
-batch_size = 16 #random.randint(4,16) * 4                                    # stimuli per batch
+batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 1                                        # number of epochs
@@ -20,7 +20,7 @@ check_data = None                                   # specify the path to a data
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
-n_test_samples = 200                                    # number of stimuli for each testing condition
+n_test_samples = 3200                                    # number of stimuli for each testing condition
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
