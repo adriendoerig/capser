@@ -20,7 +20,7 @@ check_data = None                                   # specify the path to a data
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
-n_test_samples = 64                                    # number of stimuli for each testing condition
+n_test_samples = 3200                               # number of stimuli for each testing condition
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
@@ -46,8 +46,8 @@ normalize_sets = False          # compute mean and std over 100 images and use t
 max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 vernier_normalization_exp = 0   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
-im_size = (45, 100)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
-shape_size = 15                 # size of a single shape in pixels
+im_size = (65, 120)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
+shape_size = 17                 # size of a single shape in pixels
 random_size = True              # shape_size will vary around shape_size
 test_random_size = False        # same for test set
 random_pixels = .5              # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
@@ -81,13 +81,13 @@ if conv_batch_norm:
 else:
     conv_activation_function = tf.nn.elu
 conv1_params = {"filters": 32,
-                "kernel_size": 6,
+                "kernel_size": 7,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
 conv2_params = {"filters": 32,
-                "kernel_size": 6,
+                "kernel_size": 7,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,

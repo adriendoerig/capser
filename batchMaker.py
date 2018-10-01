@@ -137,7 +137,7 @@ class StimMaker:
 
     def drawPolygon(self, nSides, phi):
 
-        resizeFactor = 1.0
+        resizeFactor = 0.98
         patch  = numpy.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
         radius = self.shapeSize/(2*resizeFactor)
@@ -162,7 +162,7 @@ class StimMaker:
 
     def drawStar(self, nTips, ratio, phi):
 
-        resizeFactor = 0.8
+        resizeFactor = 0.7
         patch  = numpy.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
         radius = self.shapeSize/(2*resizeFactor)
@@ -276,9 +276,9 @@ class StimMaker:
         if shapeID == 4:
             patch = self.drawPolygon(8, numpy.pi/8)
         if shapeID == 5:
-            patch = self.drawStar(4, 1.8, 0)
+            patch = self.drawStar(4, 1.9, 0)
         if shapeID == 6:
-            patch = self.drawStar(7, 1.7, -numpy.pi/14)
+            patch = self.drawStar(7, 1.8, -numpy.pi/14)
         if shapeID == 7:
             patch = self.drawIrreg(15, False)
         if shapeID == 8:

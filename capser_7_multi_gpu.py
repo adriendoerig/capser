@@ -20,11 +20,11 @@ capser = tf.estimator.Estimator(model_fn=model_fn_temp, params={'model_batch_siz
 # train model
 logging.getLogger().setLevel(logging.INFO)  # to show info about training progress
 
-metadata_hook = basic_session_run_hooks.ProfilerHook(output_dir=checkpoint_path, save_steps=1000)  # to get metadata (e.g. how much time is spent loading data, or processing it on the GPU, etc)
+# metadata_hook = basic_session_run_hooks.ProfilerHook(output_dir=checkpoint_path, save_steps=1000)  # to get metadata (e.g. how much time is spent loading data, or processing it on the GPU, etc)
 beholder = Beholder(checkpoint_path)
 beholder_hook = BeholderHook(checkpoint_path)
 
-train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps, hooks=[metadata_hook, beholder_hook])
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=n_steps, hooks=[beholder_hook])
 eval_spec = tf.estimator.EvalSpec(lambda: input_fn_config(data_path+'/test_squares.tfrecords'), steps=100)
 
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
@@ -42,7 +42,7 @@ for category in test_stimuli.keys():
             capser_out = list(capser.predict(input_fn=lambda: input_fn_config(data_path+'/'+category+'/test_'+category+str(stim)+'.tfrecords')))
             vernier_accuracy = [p["vernier_accuracy"] for p in capser_out]
             uncrowding_expt_result[stim] += vernier_accuracy[0]/n_expt_batches
-            print('Category: ' + category + '. \nUsing a total of ' + str(n_expt_batches*batch_size) + ' stimuli of each type. \nResult for currently computed stimuli: ' + str(uncrowding_expt_result))
+        print('Category: ' + category + '. \nUsing a total of ' + str(n_expt_batches*batch_size) + ' stimuli of each type. \nResult for currently computed stimuli: ' + str(uncrowding_expt_result))
     print('###################################################################')
     print('# Uncrowding experiment result for ' + category + ':')
     print('# ' + str(uncrowding_expt_result))
