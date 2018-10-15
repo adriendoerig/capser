@@ -15,7 +15,7 @@ batch_size = 64 #random.randint(4,16) * 4                                    # s
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 1                                        # number of epochs
-n_steps = 75000#n_train_samples*n_epochs/batch_size       # number of training steps
+n_steps = 50000#n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # testing sets
@@ -80,14 +80,14 @@ if conv_batch_norm:
     conv_activation_function = None
 else:
     conv_activation_function = tf.nn.elu
-conv1_params = {"filters": 32,
-                "kernel_size": 7,
+conv1_params = {"filters": 128,
+                "kernel_size": 6,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
-conv2_params = {"filters": 32,
-                "kernel_size": 7,
+conv2_params = {"filters": 128,
+                "kernel_size": 6,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,
