@@ -1,146 +1,118 @@
 # -*- coding: utf-8 -*-
 """
-My capsnet: my model_fn
-Version 3
-Created on Thu Oct 11 10:57:08 2018
+Second try: model fn with tfrecords files
+Created on 16.10.2018
 @author: Lynn
 """
 
-import ipdb
 import tensorflow as tf
-import os
-from time import time
+import time
 
-from my_capser_functions import squash, safe_norm, routing_by_agreement, \
-compute_margin_loss, compute_reconstruction, compute_reconstruction_loss, \
-primary_caps_layer
-from my_parameters import params as myparams
+from my_parameters import parameters
 from my_parameters import conv1_params, conv2_params
+from my_capser_functions import \
+conv_layers, primary_caps_layer, secondary_caps_layer, \
+predict_shapelabels, \
+compute_margin_loss, compute_reconstruction, compute_reconstruction_loss, \
+compute_accuracy, compute_vernieroffset_loss
+
 
 def model_fn(features, labels, mode, params):
+    # features: This is the x-arg from the input_fn.
+    # labels:   This is the y-arg from the input_fn.
+    # mode:     Either TRAIN, EVAL, or PREDICT
     
-    if not os.path.exists(myparams.logdir):
-        os.makedirs(myparams.logdir)
-
-    # get inputs from .trecords file.
+    # Inputs
     X = features['X']
-    imgs = tf.reshape(X, [myparams.batch_size, myparams.im_size[0], myparams.im_size[1], myparams.im_depth])
-    tf.summary.image('input', imgs, 6)
-    y = tf.cast(features['y'], tf.int64)
-    mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name="mask_with_labels")
+    tf.summary.image('input_images', X, 6)
+
+    shapelabels = labels
+    vernierlabels = features['vernier_offsets']
+    
+    mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     
     ###################################################
+    
+    # Convolutional layers:
+    conv_output = conv_layers(X, conv1_params, conv2_params)
+    tf.summary.histogram('1_conv_output', conv_output)
     
     # Primary caps:
-    # For computing the outputs, we first apply 2 regular conv. layers:
-    # (padding: valid, actually means no padding)
-    with tf.name_scope('0_early_conv_layers'):
-        conv1 = tf.layers.conv2d(imgs, name="conv1", **conv1_params)
-        conv2 = tf.layers.conv2d(conv1, name='conv2', **conv2_params)
-#        tf.summary.histogram('1st_conv_layer', conv1)
-#        tf.summary.histogram('2nd_conv_layer', conv2)
+    caps1_output, caps1_output_norm = primary_caps_layer(conv_output, parameters)
+    tf.summary.histogram('2_caps1_output', caps1_output)
+    tf.summary.histogram('3_caps1_output_norm', caps1_output_norm)
     
-    with tf.name_scope('1st_caps'):
-        caps1_output = primary_caps_layer(conv2, myparams)
-        
-        # display a histogram of primary capsule norms
-#        caps1_output_norms = safe_norm(caps1_output, axis=-1, keepdims=True, name="caps1_output_norms")
-#        tf.summary.histogram('Primary capsule norms', caps1_output_norms)
-        
-        # Create second array by repeating the output of the 1st layer 10 times:
-        caps1_output_expanded = tf.expand_dims(caps1_output, -1, name='caps1_output_expanded')
-        caps1_output_tile = tf.expand_dims(caps1_output_expanded, 2, name='caps1_output_tile')
-        caps1_output_tiled = tf.tile(caps1_output_tile, [1, 1, myparams.caps2_ncaps, 1, 1], name='caps1_output_tiled')
+    # Secondary caps:
+    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters)
+    tf.summary.histogram('4_caps2_output', caps2_output)
+    tf.summary.histogram('5_caps2_output_norm', caps2_output_norm)
+    
+    # Estimated class probabilities
+    shapelabels_pred = predict_shapelabels(caps2_output)
     
     ###################################################
     
-    with tf.name_scope('2nd_caps'):
-        # Since we have 8D and need 16D, W must be 16x8 (overall: 1x1152x10x16x8)
-        W_init = tf.random_normal(
-                shape=(1, myparams.caps1_ncaps, myparams.caps2_ncaps, myparams.caps2_ndims, myparams.caps1_ndims),
-                stddev=myparams.init_sigma, dtype=tf.float32, name='W_init')
-        W = tf.Variable(W_init, name='W')
-    
-        # Create first array by repeating W once per instance:
-        batch_size_tensor = tf.shape(imgs)[0]
-        W_tiled = tf.tile(W, [batch_size_tensor, 1, 1, 1, 1], name='W_tilted')
-        
-        # Now we multiply these matrices (matrix multiplication):
-        caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled, name='caps2_predicted')
-    
-        # Routing by agreement:
-        caps2_output = routing_by_agreement(caps2_predicted, batch_size_tensor, myparams)
-        
-        # Compute the norm of the output for each output caps and each instance:
-        caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')
-#        tf.summary.histogram('Output capsule norms', caps2_output_norm)
-    
-        # Estimated class probabilities
-        # Since the lengths of the output vectors represent probabilties:
-        y_proba = safe_norm(caps2_output, axis=-2, name='y_proba')
-    
-        # Prediction:
-        y_proba_argmax = tf.argmax(y_proba, axis=2, name='y_proba_argmax')
-        y_pred = tf.squeeze(y_proba_argmax, axis=[1, 2], name='y_pred')
-    
-    
-    ###################################################
-
-    with tf.name_scope('losses'):
-        # Reconstruction: add a decoder network on top of the caps network
-        # Compute reconstruction (two dense fully connected ReLU layers followed by a dense output sigmoid layer):
-#        decoder_output = compute_reconstruction(mask_with_labels, y, y_pred, caps2_output, myparams)
-#        decoder_output_images = tf.reshape(decoder_output, [-1, myparams.im_size[0], myparams.im_size[1], myparams.im_depth])
-#        tf.summary.image('decoder_output', decoder_output_images, 6)
-        
-        # Compute losses:
-        loss = compute_margin_loss(caps2_output_norm, y, myparams)
-#        tf.summary.scalar('margin_loss', margin_loss)
-#        reconstruction_loss = compute_reconstruction_loss(imgs, decoder_output, myparams)
-#        tf.summary.scalar('reconstruction_loss', reconstruction_loss)
-        
-#        loss = tf.add_n([margin_loss,
-#                            myparams.alpha_rec*reconstruction_loss], name='final_loss')
-#        tf.summary.scalar('final_loss', loss)
-
-    ###################################################
-
-#    with tf.name_scope('accuracy'):
-#        # Compute accuracy:
-#        correct = tf.equal(y, y_pred, name='correct')
-#        accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name='accuracy')
-#        tf.summary.scalar('accuracy', accuracy)
-
-    ###################################################
-    
-    # to write summaries during evluation and prediction too
-#    eval_summary_hook = tf.train.SummarySaverHook(save_steps=25,
-#                                                  output_dir=myparams.logdir + '/eval',
-#                                                  summary_op=tf.summary.merge_all())
-#    pred_summary_hook = tf.train.SummarySaverHook(save_steps=1,
-#                                                  output_dir=myparams.logdir + '/pred-' + str(time()),
-#                                                  summary_op=tf.summary.merge_all())
-
-
-    # Wrap all of this in an EstimatorSpec (cf. tf.Estimator tutorials, etc).
+    # Training
     if mode == tf.estimator.ModeKeys.PREDICT:
-        # the following line is
-        predictions = y_pred
+        # If the estimator is supposed to be in prediction-mode
+        # then use the predicted class-number that is output by
+        # the neural network. Optimization etc. is not needed.
+        
+        # write summaries during prediction
+        pred_summary_hook = tf.train.SummarySaverHook(save_steps=1,
+                                                      output_dir=parameters.logdir + '/pred-' + str(time()),
+                                                      summary_op=tf.summary.merge_all())
+        
         spec = tf.estimator.EstimatorSpec(mode=mode,
-                                          predictions=predictions)
-        print('Wrapping in EstimatorSpec worked\n')
-
+                                          predictions=shapelabels_pred,
+                                          prediction_hooks=[pred_summary_hook])
+        
     else:
-        # Training operations:
-        optimizer = tf.train.AdamOptimizer(learning_rate=myparams.learning_rate)
-        training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
-#        metrics = {'accuracy': tf.metrics.accuracy(y, y_pred)}
+        # Otherwise the estimator is either in train or eval mode
+        # Compute accuracy:
+        accuracy = compute_accuracy(shapelabels, shapelabels_pred)
+        tf.summary.scalar('1_accuracy', accuracy)
+        
+        # Define the loss-function to be optimized
+        margin_loss = compute_margin_loss(caps2_output_norm, shapelabels, parameters)
+        tf.summary.scalar('2_margin_loss', margin_loss)
 
+        decoder_output, decoder_output_img = compute_reconstruction(
+                mask_with_labels, shapelabels, shapelabels_pred, caps2_output, parameters)
+        tf.summary.image('decoder_output_img', decoder_output_img, 6)
+        
+        reconstruction_loss = compute_reconstruction_loss(X, decoder_output, parameters)
+        tf.summary.scalar('3_reconstruction_loss', reconstruction_loss)
+        
+        vernier_caps_activation = caps2_output[:, :, 0, :, :]
+        vernieroffet_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)
+        tf.summary.scalar('4_vernieroffset_loss', vernieroffet_loss)
+        tf.summary.scalar('5_vernieroffset_accuracy', vernieroffset_accuracy)
+
+        # Combine all previously defined losses:
+        final_loss = tf.add_n([parameters.alpha_margin * margin_loss,
+                      parameters.alpha_reconstruction * reconstruction_loss,
+                      parameters.alpha_vernieroffset * vernieroffet_loss],
+                      name='final_loss')
+
+
+        # Training operations: Adam optimizer with default TF parameters
+        optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
+        train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+        
+        # write summaries during evaluation
+        eval_summary_hook = tf.train.SummarySaverHook(save_steps=1,
+                                                      output_dir=parameters.logdir + '/eval',
+                                                      summary_op=tf.summary.merge_all())
+        
+        # Wrap all of this in an EstimatorSpec.
         spec = tf.estimator.EstimatorSpec(
             mode=mode,
-            loss=loss,
-            train_op=training_op,
-            eval_metric_ops={})  # to write summaries during evaluatino too
-        print('Training operations created\n')
-
+            loss=final_loss,
+            train_op=train_op,
+            eval_metric_ops={},
+            evaluation_hooks=[eval_summary_hook])
+    
     return spec
+
+

@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-My capsnet: make_tf_data to create tfrecords files
-Version 1
-Created on Tue Oct  9 16:40:02 2018
+Created on 16.10.2018
 @author: Lynn
 
 This code is inspired by this youtube-vid and code:
@@ -10,10 +8,11 @@ https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 """
 
+#import ipdb
 import sys
 import os
 import tensorflow as tf
-from my_parameters import params
+from my_parameters import parameters
 from my_batchmaker import stim_maker_fn
 
 
@@ -46,7 +45,7 @@ def print_progress(count, total):
 ##################################
 #      tfrecords function:       #
 ##################################
-def make_tfrecords(stim_maker, mode, shape_types, n_shapes, n_samples, noise, out_path):
+def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, out_path):
     '''Function to create tfrecord files
     
     Inputs:
@@ -74,22 +73,22 @@ def make_tfrecords(stim_maker, mode, shape_types, n_shapes, n_samples, noise, ou
             print_progress(count=i, total=n_samples - 1)
             
             # Either create training or testing dataset
-            if mode=='training':
-                image, label, nshapes, vernierlabels = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
-            elif mode=='testing':
+            if state=='training':
+                images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
+            elif state=='testing':
                 chosen_shape = shape_types
-                image, label, nshapes, vernierlabels = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, noise)
+                images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, noise)
 
-            # Convert the image and label to raw bytes.
-            image_bytes = image.tostring()
-            label_bytes = label.tostring()
-            nshapes_bytes = nshapes.tostring()
+            # Convert the image to raw bytes.
+            images_bytes = images.tostring()
+            shapelabels_bytes = shapelabels.tostring()
+            nshapeslabels_bytes = nshapeslabels.tostring()
             vernierlabels_bytes = vernierlabels.tostring()
 
             # Create a dict with the data to save in the TFRecords file
-            data = {'images': wrap_bytes(image_bytes),
-                    'labels': wrap_bytes(label_bytes),
-                    'nshapes': wrap_bytes(nshapes_bytes),
+            data = {'images': wrap_bytes(images_bytes),
+                    'shapelabels': wrap_bytes(shapelabels_bytes),
+                    'nshapeslabels': wrap_bytes(nshapeslabels_bytes),
                     'vernierlabels': wrap_bytes(vernierlabels_bytes)}
 
             # Wrap the data as TensorFlow Features.
@@ -103,21 +102,23 @@ def make_tfrecords(stim_maker, mode, shape_types, n_shapes, n_samples, noise, ou
 
             # Write the serialized data to the TFRecords file.
             writer.write(serialized)
+    return
 
 
 ###################################
 #     Create tfrecords files:     #
 ###################################
-stim_maker = stim_maker_fn(params.im_size, params.shape_size, params.bar_width)
+stim_maker = stim_maker_fn(parameters.im_size, parameters.shape_size, parameters.bar_width)
 
-if not os.path.exists(params.data_path):
-    os.mkdir(params.data_path)
+if not os.path.exists(parameters.data_path):
+    os.mkdir(parameters.data_path)
 
 
 if training:
     mode = 'training'
-    shape_types_train = params.shape_types
-    make_tfrecords(stim_maker, mode, shape_types_train, params.n_shapes, params.n_train_samples, params.noise, params.train_data_path)
+    shape_types_train = parameters.shape_types
+    make_tfrecords(stim_maker, mode, shape_types_train, parameters.n_shapes,
+                   parameters.n_train_samples, parameters.noise, parameters.train_data_path)
     print('\n-------------------------------------------------------')
     print('Finished creation of training set')
     print('-------------------------------------------------------')
@@ -125,12 +126,15 @@ if training:
 
 if testing:
     mode = 'testing'
-    shape_types_test = params.shape_types
+    shape_types_test = parameters.shape_types
     shape_types_test.append(42)
-    for i in range(len(params.shape_types)-1):
-        chosen_shape = params.shape_types[i+1]
-        test_data_path = params.test_data_paths[i]
-        make_tfrecords(stim_maker, mode, chosen_shape, params.n_shapes, params.n_test_samples, params.noise, test_data_path)
+    for i in range(len(parameters.shape_types)-1):
+        chosen_shape = parameters.shape_types[i+1]
+        test_data_path = parameters.test_data_paths[i]
+        make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
+                       parameters.n_test_samples, parameters.noise, test_data_path)
     print('\n-------------------------------------------------------')
     print('Finished creation of test sets')
     print('-------------------------------------------------------')
+
+

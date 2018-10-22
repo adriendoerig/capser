@@ -1,92 +1,107 @@
 # -*- coding: utf-8 -*-
 """
-My capsnet: capser input function
-Version 1
-Created on Wed Oct 10 11:26:04 2018
+Second try: input fn with tfrecords files
+Created on 16.10.2018
 @author: Lynn
 """
 
 import tensorflow as tf
-from my_parameters import params
+from my_parameters import parameters
 
 
 ###########################
 #     Parse tfrecords:    #
 ###########################
 def parse_tfrecords(serialized_data):
+    # Define a dict with the data-names and types we expect to
+    # find in the TFRecords file.
     features = {'images': tf.FixedLenFeature([], tf.string),
-                'labels': tf.FixedLenFeature([], tf.string),
-                'nshapes': tf.FixedLenFeature([], tf.string),
+                'shapelabels': tf.FixedLenFeature([], tf.string),
+                'nshapeslabels': tf.FixedLenFeature([], tf.string),
                 'vernierlabels': tf.FixedLenFeature([], tf.string)}
 
     # Parse the serialized data so we get a dict with our data.
     parsed_data = tf.parse_single_example(serialized=serialized_data, features=features)
 
     # Get the image as raw bytes and decode afterwards.
-    images_raw = parsed_data['images']
-    labels_raw = parsed_data['labels']
-    nshapes_raw = parsed_data['nshapes']
-    vernierlabels_raw = parsed_data['vernierlabels']
-    images = tf.decode_raw(images_raw, tf.float32)
-    labels = tf.decode_raw(labels_raw, tf.float32)
-    nshapes = tf.decode_raw(nshapes_raw, tf.float32)
-    vernierlabels = tf.decode_raw(vernierlabels_raw, tf.float32)
-    return images, labels, nshapes, vernierlabels
+    images = parsed_data['images']
+    images = tf.decode_raw(images, tf.float32)
+    
+    # Get the labels associated with the image and decode.
+    shapelabels = parsed_data['shapelabels']
+    shapelabels = tf.decode_raw(shapelabels, tf.float32)
+    shapelabels = tf.cast(shapelabels, tf.int64)
+    
+    nshapeslabels = parsed_data['nshapeslabels']
+    nshapeslabels = tf.decode_raw(nshapeslabels, tf.float32)
+    nshapeslabels = tf.cast(nshapeslabels, tf.int64)
+    
+    vernierlabels = parsed_data['vernierlabels']
+    vernierlabels = tf.decode_raw(vernierlabels, tf.float32)
+    vernierlabels = tf.cast(vernierlabels, tf.int64)
+    return images, shapelabels, nshapeslabels, vernierlabels
 
 
 ###########################
 #     Input function:     #
 ###########################
-def input_fn(filenames, params, training=True):
+def input_fn(filenames, train, parameters, buffer_size=256):
     # Create a TensorFlow Dataset-object:
     dataset = tf.data.TFRecordDataset(filenames=filenames)
     dataset = dataset.map(parse_tfrecords)
     
-    if training:
-        # Read a buffer of the given size andrandomly shuffle it:
-        dataset = dataset.shuffle(buffer_size=params.batch_size)
-        num_repeat = params.n_epochs
+    if train:
+        # Read a buffer of the given size and randomly shuffle it:
+        dataset = dataset.shuffle(buffer_size=buffer_size)
+        
+        # Allow for infinite reading of data
+        num_repeat = None
+
     else:
         # Don't shuffle the data and only go through the it once:
         num_repeat = 1
         
-    # Repeat the dataset the given number of times and get a batch of data with the given size.
+    # Repeat the dataset the given number of times and get a batch of data
     dataset = dataset.repeat(num_repeat)
-    dataset = dataset.batch(int(params.batch_size/2))
+    dataset = dataset.batch(parameters.batch_size)
     
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
-#    dataset = dataset.prefetch(2)
+#    dataset = dataset.prefetch(buffer_size)
     
     # Create an iterator for the dataset and the above modifications.
     iterator = dataset.make_one_shot_iterator()
     
     # Get the next batch of images and labels.
-    images, labels, nshapes, vernierlabels = iterator.get_next()
+    images, shapelabels, nshapeslabels, vernierlabels = iterator.get_next()
     
     # reshape images (they were flattened when transformed into bytes)
-    images = tf.reshape(images, [params.batch_size, params.im_size[0], params.im_size[1], params.im_depth])
-    labels = tf.reshape(labels, [params.batch_size, 1])
+    images = tf.reshape(images, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+    shapelabels = tf.reshape(shapelabels, [parameters.batch_size, 1])
+    nshapeslabels = tf.reshape(nshapeslabels, [parameters.batch_size, 1])
+    vernierlabels = tf.reshape(vernierlabels, [parameters.batch_size, 1])
+    
     
     # The input-function must return a dict wrapping the images.
-    if training:
+    if train:
         feed_dict = {'X': images,
-                     'y': labels,
-                     'nshapes': nshapes,
+                     'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
                      'mask_with_labels': True,
+                     'dropout_keep_prob': parameters.dropout_keep_prob,
                      'is_training': True}
     else:
         feed_dict = {'X': images,
-                     'y': labels,
-                     'nshapes': nshapes,
+                     'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
                      'mask_with_labels': False,
+                     'dropout_keep_prob': 1,
                      'is_training': False}
-    return feed_dict, labels
+    return feed_dict, shapelabels
 
 
 def train_input_fn():
-    return input_fn(params.train_data_path, params)
+    return input_fn(filenames=parameters.train_data_path, train=True, parameters=parameters)
+
 
 def test_input_fn():
-    return input_fn(params.test_data_path[1], params, training=False)
+    return input_fn(filenames=parameters.test_data_paths[1], train=False, parameters=parameters)
