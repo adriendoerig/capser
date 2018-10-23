@@ -6,7 +6,7 @@ from skimage import draw
 from scipy.ndimage import zoom
 from datetime import datetime
 from parameters import shape_types, simultaneous_shapes, noise_level, max_cols, max_rows, vernier_normalization_exp, random_pixels
-import numpy as np
+
 
 def clipped_zoom(img, zoom_factor, **kwargs):
 
@@ -101,89 +101,92 @@ class StimMaker:
         self.shapeSize = shapeSize
 
 
-    def drawSquare(self, zoom=0):
-        zoom = np.abs(zoom)
-        patch = np.zeros((self.shapeSize, self.shapeSize))
-        patch[zoom:self.barWidth + zoom, zoom:self.shapeSize - zoom] = 1
-        patch[zoom:self.shapeSize - zoom, zoom:self.barWidth + zoom] = 1
-        patch[self.shapeSize - self.barWidth - zoom:self.shapeSize - zoom, zoom:self.shapeSize - zoom] = 1
-        patch[zoom:self.shapeSize - zoom, self.shapeSize - self.barWidth - zoom:self.shapeSize - zoom] = 1
+    def drawSquare(self):
+
+        resizeFactor = 1.2
+        patch = numpy.zeros((self.shapeSize, self.shapeSize))
+
+        firstRow = int((self.shapeSize - self.shapeSize/resizeFactor)/2)
+        firstCol = firstRow
+        sideSize = int(self.shapeSize/resizeFactor)
+
+        patch[firstRow         :firstRow+self.barWidth,          firstCol:firstCol+sideSize+self.barWidth] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[firstRow+sideSize:firstRow+self.barWidth+sideSize, firstCol:firstCol+sideSize+self.barWidth] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[firstRow:firstRow+sideSize+self.barWidth, firstCol         :firstCol+self.barWidth         ] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[firstRow:firstRow+sideSize+self.barWidth, firstRow+sideSize:firstRow+self.barWidth+sideSize] = random.uniform(1-random_pixels, 1+random_pixels)
+
         return patch
 
 
-    def drawCircle(self, zoom=0, eps=1):
-        patch = np.zeros((self.shapeSize, self.shapeSize))
-        radius = (self.shapeSize+zoom)/2
-        t = np.linspace(0, np.pi*2, self.shapeSize*4)
-        for i in range(1,self.barWidth*eps+1):
-            row = np.floor((radius-i/eps) * np.cos(t)+radius - zoom/2)
-            col = np.floor((radius-i/eps) * np.sin(t)+radius - zoom/2)
-            patch[row.astype(np.int), col.astype(np.int)] = 1
+    def drawCircle(self):
+
+        resizeFactor = 1.01
+        radius = self.shapeSize/(2*resizeFactor)
+        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        center = (int(self.shapeSize/2)-1, int(self.shapeSize/2)-1) # due to discretization, you maybe need add or remove 1 to center coordinates to make it look nice
+
+        for row in range(self.shapeSize):
+            for col in range(self.shapeSize):
+
+                distance = numpy.sqrt((row-center[0])**2 + (col-center[1])**2)
+                if radius-self.barWidth < distance < radius:
+                    patch[row, col] = random.uniform(1-random_pixels, 1+random_pixels)
+
         return patch
 
-    def drawPolygon(self, nSides, phi, zoom=0, eps=1):
-        '''Function to draw a polygon with nSides
 
-        Inputs:
-            nSides:
-                number of sides;
-            phi:
-                angle for rotation;
-            zoom:
-                increase or decrease size of the shape;
-            eps:
-                if shape size gets increased, you can increase eps to take care of empty spots'''
-        patch = np.zeros((self.shapeSize, self.shapeSize))
-        # if the stimulus does not fill the whole patch, u can move it a little
-        # Might be important to have the vernier in the middle for the test stimuli:
-        slide_factor = -1
-        radius = (self.shapeSize + zoom) / 2
-        t = np.linspace(0 + phi, np.pi * 2 + phi, nSides + 1)
-        for i in range(1, self.barWidth * eps + 1):
-            rowCorner = (np.round((radius - i / eps) * np.sin(t) + radius - zoom / 2 + slide_factor))
-            colCorner = (np.round((radius - i / eps) * np.cos(t) + radius - zoom / 2 + slide_factor))
-            for n in range(len(rowCorner) - 1):
-                rowLines, colLines = draw.line(rowCorner.astype(np.int)[n], colCorner.astype(np.int)[n],
-                                               rowCorner.astype(np.int)[n + 1], colCorner.astype(np.int)[n + 1])
-                patch[rowLines, colLines] = 1
+    def drawPolygon(self, nSides, phi):
+
+        resizeFactor = 0.98
+        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        center = (int(self.shapeSize/2), int(self.shapeSize/2))
+        radius = self.shapeSize/(2*resizeFactor)
+
+        rowExtVertices = []
+        colExtVertices = []
+        rowIntVertices = []
+        colIntVertices = []
+        for n in range(nSides):
+            rowExtVertices.append( radius               *numpy.sin(2*numpy.pi*n/nSides + phi) + center[0])
+            colExtVertices.append( radius               *numpy.cos(2*numpy.pi*n/nSides + phi) + center[1])
+            rowIntVertices.append((radius-self.barWidth)*numpy.sin(2*numpy.pi*n/nSides + phi) + center[0])
+            colIntVertices.append((radius-self.barWidth)*numpy.cos(2*numpy.pi*n/nSides + phi) + center[1])
+
+        RR, CC = draw.polygon(rowExtVertices, colExtVertices)
+        rr, cc = draw.polygon(rowIntVertices, colIntVertices)
+        patch[RR, CC] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[rr, cc] = 0.0
+
         return patch
 
-    def drawStar(self, nSides, phi1, phi2, depth, zoom=1, eps=1):
-        '''Function to draw a star with nSides
 
-        Inputs:
-            nSides:
-                number of sides;
-            phi1:
-                angle for rotation of outer corners;
-            phi2:
-                angle for rotation of inner corners;
-            depth:
-                control the distance between inner and outer corners;
-            zoom:
-                increase or decrease size of the shape;
-            eps:
-                if shapesize gets increased, you can increase eps to take care of empty spots'''
-        patch = np.zeros((self.shapeSize, self.shapeSize))
-        # if the stimulus does not fill the whole patch, u can move it a little
-        # Might be important to have the vernier in the middle for the test stimuli:
-        slide_factor = -1
-        radius_big = (self.shapeSize + zoom) / 2
-        radius_small = self.shapeSize / depth
-        tExt = np.linspace(0 + phi1, np.pi * 2 + phi1, nSides + 1)
-        tInt = np.linspace(0 + phi2, np.pi * 2 + phi2, nSides + 1)
-        for i in range(1, self.barWidth * eps + 1):
-            rowCornerExt = (np.round((radius_big - i / eps) * np.sin(tExt) + radius_big - zoom / 2 + slide_factor))
-            colCornerExt = (np.round((radius_big - i / eps) * np.cos(tExt) + radius_big - zoom / 2 + slide_factor))
-            rowCornerInt = (np.round((radius_small - i / eps) * np.sin(tInt) + radius_big - zoom / 2 + slide_factor))
-            colCornerInt = (np.round((radius_small - i / eps) * np.cos(tInt) + radius_big - zoom / 2 + slide_factor))
-            for n in range(0, len(rowCornerExt) - 1, 1):
-                rowLines, colLines = draw.line(rowCornerExt.astype(np.int)[n], colCornerExt.astype(np.int)[n],
-                                               rowCornerInt.astype(np.int)[n], colCornerInt.astype(np.int)[n])
-                patch[rowLines, colLines] = 1
-                rowLines, colLines = draw.line(rowCornerExt.astype(np.int)[n + 1], colCornerExt.astype(np.int)[n + 1],
-                                               rowCornerInt.astype(np.int)[n], colCornerInt.astype(np.int)[n])
-                patch[rowLines, colLines] = 1
+    def drawStar(self, nTips, ratio, phi):
+
+        resizeFactor = 0.7
+        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        center = (int(self.shapeSize/2), int(self.shapeSize/2))
+        radius = self.shapeSize/(2*resizeFactor)
+
+        rowExtVertices = []
+        colExtVertices = []
+        rowIntVertices = []
+        colIntVertices = []
+        for n in range(2*nTips):
+
+            thisRadius = radius
+            if not n%2:
+                thisRadius = radius/ratio
+
+            rowExtVertices.append(max(min( thisRadius               *numpy.sin(2*numpy.pi*n/(2*nTips) + phi) + center[0], self.shapeSize), 0.0))
+            colExtVertices.append(max(min( thisRadius               *numpy.cos(2*numpy.pi*n/(2*nTips) + phi) + center[1], self.shapeSize), 0.0))
+            rowIntVertices.append(max(min((thisRadius-self.barWidth)*numpy.sin(2*numpy.pi*n/(2*nTips) + phi) + center[0], self.shapeSize), 0.0))
+            colIntVertices.append(max(min((thisRadius-self.barWidth)*numpy.cos(2*numpy.pi*n/(2*nTips) + phi) + center[1], self.shapeSize), 0.0))
+
+        RR, CC = draw.polygon(rowExtVertices, colExtVertices)
+        rr, cc = draw.polygon(rowIntVertices, colIntVertices)
+        patch[RR, CC] = random.uniform(1-random_pixels, 1+random_pixels)
+        patch[rr, cc] = 0.0
+
         return patch
 
 
@@ -192,9 +195,9 @@ class StimMaker:
         if repeatShape:
             random.seed(1)
 
-        patch = numpy.zeros((self.shapeSize, self.shapeSize))
+        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
-        angle = 0  # first vertex is at angle 0
+        angle  = 0  # first vertex is at angle 0
 
         rowExtVertices = []
         colExtVertices = []
@@ -238,7 +241,7 @@ class StimMaker:
         return patch
 
 
-    def drawVernier(self, offset=None, offset_size=None, zoom=0):
+    def drawVernier(self, offset=None, offset_size=None):
 
         if offset_size is None:
             offset_size = random.randint(1, int(self.barHeight/2.0))
@@ -263,19 +266,19 @@ class StimMaker:
     def drawShape(self, shapeID, offset=None, offset_size=None):
 
         if shapeID == 0:
-            patch = self.drawVernier(offset, offset_size, zoom=-2)
+            patch = self.drawVernier(offset, offset_size)
         if shapeID == 1:
-            patch = self.drawSquare(zoom=-1)
+            patch = self.drawSquare()
         if shapeID == 2:
-            patch = self.drawCircle(zoom=-1)
+            patch = self.drawCircle()
         if shapeID == 3:
             patch = self.drawPolygon(6, 0)
         if shapeID == 4:
             patch = self.drawPolygon(8, numpy.pi/8)
         if shapeID == 5:
-            patch = self.drawStar(4, np.pi/4, np.pi/2, 2.8, zoom=6)
+            patch = self.drawStar(4, 1.9, 0)
         if shapeID == 6:
-            patch = self.drawStar(6, 0, np.pi/6, 3, zoom=0)
+            patch = self.drawStar(7, 1.8, -numpy.pi/14)
         if shapeID == 7:
             patch = self.drawIrreg(15, False)
         if shapeID == 8:
@@ -741,6 +744,6 @@ class StimMaker:
 
 if __name__ == "__main__":
 
-    rufus = StimMaker((65, 120), 20, 1)
+    rufus = StimMaker((45, 100), 18, 2)
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(1, [0, 1, 2, 3, 4, 5, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig=[[3, 4, 5, 6, 7]], noiseLevel=0.1, group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01', fixed_position=[random.randint(0,10),random.randint(0,10)])
+    rufus.showBatch(20, [0, 1, 2, 6, 7], n_shapes=2, showPatch=False, showVernier=False, showConfig=[[1]], noiseLevel=0.1, group_last_shapes=1, normalize=False, random_size=True, vernierLabelEncoding='lr_01', fixed_position=[random.randint(0,10),random.randint(0,10)])

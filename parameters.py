@@ -13,9 +13,9 @@ test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 500000                            # number of different stimuli in an epoch
 batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
-buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
+buffer_size = 1024  #1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 1                                        # number of epochs
-n_steps = 50000#n_train_samples*n_epochs/batch_size       # number of training steps
+n_steps = 45000  #n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # testing sets
@@ -47,20 +47,19 @@ max_rows, max_cols = 1, 5       # max number of rows, columns of shape grids
 vernier_grids = False           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 vernier_normalization_exp = 0   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
 im_size = (65, 120)             # IF USING THE DECONVOLUTION DECODER NEED TO BE EVEN NUMBERS (NB. this suddenly changed. before that, odd was needed... that's odd.)
-shape_size = 17                 # size of a single shape in pixels
+shape_size = 20                 # size of a single shape in pixels
 random_size = True              # shape_size will vary around shape_size
 test_random_size = False        # same for test set
 random_pixels = .5              # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
 simultaneous_shapes = 2         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
-bar_width = 2                   # thickness of elements' bars
+bar_width = 1                   # thickness of elements' bars
 noise_level = 0.025             # add noise
 test_noise_level = 0.1          # same for test set
 shape_types = [0, 1, 2, 3, 4, 5, 6, 9]         # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1           # attributes the same label to the last n shapeTypes
 
-label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 4: 'hexagons', 5: 'octagons', 6: '4stars', 7: '7stars', 8:'stuff'}
-shape_to_label = dict([[v, k] for k, v in label_to_shape.items()])
-
+# shape names and corresponding numbers to not match the ones in batchmaker
+# label_to_shape = {0: 'vernier', 1: 'squares', 2: 'circles', 4: 'hexagons', 5: 'octagons', 6: '4stars', 7: '7stars', 8:'stuff'}
 
 ### network params ###
 
@@ -80,13 +79,13 @@ if conv_batch_norm:
     conv_activation_function = None
 else:
     conv_activation_function = tf.nn.elu
-conv1_params = {"filters": 128,
+conv1_params = {"filters": 256,
                 "kernel_size": 6,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
-conv2_params = {"filters": 128,
+conv2_params = {"filters": 256,
                 "kernel_size": 6,
                 "strides": 2,
                 "padding": "valid",
@@ -102,7 +101,7 @@ conv2_params = {"filters": 128,
 conv3_params = None
 
 # primary capsules
-caps1_n_maps = len(label_to_shape)  # number of capsules at level 1 of capsules
+caps1_n_maps = len(shape_types)  # number of capsules at level 1 of capsules
 caps1_n_dims = 16#random.randint(8, 16)  # number of dimension per capsule
 conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     "kernel_size": 6,
@@ -112,12 +111,12 @@ conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
                     }
 
 # output capsules
-caps2_n_caps = len(label_to_shape)  # number of capsules
+caps2_n_caps = len(shape_types)  # number of capsules
 caps2_n_dims = 16#random.randint(8, 16)  # of n dimensions
 rba_rounds = 3
 
 # margin loss parameters
-alpha_margin = 3.333
+alpha_margin = 1 # 3.333
 m_plus = .9
 m_minus = .1
 lambda_ = .5
