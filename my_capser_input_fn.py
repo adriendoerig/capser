@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Second try: input fn with tfrecords files
-Created on 16.10.2018
+My script for the input fn that is working with tfrecords files
+Last update on 23.10.2018
 @author: Lynn
 """
 
@@ -84,6 +84,7 @@ def input_fn(filenames, train, parameters, buffer_size=256):
     # The input-function must return a dict wrapping the images.
     if train:
         feed_dict = {'X': images,
+                     'y': shapelabels,
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
                      'mask_with_labels': True,
@@ -91,6 +92,7 @@ def input_fn(filenames, train, parameters, buffer_size=256):
                      'is_training': True}
     else:
         feed_dict = {'X': images,
+                     'y': shapelabels,
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
                      'mask_with_labels': False,
@@ -99,9 +101,18 @@ def input_fn(filenames, train, parameters, buffer_size=256):
     return feed_dict, shapelabels
 
 
+
+##############################
+#   Final input functions:   #
+##############################
 def train_input_fn():
     return input_fn(filenames=parameters.train_data_path, train=True, parameters=parameters)
 
 
-def test_input_fn():
-    return input_fn(filenames=parameters.test_data_paths[1], train=False, parameters=parameters)
+def eval_input_fn():
+    eval_file = parameters.test_data_paths[0] + '.tfrecords'
+    return input_fn(filenames=eval_file, train=False, parameters=parameters)
+
+
+def predict_input_fn(filenames):
+    return input_fn(filenames=filenames, train=False, parameters=parameters)

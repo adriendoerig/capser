@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 Second try: model fn with tfrecords files
-Created on 16.10.2018
+Last update on 23.10.2018
 @author: Lynn
+
+All functions that are called in this script are described in more detail in
+my_capser_functions.py
 """
 
 import tensorflow as tf
-import time
+#import time
 
 from my_parameters import parameters
 from my_parameters import conv1_params, conv2_params
@@ -21,6 +24,7 @@ def model_fn(features, labels, mode, params):
     # features: This is the x-arg from the input_fn.
     # labels:   This is the y-arg from the input_fn.
     # mode:     Either TRAIN, EVAL, or PREDICT
+    # params:   Optional parameters; here not needed because of parameter-file
     
     # Inputs
     X = features['X']
@@ -50,22 +54,21 @@ def model_fn(features, labels, mode, params):
     # Estimated class probabilities
     shapelabels_pred = predict_shapelabels(caps2_output)
     
+    vernier_caps_activation = caps2_output[:, :, 0, :, :]
+    pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)
+    
     ###################################################
     
     # Training
     if mode == tf.estimator.ModeKeys.PREDICT:
-        # If the estimator is supposed to be in prediction-mode
-        # then use the predicted class-number that is output by
-        # the neural network. Optimization etc. is not needed.
-        
-        # write summaries during prediction
-        pred_summary_hook = tf.train.SummarySaverHook(save_steps=1,
-                                                      output_dir=parameters.logdir + '/pred-' + str(time()),
-                                                      summary_op=tf.summary.merge_all())
-        
+        # If in prediction-mode use (one of) the following for predictions:
+        # Since accuracy is calculated over whole batch, we have to repeat it
+        # batch_size times (coz all prediction vectors must be same length)
+        predictions = {'vernier_offsets': pred_vernierlabels,
+                       'vernier_labels': tf.squeeze(vernierlabels),
+                       'vernier_accuracy': tf.ones(shape=parameters.batch_size) * vernieroffset_accuracy}
         spec = tf.estimator.EstimatorSpec(mode=mode,
-                                          predictions=shapelabels_pred,
-                                          prediction_hooks=[pred_summary_hook])
+                                          predictions=predictions)
         
     else:
         # Otherwise the estimator is either in train or eval mode
@@ -84,15 +87,13 @@ def model_fn(features, labels, mode, params):
         reconstruction_loss = compute_reconstruction_loss(X, decoder_output, parameters)
         tf.summary.scalar('3_reconstruction_loss', reconstruction_loss)
         
-        vernier_caps_activation = caps2_output[:, :, 0, :, :]
-        vernieroffet_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)
-        tf.summary.scalar('4_vernieroffset_loss', vernieroffet_loss)
+        tf.summary.scalar('4_vernieroffset_loss', vernieroffset_loss)
         tf.summary.scalar('5_vernieroffset_accuracy', vernieroffset_accuracy)
 
         # Combine all previously defined losses:
         final_loss = tf.add_n([parameters.alpha_margin * margin_loss,
                       parameters.alpha_reconstruction * reconstruction_loss,
-                      parameters.alpha_vernieroffset * vernieroffet_loss],
+                      parameters.alpha_vernieroffset * vernieroffset_loss],
                       name='final_loss')
 
 
@@ -101,7 +102,7 @@ def model_fn(features, labels, mode, params):
         train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
         
         # write summaries during evaluation
-        eval_summary_hook = tf.train.SummarySaverHook(save_steps=1,
+        eval_summary_hook = tf.train.SummarySaverHook(save_steps=100,
                                                       output_dir=parameters.logdir + '/eval',
                                                       summary_op=tf.summary.merge_all())
         

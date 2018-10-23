@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on 16.10.2018
+My script to create tfrecords files based on batchmaker class
+Last update on 23.10.2018
 @author: Lynn
 
 This code is inspired by this youtube-vid and code:
@@ -45,24 +46,18 @@ def print_progress(count, total):
 ##################################
 #      tfrecords function:       #
 ##################################
-def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, out_path):
-    '''Function to create tfrecord files
+def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, out_path, stim_idx=None):
+    '''Function to create tfrecord files based on stim_maker class'''
+    # Inputs:
+    # stim_maker instance
+    # state: decide whether to create the training (=training) or testing (=testing) dataset;
+    # shape_types: shape type(s) involved in the dataset. For testing, insert only one shape type;
+    # n_shapes: one of the listed repetitions gets (randomly) chosen;
+    # n_samples
+    # noise
+    # out_path
+    # stim_idx: either create vernier, crowding or uncrowding stimuli for test set
     
-    Inputs:
-        stim_maker:
-            instance of the StimMaker class (see my_batchmaker.py for details);
-        mode:
-            decide whether to create the training (=training) or testing (=testing) dataset;
-        shape_types:
-            shape type(s) involved in the dataset. For testing, insert only one shape type;
-        n_shapes:
-            one of the listed repetitions gets randomly chosen;
-        n_samples:
-            number of samples in the dataset;
-        noise:
-            Random gaussian noise between [0,noise] gets added;
-        out_path:
-            path and name of the output tfrecords file (e.g. ./example.tfrecords)'''
     print("\nConverting: " + out_path)
     
     # Open a TFRecordWriter for the output-file.
@@ -77,7 +72,7 @@ def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, o
                 images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
             elif state=='testing':
                 chosen_shape = shape_types
-                images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, noise)
+                images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, noise)
 
             # Convert the image to raw bytes.
             images_bytes = images.tostring()
@@ -131,8 +126,16 @@ if testing:
     for i in range(len(parameters.shape_types)-1):
         chosen_shape = parameters.shape_types[i+1]
         test_data_path = parameters.test_data_paths[i]
+        eval_file = test_data_path + '.tfrecords'
         make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                       parameters.n_test_samples, parameters.noise, test_data_path)
+                       parameters.n_test_samples, parameters.noise, eval_file)
+        
+        if not os.path.exists(test_data_path):
+            os.mkdir(test_data_path)
+        for stim_idx in range(3):
+            test_file = test_data_path + '/' + str(stim_idx) + '.tfrecords'
+            make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
+                           parameters.n_test_samples, parameters.noise, test_file, stim_idx)
     print('\n-------------------------------------------------------')
     print('Finished creation of test sets')
     print('-------------------------------------------------------')

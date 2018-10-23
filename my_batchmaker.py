@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 My capsnet: my_batchmaker!
-Version 1
 Involving all basic shapes (verniers, squares, circles, polygons, stars)
-Created on 05.10.2018
+Last update on 23.10.2018
 @author: Lynn
 """
 
@@ -27,14 +26,11 @@ class stim_maker_fn:
         self.barWidth  = barWidth
 
     
-    def drawVernier(self, zoom=0, offset=None):
-        '''Create a vernier patch of size shapesize
-        
-        Input:
-            zoom:
-                negative or positive number to decrease or increase vernier size
-            offset:
-                if True, also return the offset direction (0=r, 1=l)'''
+    def drawVernier(self, offset_direction, zoom=0):
+        # Inputs:
+        # zoom: neg/pos number to de-/increase shape size
+        # offset_direction: 0=r, 1=l
+
         barHeight = int((self.shapeSize+zoom)/4 - (self.barWidth)/4)
         offsetHeight = 1
         # minimum distance between verniers should be one pixel
@@ -45,21 +41,19 @@ class stim_maker_fn:
         patch = np.zeros((2*barHeight+offsetHeight, 2*self.barWidth+offset_size), dtype=np.float32)
         patch[0:barHeight, 0:self.barWidth] = 1
         patch[barHeight+offsetHeight:, self.barWidth+offset_size:] = 1
-        # randomly create flipped verniers
-        offset_direction = np.random.randint(0, 2)
+        
         if offset_direction:
             patch = np.fliplr(patch)
         fullPatch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
         firstRow  = int((self.shapeSize-patch.shape[0])/2)
         firstCol  = int((self.shapeSize-patch.shape[1])/2)
         fullPatch[firstRow:firstRow+patch.shape[0], firstCol:firstCol+patch.shape[1]] = patch
-        if offset:
-            return fullPatch, offset_direction
-        else:
-            return fullPatch
+        return fullPatch
 
 
     def drawSquare(self, zoom=0):
+        # Inputs:
+        # zoom: neg/pos number to de-/increase shape size
         zoom = np.abs(zoom)
         patch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
         patch[zoom:self.barWidth+zoom, zoom:self.shapeSize-zoom] = 1
@@ -70,6 +64,9 @@ class stim_maker_fn:
 
 
     def drawCircle(self, zoom=0, eps=1):
+        # Inputs:
+        # zoom: neg/pos number to de-/increase shape size
+        # eps: you might have to increase this to take care of empty spots in the shape
         patch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
         radius = (self.shapeSize+zoom)/2
         t = np.linspace(0, np.pi*2, self.shapeSize*4)
@@ -81,21 +78,14 @@ class stim_maker_fn:
 
     
     def drawPolygon(self, nSides, phi, zoom=0, eps=1):
-        '''Function to draw a polygon with nSides
+        # Inputs:
+        # nSides: number of sides;
+        # phi: angle for rotation;
+        # zoom: neg/pos number to de-/increase shape size
+        # eps: you might have to increase this to take care of empty spots in the shape
         
-        Inputs:
-            nSides:
-                number of sides;
-            phi:
-                angle for rotation;
-            zoom:
-                increase or decrease size of the shape;
-            eps:
-                if shape size gets increased, you can increase eps to take care of empty spots'''
         patch  = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-        # if the stimulus does not fill the whole patch, u can move it a little
-        # Might be important to have the vernier in the middle for the test stimuli:
-        slide_factor = -1
+        slide_factor = -1  # you might want to move the shape a little to fit the vernier inside
         radius = (self.shapeSize+zoom)/2
         t = np.linspace(0+phi, np.pi*2+phi, nSides+1)
         for i in range(1,self.barWidth*eps+1):
@@ -109,25 +99,16 @@ class stim_maker_fn:
 
     
     def drawStar(self, nSides, phi1, phi2, depth, zoom=1, eps=1):
-        '''Function to draw a star with nSides
-        
-        Inputs:
-            nSides:
-                number of sides;
-            phi1:
-                angle for rotation of outer corners;
-            phi2:
-                angle for rotation of inner corners;
-            depth:
-                control the distance between inner and outer corners;
-            zoom:
-                increase or decrease size of the shape;
-            eps:
-                if shapesize gets increased, you can increase eps to take care of empty spots'''
+        # Inputs:
+        # nSides: number of sides;
+        # phi1: angle for rotation of outer corners;
+        # phi2: angle for rotation of inner corners;
+        # depth: control the distance between inner and outer corners;
+        # zoom: neg/pos number to de-/increase shape size
+        # eps: you might have to increase this to take care of empty spots in the shape
+
         patch  = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-        # if the stimulus does not fill the whole patch, u can move it a little
-        # Might be important to have the vernier in the middle for the test stimuli:
-        slide_factor = -1
+        slide_factor = -1  # you might want to move the shape a little to fit the vernier inside
         radius_big = (self.shapeSize + zoom)/2
         radius_small = self.shapeSize/depth
         tExt = np.linspace(0+phi1, np.pi*2+phi1, nSides+1)
@@ -147,25 +128,20 @@ class stim_maker_fn:
         return patch
 
     
-    def drawShape(self, shapeID, offset=None):
-        vernier_zoom = -2
-        if offset and shapeID == 0:
-            patch, offset_direction = self.drawVernier(zoom=vernier_zoom, offset=True)
-            return patch, offset_direction
-        else:
-            if shapeID == 0:
-                patch = self.drawVernier(zoom=vernier_zoom)
-            if shapeID == 1:
-                patch = self.drawSquare(zoom=-1)
-            if shapeID == 2:
-                patch = self.drawCircle(zoom=-1)
-            if shapeID == 3:
-                patch = self.drawPolygon(6, 0)
-            if shapeID == 4:
-                patch = self.drawStar(4, np.pi/4, np.pi/2, 2.8, zoom=6)
-            if shapeID == 5:
-                patch = self.drawStar(6, 0, np.pi/6, 3, zoom=0)
-            return patch
+    def drawShape(self, shapeID, offset_direction=0):
+        if shapeID == 0:
+            patch = self.drawVernier(offset_direction, -2)
+        if shapeID == 1:
+            patch = self.drawSquare(-1)
+        if shapeID == 2:
+            patch = self.drawCircle(-1)
+        if shapeID == 3:
+            patch = self.drawPolygon(6, 0)
+        if shapeID == 4:
+            patch = self.drawStar(4, np.pi/4, np.pi/2, 2.8, 6)
+        if shapeID == 5:
+            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
+        return patch
 
     
     def plotStim(self, shape_types, noise=0.):
@@ -183,27 +159,19 @@ class stim_maker_fn:
         return
 
     
-    def makeTestBatch(self, selected_shape, n_shapes, batch_size, noise=0.):
-        '''Create one batch of test dataset with one vernier in the shape in
-        the middle of the n_shapes[random] times repeated selected_shape
+    def makeTestBatch(self, selected_shape, n_shapes, batch_size, stim_idx=None, noise=0.):
+        '''Create one batch of test dataset according to stim_idx'''
+        # Inputs:
+        # selected_shape
+        # n_shapes: list of shape repetitions
+        # batch_size
+        # stim_idx: decides whether to create vernier only (0), vernier in 
+        # min(n_shapes) (1=crowding) or vernier in max(n_shapes) (2=uncrowding)
+        # noise: Random gaussian noise between [0,noise] gets added
         
-        Inputs:
-            selected_shape:
-                the shape you want to use (ID>0);
-            n_shapes:
-                one of the listed repetitions gets randomly chosen;
-            batch_size:
-                size of each batch;
-            noise:
-                Random gaussian noise between [0,noise] gets added
-        
-        Outputs:
-            images:
-                matrix of shape [batch_size, imSize[0], imSize[1], 1] involving
-                the creaed image test dataset
-            vernierlabels:
-                matrix of shape [batch_size, 1] involving the offset direction
-                as one hot encoded (1st col = r; 2nd col = l)'''
+        # Outputs:
+        # images, shapelabels, nshapeslabels, vernierlabels
+
         images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
         shapelabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         nshapeslabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
@@ -212,12 +180,15 @@ class stim_maker_fn:
         for idx_batch in range(batch_size):
             
             image = np.zeros(self.imSize, dtype=np.float32)
-            # choose the number of shape repetitions and randomly whether to
-            # create vernier, crowded or uncrowded test stimuli
-            idx = np.random.randint(0, 3)
+            if stim_idx is None:
+                idx = np.random.randint(0, 3)
+            else:
+                idx = stim_idx
             
             row = np.random.randint(0, self.imSize[0] - self.shapeSize)
-            vernier_patch, offset_direction = self.drawShape(shapeID=0, offset=True)
+            offset_direction = np.random.randint(0, 2)
+            vernier_patch = self.drawShape(shapeID=0, offset_direction=offset_direction)
+
             # the 42-category is for creating squares_stars
             if selected_shape==42:
                 shape_patch = self.drawShape(shapeID=1)
@@ -278,27 +249,17 @@ class stim_maker_fn:
 
     def makeTrainBatch(self, shape_types, n_shapes, batch_size, noise=0., overlap=None):
         '''Create one batch of training dataset with each one vernier and
-        one shape_type repeated n_shapes[random] times
+        one shape_type repeated n_shapes[random] times'''
+        # Inputs: 
+        # shape_types: one of these shape_type (ID>0) gets randomly chosen;
+        # n_shapes: one of the listed repetitions gets randomly chosen;
+        # batch_size
+        # noise: Random gaussian noise between [0,noise] gets added
+        # overlap: if True, the verniers can also be placed in/on the shapes
         
-        Inputs:
-            shape_types:
-                one of these shape_type (ID>0) gets randomly chosen;
-            n_shapes:
-                one of the listed repetitions gets randomly chosen;
-            batch_size:
-                size of each batch;
-            noise:
-                Random gaussian noise between [0,noise] gets added
-            overlap:
-                if True, the verniers can also be placed in/on the shapes
-        
-        Outputs:
-            image_batch:
-                matrix of shape [batch_size, imSize[0], imSize[1], 1] involving
-                the creaed image training dataset
-            labels_batch:
-                matrix of shape [batch_size, len(shape_types)] involving the
-                shape label as one hot encoded'''
+        # Outputs:
+        # images, shapelabels, nshapeslabels, vernierlabels
+
         images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
         shapelabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         nshapeslabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
@@ -324,7 +285,10 @@ class stim_maker_fn:
             
             row = np.random.randint(0, self.imSize[0] - self.shapeSize)
             col = np.random.randint(0, self.imSize[1] - self.shapeSize)
-            vernier_patch, offset_direction = self.drawShape(shapeID=0, offset=True)
+            
+            offset_direction = np.random.randint(0, 2)
+            vernier_patch = self.drawShape(shapeID=0, offset_direction=offset_direction)
+
             if overlap:
                 image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
             else:
@@ -365,7 +329,7 @@ class stim_maker_fn:
 #    plt.imshow(np.squeeze(train_images[i, :, :]))
 #    plt.pause(0.5)
 
-#test_images, test_shapelabels, test_nshapeslabels, test_vernierlabels = test.makeTestBatch(42, n_shapes, batch_size, noise)
+#test_images, test_shapelabels, test_nshapeslabels, test_vernierlabels = test.makeTestBatch(42, n_shapes, batch_size, None, noise)
 #for i in range(batch_size):
 #    plt.imshow(np.squeeze(test_images[i, :, :]))
 #    plt.pause(0.5)

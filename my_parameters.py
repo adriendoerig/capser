@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 My capsnet: all parameters
-Version 1
-Created on 04.10.2018
+Last update on 23.10.2018
 @author: Lynn
 """
 
@@ -17,12 +16,12 @@ flags = tf.app.flags
 data_path = './data'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 flags.DEFINE_string('train_data_path', data_path+'/train.tfrecords', 'path for the tfrecords file involving the training set')
-flags.DEFINE_list('test_data_paths', [data_path+'/test_squares.tfrecords',
-                                      data_path+'/test_circles.tfrecords',
-                                      data_path+'/test_hectagon.tfrecords',
-                                      data_path+'/test_4stars.tfrecords',
-                                      data_path+'/test_stars.tfrecords',
-                                      data_path+'/test_squares_stars.tfrecords'], 'path for the tfrecords file involving the test set')
+flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
+                                      data_path+'/test_circles',
+                                      data_path+'/test_hectagon',
+                                      data_path+'/test_4stars',
+                                      data_path+'/test_stars',
+                                      data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
 MODEL_NAME = 'test1'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
@@ -31,7 +30,7 @@ flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the mode
 #   Stimulus parameters   #
 ###########################
 flags.DEFINE_integer('n_train_samples', 100, 'number of samples in the training set')
-flags.DEFINE_integer('n_test_samples', 10, 'number of samples in the test set')
+flags.DEFINE_integer('n_test_samples', 20, 'number of samples in the test set')
 flags.DEFINE_integer('buffer_size', 256, 'buffer size')
 
 im_size = [60, 150]
@@ -91,9 +90,9 @@ flags.DEFINE_float('m_minus', 0.1, 'the parameter of m minus')
 flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit classes')
 
 # For training
-flags.DEFINE_integer('batch_size', 5, 'batch size')
+flags.DEFINE_integer('batch_size', 2, 'batch size')
 flags.DEFINE_integer('n_epochs', 1, 'number of epochs')
-flags.DEFINE_integer('n_steps', 500, 'number of steps')
+flags.DEFINE_integer('n_steps', 100, 'number of steps')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 3, 'number of iterations in routing algorithm')
 

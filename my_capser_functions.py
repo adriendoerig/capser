@@ -6,7 +6,7 @@ Including:
     squash, safe_norm, routing_by_agreement,
     compute_margin_loss, compute_reconstruction, compute_reconstruction_loss,
     conv_layers, primary_caps_layer, secondary_caps_layer, caps_prediction
-Created on 16.10.2018
+Last update on 23.10.2018
 @author: Lynn
 """
 
@@ -18,15 +18,7 @@ import tensorflow as tf
 ################################
 def squash(s, axis=-1, epsilon=1e-7, name=None):
     '''Squashing function as described in Sabour et al. (2018) but calculating
-    the norm in a safe way (e.g. see Aurelion Geron youtube-video)
-    
-    Inputs:
-        s: matrix;
-        axis: axis over which the squash should be computed (default: -1);
-        epsilon (default 1e-7);
-        name (default squash);
-    Output:
-        s_squashed'''
+    the norm in a safe way (e.g. see Aurelion Geron youtube-video)'''
     with tf.name_scope(name, default_name='squash'):
         squared_norm = tf.reduce_sum(tf.square(s), axis=axis, keepdims=True)
         safe_norm = tf.sqrt(squared_norm + epsilon)
@@ -40,16 +32,7 @@ def squash(s, axis=-1, epsilon=1e-7, name=None):
 #        Safe norm           #
 ##############################
 def safe_norm(s, axis=-1, epsilon=1e-7, keepdims=False, name=None):
-    '''Safe calculation of the norm for estimated class probabilities
-    
-    Inputs:
-        s: matrix;
-        axis: axis over which the norm should be computed (default: -1);
-        epsilon (default: 1e-7);
-        keepdims (default: False)
-        name (default: squash);
-    Output:
-        s_norm'''
+    '''Safe calculation of the norm for estimated class probabilities'''
     with tf.name_scope(name, default_name='safe_norm'):
         squared_norm = tf.reduce_sum(tf.square(s), axis=axis, keepdims=keepdims)
         s_norm = tf.sqrt(squared_norm + epsilon)
@@ -218,7 +201,8 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
         logits_vernierlabels = tf.layers.dense(vernier_caps_activation, depth, tf.nn.relu, name='logits_vernierlabels')
         xent_vernierlabels = tf.losses.softmax_cross_entropy(T_vernierlabels, logits_vernierlabels)
         
-        correct_vernierlabels = tf.equal(vernierlabels, tf.argmax(logits_vernierlabels, axis=1), name='correct_vernierlabels')
+        pred_vernierlabels = tf.argmax(logits_vernierlabels, axis=1)
+        correct_vernierlabels = tf.equal(vernierlabels, pred_vernierlabels, name='correct_vernierlabels')
         accuracy_vernierlabels = tf.reduce_mean(tf.cast(correct_vernierlabels, tf.float32), name='accuracy_vernierlabels')
-        return xent_vernierlabels, accuracy_vernierlabels
+        return pred_vernierlabels, xent_vernierlabels, accuracy_vernierlabels
 
