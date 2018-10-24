@@ -1,4 +1,3 @@
-from capser_model import capser_model
 from parameters import *
 from time import time
 from capsule_functions import *
