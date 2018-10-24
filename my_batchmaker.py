@@ -169,16 +169,18 @@ class stim_maker_fn:
         # noise: Random gaussian noise between [0,noise] gets added
         
         # Outputs:
-        # images, shapelabels, nshapeslabels, vernierlabels
+        # vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels
 
-        images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
-        shapelabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
+        vernier_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
+        shape_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
+        shapelabels = np.zeros(shape=[batch_size, 2], dtype=np.float32)
         nshapeslabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         vernierlabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         
         for idx_batch in range(batch_size):
             
-            image = np.zeros(self.imSize, dtype=np.float32)
+            vernier_image = np.zeros(self.imSize, dtype=np.float32)
+            shape_image = np.zeros(self.imSize, dtype=np.float32)
             if stim_idx is None:
                 idx = np.random.randint(0, 3)
             else:
@@ -199,14 +201,14 @@ class stim_maker_fn:
                 # Vernier test stimuli:
                 selected_repetitions = 0
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize)
-                image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
+                vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
 
             elif idx==1:
                 # Crowded test stimuli:
                 selected_repetitions = np.min(n_shapes)
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize)
-                full_patch = vernier_patch + shape_patch
-                image[row:row+self.shapeSize, col:col+self.shapeSize] += full_patch
+                vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
+                shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
 
             elif idx==2:
                 # Uncrowded test stimuli:
@@ -220,30 +222,33 @@ class stim_maker_fn:
                 for n_repetitions in range(selected_repetitions):
                     if selected_shape==42:
                         if n_repetitions == (selected_repetitions-1)/2:
-                            image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
+                            vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                         if trigger == 0:
-                            image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
+                            shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
                             col += self.shapeSize
                             trigger = 1
                         else:
-                            image[row:row+self.shapeSize, col:col+self.shapeSize] += star_patch
+                            shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += star_patch
                             col += self.shapeSize
                             trigger = 0
 
                     else:
-                        image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
+                        shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
                         if n_repetitions == (selected_repetitions-1)/2:
-                            image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
+                            vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                         col += self.shapeSize
 
-            images[idx_batch, :, :] = image + np.random.normal(0, noise, size=self.imSize)
-            shapelabels[idx_batch] = selected_shape
+            vernier_images[idx_batch, :, :] = vernier_image + np.random.normal(0, noise, size=self.imSize)
+            shape_images[idx_batch, :, :] = shape_image + np.random.normal(0, noise, size=self.imSize)
+            shapelabels[idx_batch, 0] = 0
+            shapelabels[idx_batch, 1] = selected_shape 
             nshapeslabels[idx_batch] = selected_repetitions
             vernierlabels[idx_batch] = offset_direction
 
         # add the color channel for tensorflow:
-        images = np.expand_dims(images, -1)
-        return images, shapelabels, nshapeslabels, vernierlabels
+        vernier_images = np.expand_dims(vernier_images, -1)
+        shape_images = np.expand_dims(shape_images, -1)
+        return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels
 
 
     def makeTrainBatch(self, shape_types, n_shapes, batch_size, noise=0., overlap=None):
@@ -257,19 +262,19 @@ class stim_maker_fn:
         # overlap: if True, the verniers can also be placed in/on the shapes
         
         # Outputs:
-        # images, shapelabels, nshapeslabels, vernierlabels
+        # vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels
 
-        images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
-        shapelabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
+        vernier_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
+        shape_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
+        shapelabels = np.zeros(shape=[batch_size, 2], dtype=np.float32)
         nshapeslabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         vernierlabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
-        
 
         for idx_batch in range(batch_size):
-            image = np.zeros(self.imSize, dtype=np.float32)
+            vernier_image = np.zeros(self.imSize, dtype=np.float32)
+            shape_image = np.zeros(self.imSize, dtype=np.float32)
 
-            # randomly choose one of the selected shape_types and the number
-            # of shape repetitions
+            # randomly choose one of the selected shape_types and the number of shape repetitions
             idx_shape_type = np.random.randint(1, len(shape_types))
             selected_shape = shape_types[idx_shape_type]
             idx_n_shapes = np.random.randint(0, len(n_shapes))
@@ -279,7 +284,7 @@ class stim_maker_fn:
             col = np.random.randint(0, self.imSize[1] - self.shapeSize*selected_repetitions)
             shape_patch = self.drawShape(shapeID=selected_shape)
             for n_repetitions in range(selected_repetitions):
-                image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
+                shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
                 col += self.shapeSize
             
             row = np.random.randint(0, self.imSize[0] - self.shapeSize)
@@ -289,21 +294,24 @@ class stim_maker_fn:
             vernier_patch = self.drawShape(shapeID=0, offset_direction=offset_direction)
 
             if overlap:
-                image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
+                vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
             else:
-                while np.sum(image[row:row+self.shapeSize, col:col+self.shapeSize] + vernier_patch) > np.sum(vernier_patch):
+                while np.sum(shape_image[row:row+self.shapeSize, col:col+self.shapeSize] + vernier_patch) > np.sum(vernier_patch):
                     row = np.random.randint(0, self.imSize[0] - self.shapeSize)
                     col = np.random.randint(0, self.imSize[1] - self.shapeSize)
-                image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
+                vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
             
-            images[idx_batch, :, :] = image + np.random.normal(0, noise, size=self.imSize)
-            shapelabels[idx_batch] = selected_shape
+            vernier_images[idx_batch, :, :] = vernier_image + np.random.normal(0, noise, size=self.imSize)
+            shape_images[idx_batch, :, :] = shape_image + np.random.normal(0, noise, size=self.imSize)
+            shapelabels[idx_batch, 0] = 0
+            shapelabels[idx_batch, 1] = selected_shape  
             nshapeslabels[idx_batch] = selected_repetitions
             vernierlabels[idx_batch] = offset_direction
 
         # add the color channel for tensorflow:
-        images = np.expand_dims(images, -1)
-        return images, shapelabels, nshapeslabels, vernierlabels
+        vernier_images = np.expand_dims(vernier_images, -1)
+        shape_images = np.expand_dims(shape_images, -1)
+        return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels
 
 
 #############################################################
@@ -322,13 +330,13 @@ class stim_maker_fn:
 #plt.imshow(test.drawShape(3))
 #test.plotStim([1, 2, 3, 4, 5], 0.05)
 
-#train_images, train_shapelabels, train_nshapeslabels, train_vernierlabels = test.makeTrainBatch(
+#train_vernier_images, train_shape_images, train_shapelabels, train_nshapeslabels, train_vernierlabels = test.makeTrainBatch(
 #        shape_types, n_shapes, batch_size, noise, overlap=None)
 #for i in range(batch_size):
-#    plt.imshow(np.squeeze(train_images[i, :, :]))
+#    plt.imshow(np.squeeze(train_vernier_images[i, :, :] + train_shape_images[i, :, :]))
 #    plt.pause(0.5)
 
-#test_images, test_shapelabels, test_nshapeslabels, test_vernierlabels = test.makeTestBatch(42, n_shapes, batch_size, None, noise)
+#test_vernier_images, test_shape_images, test_shapelabels, test_nshapeslabels, test_vernierlabels = test.makeTestBatch(42, n_shapes, batch_size, None, noise)
 #for i in range(batch_size):
-#    plt.imshow(np.squeeze(test_images[i, :, :]))
+#    plt.imshow(np.squeeze(test_vernier_images[i, :, :] + test_shape_images[i, :, :]))
 #    plt.pause(0.5)

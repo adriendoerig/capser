@@ -9,7 +9,6 @@ https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 """
 
-#import ipdb
 import sys
 import os
 import tensorflow as tf
@@ -69,19 +68,21 @@ def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, o
             
             # Either create training or testing dataset
             if state=='training':
-                images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
+                vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
             elif state=='testing':
                 chosen_shape = shape_types
-                images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, noise)
+                vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, noise)
 
             # Convert the image to raw bytes.
-            images_bytes = images.tostring()
+            vernier_images_bytes = vernier_images.tostring()
+            shape_images_bytes = shape_images.tostring()
             shapelabels_bytes = shapelabels.tostring()
             nshapeslabels_bytes = nshapeslabels.tostring()
             vernierlabels_bytes = vernierlabels.tostring()
 
             # Create a dict with the data to save in the TFRecords file
-            data = {'images': wrap_bytes(images_bytes),
+            data = {'vernier_images': wrap_bytes(vernier_images_bytes),
+                    'shape_images': wrap_bytes(shape_images_bytes),
                     'shapelabels': wrap_bytes(shapelabels_bytes),
                     'nshapeslabels': wrap_bytes(nshapeslabels_bytes),
                     'vernierlabels': wrap_bytes(vernierlabels_bytes)}

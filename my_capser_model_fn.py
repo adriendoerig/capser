@@ -27,10 +27,13 @@ def model_fn(features, labels, mode, params):
     # params:   Optional parameters; here not needed because of parameter-file
     
     # Inputs
-    X = features['X']
+    vernier_images = features['vernier_images']
+    shape_images = features['shape_images']
+    X = tf.add(vernier_images, shape_images)
     tf.summary.image('input_images', X, 6)
 
     shapelabels = labels
+    n_shapelabels = 2
     vernierlabels = features['vernier_offsets']
     
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
@@ -49,11 +52,11 @@ def model_fn(features, labels, mode, params):
     
     # Secondary caps:
     caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters)
-    tf.summary.histogram('4_caps2_output', caps2_output)
-    tf.summary.histogram('5_caps2_output_norm', caps2_output_norm)
+    tf.summary.histogram('4_caps2_output', caps2_output[0, :, :, :])
+    tf.summary.histogram('5_caps2_output_norm', caps2_output_norm[0, :, :, :])
     
     # Estimated class probabilities
-    shapelabels_pred = predict_shapelabels(caps2_output)
+    shapelabels_pred = predict_shapelabels(caps2_output, n_shapelabels)
     
     vernier_caps_activation = caps2_output[:, :, 0, :, :]
     pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)
@@ -80,14 +83,24 @@ def model_fn(features, labels, mode, params):
         # Define the loss-function to be optimized
         margin_loss = compute_margin_loss(caps2_output_norm, shapelabels, parameters)
         tf.summary.scalar('2_margin_loss', margin_loss)
+        
+        with tf.name_scope('Reconstruction_loss'):
+            # Create decoder outputs for vernier and shape images batch
+            vernier_decoder_output, vernier_decoder_output_img = compute_reconstruction(
+                    mask_with_labels, shapelabels[:, 0], shapelabels_pred[:, 0], caps2_output, parameters, is_training, '_vernier')
+            shape_decoder_output, shape_decoder_output_img = compute_reconstruction(
+                    mask_with_labels, shapelabels[:, 1], shapelabels_pred[:, 1], caps2_output, parameters, is_training, '_shape')
+            decoder_output_img = vernier_decoder_output_img + shape_decoder_output_img
+            
+            # Calculate reconstruction loss for vernier and shapes images batch
+            vernier_reconstruction_loss = compute_reconstruction_loss(vernier_images, vernier_decoder_output, parameters)
+            shape_reconstruction_loss = compute_reconstruction_loss(shape_images, shape_decoder_output, parameters)
+            reconstruction_loss = vernier_reconstruction_loss + shape_reconstruction_loss
+            
+            tf.summary.image('decoder_output_img', decoder_output_img, 6)
+            tf.summary.scalar('3_reconstruction_loss', reconstruction_loss)
 
-        decoder_output, decoder_output_img = compute_reconstruction(
-                mask_with_labels, shapelabels, shapelabels_pred, caps2_output, parameters, is_training)
-        tf.summary.image('decoder_output_img', decoder_output_img, 6)
-        
-        reconstruction_loss = compute_reconstruction_loss(X, decoder_output, parameters)
-        tf.summary.scalar('3_reconstruction_loss', reconstruction_loss)
-        
+
         tf.summary.scalar('4_vernieroffset_loss', vernieroffset_loss)
         tf.summary.scalar('5_vernieroffset_accuracy', vernieroffset_accuracy)
 

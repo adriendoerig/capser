@@ -120,21 +120,25 @@ def secondary_caps_layer(caps1_output, parameters):
 ################################
 #         Margin loss:         #
 ################################
-def predict_shapelabels(caps2_output):
+def predict_shapelabels(caps2_output, n_labels):
     with tf.name_scope('predict_shape'):
         # Calculate caps norm:
         labels_proba = safe_norm(caps2_output, axis=-2, name='labels_proba')
 
-        # Prediction:
-        labels_proba_argmax = tf.argmax(labels_proba, axis=2, name='labels_proba_argmax')
-        labels_pred = tf.squeeze(labels_proba_argmax, axis=[1, 2], name='labels_pred')
+        # Predict n_labels largest values:
+        _, labels_pred = tf.nn.top_k(labels_proba[:, 0, :, 0], n_labels, name="y_proba")
+        labels_pred = tf.cast(labels_pred, tf.int64)
+        labels_pred = tf.contrib.framework.sort(labels_pred, axis=-1, direction='ASCENDING', name='labels_pred_sorted')
         return labels_pred
 
 
 def compute_margin_loss(caps2_output_norm, labels, parameters):
     with tf.name_scope('compute_margin_loss'):
-        # Compute the loss for each instance and digit:
-        T_shapelabels = tf.one_hot(labels, depth=parameters.caps2_ncaps, name='T_shapelabels')
+        # Compute the loss for each instance and shape:
+        # trick to get a vector for each image in the batch. Labels [0,2] -> [[1, 0, 1]] and [1,1] -> [[0, 1, 0]]
+        T_shapelabels_raw = tf.one_hot(labels, depth=parameters.caps2_ncaps, name='T_shapelabels_raw')
+        T_shapelabels = tf.reduce_sum(T_shapelabels_raw, axis=1)
+        T_shapelabels = tf.minimum(T_shapelabels, 1)
         present_error_raw = tf.square(tf.maximum(0., parameters.m_plus - caps2_output_norm), name='present_error_raw')
         present_error = tf.reshape(present_error_raw, shape=(parameters.batch_size, parameters.caps2_ncaps), name='present_error')
         absent_error_raw = tf.square(tf.maximum(0., caps2_output_norm - parameters.m_minus), name='absent_error_raw')
@@ -159,8 +163,16 @@ def compute_accuracy(labels, labels_pred):
 ################################
 #       Reconstruction:        #
 ################################
-def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, parameters, phase=True):
+def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, parameters, phase=True, name_extra=None):
     with tf.name_scope('compute_decoder_input'):
+#        reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
+#        reconstruction_mask = tf.one_hot(reconstruction_targets, depth=parameters.caps2_ncaps, name='reconstruction_mask')
+#        # Same trick as for margin loss:
+#        reconstruction_mask = tf.reduce_sum(reconstruction_mask, axis=1)
+#        reconstruction_mask = tf.minimum(reconstruction_mask, 1)
+#        reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
+#        caps2_output_masked = tf.multiply(caps2_output, reconstruction_mask, name='caps2_output_masked')
+        
         reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
         reconstruction_mask = tf.one_hot(reconstruction_targets, depth=parameters.caps2_ncaps, name='reconstruction_mask')
         reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
@@ -172,18 +184,21 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
     # Finally comes the decoder (two dense fully connected ReLU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder'):
         #hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, activation=tf.nn.relu, name='hidden1')
+        #tf.summary.histogram('_hidden1', hidden1)
         #hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, activation=tf.nn.relu, name='hidden2')
-        hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1')
-        hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn')
+        #tf.summary.histogram('_hidden2', hidden2)
+        # Adriens code:
+        hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1' + name_extra)
+        hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn' + name_extra)
         hidden1 = tf.nn.elu(hidden1, name='hidden1_activation')
-        tf.summary.histogram('_hidden1_bn', hidden1)
+        tf.summary.histogram('_hidden1_bn' + name_extra, hidden1)
 
-        hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, use_bias=False, activation=None, name='hidden2')
-        hidden2 = tf.layers.batch_normalization(hidden2, training=phase, name='hidden2_bn')
+        hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, use_bias=False, activation=None, name='hidden2' + name_extra)
+        hidden2 = tf.layers.batch_normalization(hidden2, training=phase, name='hidden2_bn' + name_extra)
         hidden2 = tf.nn.elu(hidden2, name='hidden2_activation')
-        tf.summary.histogram('_hidden2_bn', hidden2)
+        tf.summary.histogram('_hidden2_bn' + name_extra, hidden2)
 
-        decoder_output = tf.layers.dense(hidden2, parameters.n_output, activation=tf.nn.sigmoid, name='decoder_output')
+        decoder_output = tf.layers.dense(hidden2, parameters.n_output, activation=tf.nn.sigmoid, name='decoder_output' + name_extra)
         decoder_output_img = tf.reshape(decoder_output, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                                         name='decoder_output_img')
         return decoder_output, decoder_output_img
@@ -192,9 +207,9 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
 ################################
 #     Reconstruction loss:     #
 ################################
-def compute_reconstruction_loss(imgs, decoder_output, parameters):
+def compute_reconstruction_loss(X, decoder_output, parameters):
     with tf.name_scope('compute_reconstruction_loss'):
-        imgs_flat = tf.reshape(imgs, [parameters.batch_size, parameters.n_output], name='imgs_flat')
+        imgs_flat = tf.reshape(X, [parameters.batch_size, parameters.n_output], name='imgs_flat')
         imgs_flat = tf.cast(imgs_flat, tf.float32)
         squared_difference = tf.square(imgs_flat - decoder_output, name='squared_difference')
         # reconstruction_loss = tf.reduce_mean(squared_difference, name='reconstruction_loss')
