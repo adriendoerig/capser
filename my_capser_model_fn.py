@@ -12,7 +12,7 @@ import tensorflow as tf
 #import time
 
 from my_parameters import parameters
-from my_parameters import conv1_params, conv2_params
+from my_parameters import conv1_params, conv2_params, conv3_params
 from my_capser_functions import \
 conv_layers, primary_caps_layer, secondary_caps_layer, \
 predict_shapelabels, \
@@ -34,11 +34,12 @@ def model_fn(features, labels, mode, params):
     vernierlabels = features['vernier_offsets']
     
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
+    is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
     
     ###################################################
     
     # Convolutional layers:
-    conv_output = conv_layers(X, conv1_params, conv2_params)
+    conv_output = conv_layers(X, conv1_params, conv2_params, conv3_params)
     tf.summary.histogram('1_conv_output', conv_output)
     
     # Primary caps:
@@ -81,7 +82,7 @@ def model_fn(features, labels, mode, params):
         tf.summary.scalar('2_margin_loss', margin_loss)
 
         decoder_output, decoder_output_img = compute_reconstruction(
-                mask_with_labels, shapelabels, shapelabels_pred, caps2_output, parameters)
+                mask_with_labels, shapelabels, shapelabels_pred, caps2_output, parameters, is_training)
         tf.summary.image('decoder_output_img', decoder_output_img, 6)
         
         reconstruction_loss = compute_reconstruction_loss(X, decoder_output, parameters)

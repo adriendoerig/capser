@@ -165,8 +165,7 @@ class stim_maker_fn:
         # selected_shape
         # n_shapes: list of shape repetitions
         # batch_size
-        # stim_idx: decides whether to create vernier only (0), vernier in 
-        # min(n_shapes) (1=crowding) or vernier in max(n_shapes) (2=uncrowding)
+        # stim_idx: decides whether to create vernier(0), crowding (1) or uncrowding (2) stimulus
         # noise: Random gaussian noise between [0,noise] gets added
         
         # Outputs:

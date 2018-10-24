@@ -46,7 +46,7 @@ logging.getLogger().setLevel(logging.INFO)
 # Create the estimator:
 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps)
-eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=100)
+eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=50)
 
 # Lets go!
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)

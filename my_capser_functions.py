@@ -76,16 +76,17 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 ###################################
 #     Create capser network:      #
 ###################################
-def conv_layers(X, conv1_params, conv2_params):
+def conv_layers(X, conv1_params, conv2_params, conv3_params):
     with tf.name_scope('convolutional_layers'):
         conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
         conv2 = tf.layers.conv2d(conv1, name='conv2', **conv2_params)
-        return conv2
+        conv3 = tf.layers.conv2d(conv2, name='conv3', **conv3_params)
+        return conv3
 
 
 def primary_caps_layer(conv_output, parameters):
     with tf.name_scope('primary_capsules'):
-        caps1_reshaped = tf.reshape(conv_output, [-1, parameters.caps1_ncaps, parameters.caps1_ndims], name='caps1_reshaped')
+        caps1_reshaped = tf.reshape(conv_output, [parameters.batch_size, parameters.caps1_ncaps, parameters.caps1_ndims], name='caps1_reshaped')
         caps1_output = squash(caps1_reshaped, name='caps1_output')
         caps1_output_norm = safe_norm(caps1_output, axis=-1, keepdims=True, name='caps1_output_norm')
         return caps1_output, caps1_output_norm
@@ -116,20 +117,20 @@ def secondary_caps_layer(caps1_output, parameters):
         return caps2_output, caps2_output_norm
 
 
+################################
+#         Margin loss:         #
+################################
 def predict_shapelabels(caps2_output):
     with tf.name_scope('predict_shape'):
         # Calculate caps norm:
         labels_proba = safe_norm(caps2_output, axis=-2, name='labels_proba')
-    
+
         # Prediction:
         labels_proba_argmax = tf.argmax(labels_proba, axis=2, name='labels_proba_argmax')
         labels_pred = tf.squeeze(labels_proba_argmax, axis=[1, 2], name='labels_pred')
         return labels_pred
 
 
-################################
-#         Margin loss:         #
-################################
 def compute_margin_loss(caps2_output_norm, labels, parameters):
     with tf.name_scope('compute_margin_loss'):
         # Compute the loss for each instance and digit:
@@ -158,22 +159,32 @@ def compute_accuracy(labels, labels_pred):
 ################################
 #       Reconstruction:        #
 ################################
-def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, parameters):
+def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, parameters, phase=True):
     with tf.name_scope('compute_decoder_input'):
         reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
         reconstruction_mask = tf.one_hot(reconstruction_targets, depth=parameters.caps2_ncaps, name='reconstruction_mask')
-        reconstruction_mask = tf.reshape(reconstruction_mask, [-1, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
+        reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
         caps2_output_masked = tf.multiply(caps2_output, reconstruction_mask, name='caps2_output_masked')
         
         # Flatten decoder inputs:
-        decoder_input = tf.reshape(caps2_output_masked, [-1, parameters.caps2_ndims*parameters.caps2_ncaps], name='decoder_input')
+        decoder_input = tf.reshape(caps2_output_masked, [parameters.batch_size, parameters.caps2_ndims*parameters.caps2_ncaps], name='decoder_input')
 
     # Finally comes the decoder (two dense fully connected ReLU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder'):
-        hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, activation=tf.nn.relu, name='hidden1')
-        hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, activation=tf.nn.relu, name='hidden2')
+        #hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, activation=tf.nn.relu, name='hidden1')
+        #hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, activation=tf.nn.relu, name='hidden2')
+        hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1')
+        hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn')
+        hidden1 = tf.nn.elu(hidden1, name='hidden1_activation')
+        tf.summary.histogram('_hidden1_bn', hidden1)
+
+        hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, use_bias=False, activation=None, name='hidden2')
+        hidden2 = tf.layers.batch_normalization(hidden2, training=phase, name='hidden2_bn')
+        hidden2 = tf.nn.elu(hidden2, name='hidden2_activation')
+        tf.summary.histogram('_hidden2_bn', hidden2)
+
         decoder_output = tf.layers.dense(hidden2, parameters.n_output, activation=tf.nn.sigmoid, name='decoder_output')
-        decoder_output_img = tf.reshape(decoder_output, [-1, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+        decoder_output_img = tf.reshape(decoder_output, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                                         name='decoder_output_img')
         return decoder_output, decoder_output_img
 
@@ -183,9 +194,11 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
 ################################
 def compute_reconstruction_loss(imgs, decoder_output, parameters):
     with tf.name_scope('compute_reconstruction_loss'):
-        imgs_flat = tf.reshape(imgs, [-1, parameters.n_output], name='imgs_flat')
+        imgs_flat = tf.reshape(imgs, [parameters.batch_size, parameters.n_output], name='imgs_flat')
+        imgs_flat = tf.cast(imgs_flat, tf.float32)
         squared_difference = tf.square(imgs_flat - decoder_output, name='squared_difference')
-        reconstruction_loss = tf.reduce_mean(squared_difference, name='reconstruction_loss')
+        # reconstruction_loss = tf.reduce_mean(squared_difference, name='reconstruction_loss')
+        reconstruction_loss = tf.reduce_sum(squared_difference, name='reconstruction_loss')
         return reconstruction_loss
 
 

@@ -45,10 +45,10 @@ def parse_tfrecords(serialized_data):
 ###########################
 #     Input function:     #
 ###########################
-def input_fn(filenames, train, parameters, buffer_size=256):
+def input_fn(filenames, train, parameters, buffer_size=1024):
     # Create a TensorFlow Dataset-object:
-    dataset = tf.data.TFRecordDataset(filenames=filenames)
-    dataset = dataset.map(parse_tfrecords)
+    dataset = tf.data.TFRecordDataset(filenames=filenames, num_parallel_reads=32)
+    dataset = dataset.map(parse_tfrecords, num_parallel_calls=64)
     
     if train:
         # Read a buffer of the given size and randomly shuffle it:
@@ -66,7 +66,7 @@ def input_fn(filenames, train, parameters, buffer_size=256):
     dataset = dataset.batch(parameters.batch_size)
     
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
-#    dataset = dataset.prefetch(buffer_size)
+    dataset = dataset.prefetch(3)
     
     # Create an iterator for the dataset and the above modifications.
     iterator = dataset.make_one_shot_iterator()
