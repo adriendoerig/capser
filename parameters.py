@@ -11,23 +11,23 @@ create_new_train_set = False                         # if you already have a tfR
 train_data_path = data_path+'/train.tfrecords'      # where the training data file is located
 test_data_path = data_path+'/test_squares.tfrecords'
 n_train_samples = 500000                            # number of different stimuli in an epoch
-batch_size = 16 #random.randint(4,16) * 4                                    # stimuli per batch
+batch_size = 64 #random.randint(4,16) * 4                                    # stimuli per batch
 batch_size_per_shard = int(batch_size/1)                 # there are 8 shards on the TPU, each takes care of 1/8th of a batch
 buffer_size = 1024#1*1024*1024                           # number of stimuli simultaneously in memory (I think). Value taken from the tf TPU help page
 n_epochs = 1                                        # number of epochs
-n_steps = 75000#n_train_samples*n_epochs/batch_size       # number of training steps
+n_steps = 50000#n_train_samples*n_epochs/batch_size       # number of training steps
 check_data = None                                   # specify the path to a dataset you would like to look at. use None if you don't want to check any.
 
 # testing sets
 create_new_test_sets = False                        # if you already have tfRecords testing files in data_path, you may set to False
-n_test_samples = 200                                    # number of stimuli for each testing condition
+n_test_samples = 3200                               # number of stimuli for each testing condition
 test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1]]],
                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2]]],
                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3]]],
                 'octagons':      [None, [[4]], [[4, 4, 4, 4, 4]]],
                 '4stars':        [None, [[5]], [[5, 5, 5, 5, 5]]],
                 '7stars':        [None, [[6]], [[6, 6, 6, 6, 6]]],
-                'squares_stars': [None, [[1]], [[6, 1, 6, 1, 6]]]}
+                'squares_stars': [None, [[1]], [[1, 6, 1, 6, 1]]]}
 # test_stimuli = {'squares':       [None, [[1]], [[1, 1, 1, 1, 1, 1, 1]]],
 #                 'circles':       [None, [[2]], [[2, 2, 2, 2, 2, 2, 2]]],
 #                 'hexagons':      [None, [[3]], [[3, 3, 3, 3, 3, 3, 3]]],
@@ -80,14 +80,14 @@ if conv_batch_norm:
     conv_activation_function = None
 else:
     conv_activation_function = tf.nn.elu
-conv1_params = {"filters": 32,
-                "kernel_size": 7,
+conv1_params = {"filters": 128,
+                "kernel_size": 6,
                 "strides": 1,
                 "padding": "valid",
                 "activation": conv_activation_function,
                 }
-conv2_params = {"filters": 32,
-                "kernel_size": 7,
+conv2_params = {"filters": 128,
+                "kernel_size": 6,
                 "strides": 2,
                 "padding": "valid",
                 "activation": conv_activation_function,
@@ -177,7 +177,15 @@ if normalize_images is True:
     normalization_text += '_VERNIERNORMEXP_'+str(vernier_normalization_exp)
 if normalize_sets is True:
     normalization_text += '_NORMSETS'
-MODEL_NAME = 'BS_'+str(batch_size)+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+'_CONVBN_'+str(conv_batch_norm)+'_DECODERBN_'+str(decoder_batch_norm)+'_DECONVDECODER_'+str(output_decoder_deconv_params['use_deconvolution_decoder'])+normalization_text
+deconv_decoder_text = ''
+if output_decoder_deconv_params['use_deconvolution_decoder']:
+    deconv_decoder_text = '_DECONVDECODER_'+str(output_decoder_deconv_params['use_deconvolution_decoder'])
+bn_text=''
+if conv_batch_norm:
+    bn_text += '_CONVBN_'+str(conv_batch_norm)
+if decoder_batch_norm:
+    bn_text += '_DECODERBN_'+str(decoder_batch_norm)
+MODEL_NAME = 'BS_'+str(batch_size)+'_CONV1KER_'+str(conv1_params['kernel_size'])+'_CONV2KER_'+str(conv2_params['kernel_size'])+'_CONVCAPSKER_'+str(conv_caps_params['kernel_size'])+'_C1DIM_'+str(caps1_n_dims)+'_C2DIM_'+str(caps2_n_dims)+'_LR_'+str(learning_rate)+bn_text+deconv_decoder_text+normalization_text
 LOGDIR = data_path + '/LOGDIR/' + MODEL_NAME + '/'  # will be redefined below
 # if not os.path.exists(LOGDIR):
 #     os.makedirs(LOGDIR)
@@ -213,7 +221,6 @@ def save_params(variables=locals()):
                      and ('function' not in str(value) and ('TextIOWrapper' not in str(value)))}
         [f.write(str(key) + ' : ' + str(value) + '\n') for key, value in variables.items()]
         print('Parameter values saved.')
-save_params()
 
 
 ### choose from optional plots, etc ###
