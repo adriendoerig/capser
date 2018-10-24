@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 My capsnet: all parameters
-Last update on 23.10.2018
+Last update on 24.10.2018
 @author: Lynn
 """
 

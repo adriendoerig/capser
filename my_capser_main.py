@@ -2,7 +2,7 @@
 """
 My capsnet: On my way to an own capsnet!
 After the 100th try: Main script (that is actually working!)
-Last update on 23.10.2018
+Last update on 24.10.2018
 @author: Lynn
 
 This script is needed to execute the training, evaluation and prediction

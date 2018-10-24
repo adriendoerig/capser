@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Second try: model fn with tfrecords files
-Last update on 23.10.2018
+Last update on 24.10.2018
 @author: Lynn
 
 All functions that are called in this script are described in more detail in
