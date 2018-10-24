@@ -64,12 +64,12 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
         # Initialize weights and caps2-output-array
         raw_weights = tf.zeros([batch_size_tensor, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1],
                                dtype=tf.float32, name='raw_weights')
-        caps2_output_init = tf.zeros([batch_size_tensor, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1],
-                                     dtype=tf.float32, name='caps2_output_init')
+        caps2_output = tf.zeros([batch_size_tensor, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1],
+                                dtype=tf.float32, name='caps2_output_init')
         # Counter for number of routing iterations:
-        counter = tf.constant(0)
+        counter = tf.constant(1)
         raw_weights, caps2_output, counter = tf.while_loop(routing_condition, routing_body,
-                                                           [raw_weights, caps2_output_init, counter])
+                                                           [raw_weights, caps2_output, counter])
         return caps2_output
 
 
