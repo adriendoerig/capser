@@ -9,7 +9,6 @@ my_capser_functions.py
 """
 
 import tensorflow as tf
-#import time
 
 from my_parameters import parameters
 from my_parameters import conv1_params, conv2_params, conv3_params
@@ -33,7 +32,6 @@ def model_fn(features, labels, mode, params):
     tf.summary.image('input_images', X, 6)
 
     shapelabels = labels
-    n_shapelabels = 2
     vernierlabels = features['vernier_offsets']
     
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
@@ -55,9 +53,6 @@ def model_fn(features, labels, mode, params):
     tf.summary.histogram('4_caps2_output', caps2_output[0, :, :, :])
     tf.summary.histogram('5_caps2_output_norm', caps2_output_norm[0, :, :, :])
     
-    # Estimated class probabilities
-    shapelabels_pred = predict_shapelabels(caps2_output, n_shapelabels)
-    
     vernier_caps_activation = caps2_output[:, :, 0, :, :]
     pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)
     
@@ -76,6 +71,11 @@ def model_fn(features, labels, mode, params):
         
     else:
         # Otherwise the estimator is either in train or eval mode
+        n_shapelabels = shapelabels.shape[1]
+
+        # Estimated class probabilities
+        shapelabels_pred = predict_shapelabels(caps2_output, n_shapelabels)
+
         # Compute accuracy:
         accuracy = compute_accuracy(shapelabels, shapelabels_pred)
         tf.summary.scalar('1_accuracy', accuracy)

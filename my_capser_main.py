@@ -12,10 +12,13 @@ import logging
 import numpy as np
 import tensorflow as tf
 import os
+from tensorboard.plugins.beholder import Beholder
+from tensorboard.plugins.beholder import BeholderHook
 
 from my_parameters import parameters
 from my_capser_model_fn import model_fn
 from my_capser_input_fn import train_input_fn, eval_input_fn, predict_input_fn
+from my_capser_functions import save_params
 
 ###################################################
 
@@ -31,6 +34,9 @@ print('-------------------------------------------------------')
 ###########################
 #      Preparations:      #
 ###########################
+# Save parameters from parameter file for reproducability
+save_params(parameters)
+
 # For reproducability:
 tf.reset_default_graph()
 np.random.seed(42)
@@ -43,10 +49,14 @@ tf.set_random_seed(42)
 # Output the loss in the terminal every few steps:
 logging.getLogger().setLevel(logging.INFO)
 
+# Beholder to check on weights during training in tensorboard:
+beholder = Beholder(parameters.logdir)
+beholder_hook = BeholderHook(parameters.logdir)
+
 # Create the estimator:
 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
-train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps)
-eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=50)
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
+eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_freq)
 
 # Lets go!
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)

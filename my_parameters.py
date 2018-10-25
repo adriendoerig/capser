@@ -22,15 +22,18 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = 'test_new1'
+MODEL_NAME = 'test_new4'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
 ###########################
 #   Stimulus parameters   #
 ###########################
-flags.DEFINE_integer('n_train_samples', 100000, 'number of samples in the training set')
-flags.DEFINE_integer('n_test_samples', 2000, 'number of samples in the test set')
+batch_size = 32
+n_steps = 5000
+eval_freq = 50
+flags.DEFINE_integer('n_train_samples', batch_size*n_steps, 'number of samples in the training set')
+flags.DEFINE_integer('n_test_samples', batch_size*eval_freq, 'number of samples in the test set')
 
 im_size = [60, 150]
 shape_types = [0, 1, 2, 3, 4, 5]
@@ -90,18 +93,19 @@ flags.DEFINE_float('m_minus', 0.1, 'the parameter of m minus')
 flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit classes')
 
 # For training
-flags.DEFINE_integer('batch_size', 32, 'batch size')
-flags.DEFINE_integer('buffer_size', 2048, 'buffer size')
-flags.DEFINE_integer('n_epochs', 1, 'number of epochs')
-flags.DEFINE_integer('n_steps', 20000, 'number of steps')
+flags.DEFINE_integer('batch_size', batch_size, 'batch size')
+flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
+flags.DEFINE_integer('eval_freq', eval_freq, 'frequency for eval spec')
+flags.DEFINE_integer('n_epochs', 4, 'number of epochs')
+flags.DEFINE_integer('n_steps', n_steps, 'number of steps')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 3, 'number of iterations in routing algorithm')
 
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 flags.DEFINE_float('regularization_scale', 0.0005*im_size[0]*im_size[1],
-                   'regularization coefficient for reconstruction loss, default to 0.0005*im_size[0]*im_size[1]')
-flags.DEFINE_float('alpha_margin', 3.333, 'alpha for reconstruction loss')
-flags.DEFINE_float('alpha_reconstruction', 0.0005, 'alpha for reconstruction loss')
+                   'regularization coefficient for reconstruction loss, default to 0.0005*im_size[0]*im_size[1] (reduce_mean)')
+flags.DEFINE_float('alpha_margin', 3.333, 'alpha for margin loss')
+flags.DEFINE_float('alpha_reconstruction', 0.0005, 'alpha for reconstruction loss (reduce_sum)')
 flags.DEFINE_float('alpha_vernieroffset', 1, 'alpha for vernieroffset loss')
 flags.DEFINE_float('dropout_keep_prob', 0.8, 'probability to keep units')
 

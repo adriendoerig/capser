@@ -14,6 +14,17 @@ Last update on 24.10.2018
 import tensorflow as tf
 
 ################################
+#    Small helper function:    #
+################################
+def save_params(parameters):
+    with open(parameters.logdir + '/parameters.txt', 'w') as f_txt:
+        f_py = open('./my_parameters.py')
+        variables = f_py.read()
+        f_txt.write(variables)
+        print('Parameter values saved.')
+
+
+################################
 #      Squash function:        #
 ################################
 def squash(s, axis=-1, epsilon=1e-7, name=None):
@@ -155,7 +166,9 @@ def compute_margin_loss(caps2_output_norm, labels, parameters):
 ################################
 def compute_accuracy(labels, labels_pred):
     with tf.name_scope('accuracy'):
-        correct = tf.equal(labels, labels_pred, name='correct')
+        labels_reshaped = tf.reshape(labels, shape=[-1, 1])
+        labels_pred_reshaped = tf.reshape(labels_pred, shape=[-1, 1])
+        correct = tf.equal(labels_reshaped, labels_pred_reshaped, name='correct')
         accuracy = tf.reduce_mean(tf.cast(correct, tf.float32), name='accuracy')
         return accuracy
 
@@ -165,14 +178,6 @@ def compute_accuracy(labels, labels_pred):
 ################################
 def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, parameters, phase=True, name_extra=None):
     with tf.name_scope('compute_decoder_input'):
-#        reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
-#        reconstruction_mask = tf.one_hot(reconstruction_targets, depth=parameters.caps2_ncaps, name='reconstruction_mask')
-#        # Same trick as for margin loss:
-#        reconstruction_mask = tf.reduce_sum(reconstruction_mask, axis=1)
-#        reconstruction_mask = tf.minimum(reconstruction_mask, 1)
-#        reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
-#        caps2_output_masked = tf.multiply(caps2_output, reconstruction_mask, name='caps2_output_masked')
-        
         reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
         reconstruction_mask = tf.one_hot(reconstruction_targets, depth=parameters.caps2_ncaps, name='reconstruction_mask')
         reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
@@ -183,11 +188,9 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
 
     # Finally comes the decoder (two dense fully connected ReLU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder'):
-        #hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, activation=tf.nn.relu, name='hidden1')
-        #tf.summary.histogram('_hidden1', hidden1)
-        #hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, activation=tf.nn.relu, name='hidden2')
-        #tf.summary.histogram('_hidden2', hidden2)
-        # Adriens code:
+        #hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, activation=tf.nn.elu, name='hidden1' + name_extra)
+        #hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, activation=tf.nn.elu, name='hidden2' + name_extra)
+
         hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1' + name_extra)
         hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn' + name_extra)
         hidden1 = tf.nn.elu(hidden1, name='hidden1_activation')
@@ -224,13 +227,14 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
     with tf.name_scope('compute_vernieroffset_loss'):
         vernier_caps_activation = tf.squeeze(vernier_caps_activation)
         vernierlabels = tf.squeeze(vernierlabels)
+        vernierlabels = tf.cast(vernierlabels, tf.float32)
         
-        T_vernierlabels = tf.one_hot(vernierlabels, depth, name='T_vernierlabels')
+        T_vernierlabels = tf.one_hot(tf.cast(vernierlabels, tf.int32), depth, name='T_vernierlabels')
         logits_vernierlabels = tf.layers.dense(vernier_caps_activation, depth, tf.nn.relu, name='logits_vernierlabels')
         xent_vernierlabels = tf.losses.softmax_cross_entropy(T_vernierlabels, logits_vernierlabels)
         
         pred_vernierlabels = tf.argmax(logits_vernierlabels, axis=1)
-        correct_vernierlabels = tf.equal(vernierlabels, pred_vernierlabels, name='correct_vernierlabels')
+        correct_vernierlabels = tf.equal(vernierlabels, tf.cast(pred_vernierlabels, tf.float32), name='correct_vernierlabels')
         accuracy_vernierlabels = tf.reduce_mean(tf.cast(correct_vernierlabels, tf.float32), name='accuracy_vernierlabels')
         return pred_vernierlabels, xent_vernierlabels, accuracy_vernierlabels
 

@@ -6,6 +6,7 @@ Last update on 24.10.2018
 """
 
 import tensorflow as tf
+import numpy as np
 from my_parameters import parameters
 
 
@@ -26,8 +27,11 @@ def parse_tfrecords(serialized_data):
     # Get the images as raw bytes and decode afterwards.
     vernier_images = parsed_data['vernier_images']
     vernier_images = tf.decode_raw(vernier_images, tf.float32)
+    vernier_images = tf.cast(vernier_images, tf.float32)
+
     shape_images = parsed_data['shape_images']
     shape_images = tf.decode_raw(shape_images, tf.float32)
+    shape_images = tf.cast(shape_images, tf.float32)
     
     # Get the labels associated with the image and decode.
     shapelabels = parsed_data['shapelabels']
@@ -68,22 +72,25 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
     dataset = dataset.batch(parameters.batch_size)
     
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
-    dataset = dataset.prefetch(3)
+    dataset = dataset.prefetch(2)
     
     # Create an iterator for the dataset and the above modifications.
     iterator = dataset.make_one_shot_iterator()
     
     # Get the next batch of images and labels.
     vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels = iterator.get_next()
-    
+
     # reshape images (they were flattened when transformed into bytes)
     vernier_images = tf.reshape(vernier_images, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
     shape_images = tf.reshape(shape_images, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
     shapelabels = tf.reshape(shapelabels, [parameters.batch_size, 2])
     nshapeslabels = tf.reshape(nshapeslabels, [parameters.batch_size, 1])
     vernierlabels = tf.reshape(vernierlabels, [parameters.batch_size, 1])
-    
-    
+
+    # Add some random gaussian noise:
+    vernier_images = tf.add(vernier_images, tf.random_normal(shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0, stddev=parameters.noise))
+    shape_images = tf.add(shape_images, tf.random_normal(shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0, stddev=parameters.noise))
+
     # The input-function must return a dict wrapping the images.
     if train:
         feed_dict = {'vernier_images': vernier_images,
@@ -115,7 +122,8 @@ def train_input_fn():
 
 
 def eval_input_fn():
-    eval_file = parameters.test_data_paths[0] + '.tfrecords'
+    rnd_idx = np.random.randint(0, len(parameters.shape_types))
+    eval_file = parameters.test_data_paths[rnd_idx] + '.tfrecords'
     return input_fn(filenames=eval_file, train=False, parameters=parameters)
 
 
