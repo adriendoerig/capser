@@ -34,9 +34,6 @@ print('-------------------------------------------------------')
 ###########################
 #      Preparations:      #
 ###########################
-# Save parameters from parameter file for reproducability
-save_params(parameters)
-
 # For reproducability:
 tf.reset_default_graph()
 np.random.seed(42)
@@ -57,6 +54,9 @@ beholder_hook = BeholderHook(parameters.logdir)
 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
 eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_freq)
+
+# Save parameters from parameter file for reproducability
+save_params(parameters)
 
 # Lets go!
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)

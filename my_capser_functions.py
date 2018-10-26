@@ -90,8 +90,11 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 def conv_layers(X, conv1_params, conv2_params, conv3_params):
     with tf.name_scope('convolutional_layers'):
         conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
+        tf.summary.histogram('1_1_conv1_output', conv1)
         conv2 = tf.layers.conv2d(conv1, name='conv2', **conv2_params)
+        tf.summary.histogram('1_2_conv2_output', conv2)
         conv3 = tf.layers.conv2d(conv2, name='conv3', **conv3_params)
+        tf.summary.histogram('1_3_conv3_output', conv3)
         return conv3
 
 
@@ -99,8 +102,9 @@ def primary_caps_layer(conv_output, parameters):
     with tf.name_scope('primary_capsules'):
         caps1_reshaped = tf.reshape(conv_output, [parameters.batch_size, parameters.caps1_ncaps, parameters.caps1_ndims], name='caps1_reshaped')
         caps1_output = squash(caps1_reshaped, name='caps1_output')
-        caps1_output_norm = safe_norm(caps1_output, axis=-1, keepdims=True, name='caps1_output_norm')
-        return caps1_output, caps1_output_norm
+        caps1_output_norm = safe_norm(caps1_output, axis=-1, keepdims=False, name='caps1_output_norm')
+        tf.summary.histogram('2_caps1_output_norm', caps1_output_norm)
+        return caps1_output
 
 
 def secondary_caps_layer(caps1_output, parameters):
@@ -125,6 +129,7 @@ def secondary_caps_layer(caps1_output, parameters):
         
         # Compute the norm of the output for each output caps and each instance:
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')
+        tf.summary.histogram('3_caps2_output_norm', caps2_output_norm[0, :, :, :])
         return caps2_output, caps2_output_norm
 
 
@@ -186,11 +191,8 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
         # Flatten decoder inputs:
         decoder_input = tf.reshape(caps2_output_masked, [parameters.batch_size, parameters.caps2_ndims*parameters.caps2_ncaps], name='decoder_input')
 
-    # Finally comes the decoder (two dense fully connected ReLU layers followed by a dense output sigmoid layer):
+    # Finally comes the decoder (two dense fully connected ELU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder'):
-        #hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, activation=tf.nn.elu, name='hidden1' + name_extra)
-        #hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, activation=tf.nn.elu, name='hidden2' + name_extra)
-
         hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1' + name_extra)
         hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn' + name_extra)
         hidden1 = tf.nn.elu(hidden1, name='hidden1_activation')

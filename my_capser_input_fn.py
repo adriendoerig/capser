@@ -61,7 +61,7 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
         dataset = dataset.shuffle(buffer_size=buffer_size)
         
         # Allow for infinite reading of data
-        num_repeat = None
+        num_repeat = parameters.n_epochs
 
     else:
         # Don't shuffle the data and only go through the it once:

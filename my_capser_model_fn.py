@@ -41,17 +41,12 @@ def model_fn(features, labels, mode, params):
     
     # Convolutional layers:
     conv_output = conv_layers(X, conv1_params, conv2_params, conv3_params)
-    tf.summary.histogram('1_conv_output', conv_output)
     
     # Primary caps:
-    caps1_output, caps1_output_norm = primary_caps_layer(conv_output, parameters)
-    tf.summary.histogram('2_caps1_output', caps1_output)
-    tf.summary.histogram('3_caps1_output_norm', caps1_output_norm)
+    caps1_output = primary_caps_layer(conv_output, parameters)
     
     # Secondary caps:
     caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters)
-    tf.summary.histogram('4_caps2_output', caps2_output[0, :, :, :])
-    tf.summary.histogram('5_caps2_output_norm', caps2_output_norm[0, :, :, :])
     
     vernier_caps_activation = caps2_output[:, :, 0, :, :]
     pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)

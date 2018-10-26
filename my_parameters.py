@@ -22,7 +22,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = 'test_new4'
+MODEL_NAME = 'test_new9'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
@@ -58,7 +58,7 @@ stride1 = 1
 stride2 = 2
 stride3 = 2
 # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3)
+dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
 dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 
 conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
@@ -96,7 +96,7 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 flags.DEFINE_integer('batch_size', batch_size, 'batch size')
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_freq', eval_freq, 'frequency for eval spec')
-flags.DEFINE_integer('n_epochs', 4, 'number of epochs')
+flags.DEFINE_integer('n_epochs', 1, 'number of epochs')
 flags.DEFINE_integer('n_steps', n_steps, 'number of steps')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 3, 'number of iterations in routing algorithm')
@@ -104,9 +104,9 @@ flags.DEFINE_integer('iter_routing', 3, 'number of iterations in routing algorit
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 flags.DEFINE_float('regularization_scale', 0.0005*im_size[0]*im_size[1],
                    'regularization coefficient for reconstruction loss, default to 0.0005*im_size[0]*im_size[1] (reduce_mean)')
-flags.DEFINE_float('alpha_margin', 3.333, 'alpha for margin loss')
+flags.DEFINE_float('alpha_margin', 1., 'alpha for margin loss')
 flags.DEFINE_float('alpha_reconstruction', 0.0005, 'alpha for reconstruction loss (reduce_sum)')
-flags.DEFINE_float('alpha_vernieroffset', 1, 'alpha for vernieroffset loss')
+flags.DEFINE_float('alpha_vernieroffset', 1., 'alpha for vernieroffset loss')
 flags.DEFINE_float('dropout_keep_prob', 0.8, 'probability to keep units')
 
 
