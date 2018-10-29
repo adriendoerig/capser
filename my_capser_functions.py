@@ -6,11 +6,10 @@ Including:
     squash, safe_norm, routing_by_agreement,
     compute_margin_loss, compute_reconstruction, compute_reconstruction_loss,
     conv_layers, primary_caps_layer, secondary_caps_layer, caps_prediction
-Last update on 24.10.2018
+Last update on 29.10.2018
 @author: Lynn
 """
 
-#import ipdb
 import tensorflow as tf
 
 ################################
