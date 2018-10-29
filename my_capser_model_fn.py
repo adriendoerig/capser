@@ -40,7 +40,7 @@ def model_fn(features, labels, mode, params):
     ###################################################
     
     # Convolutional layers:
-    conv_output = conv_layers(X, conv1_params, conv2_params, conv3_params)
+    conv_output = conv_layers(X, conv1_params, conv2_params, conv3_params, parameters, is_training)
     
     # Primary caps:
     caps1_output = primary_caps_layer(conv_output, parameters)
@@ -107,8 +107,14 @@ def model_fn(features, labels, mode, params):
 
 
         # Training operations: Adam optimizer with default TF parameters
-        optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
-        train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+        if parameters.batch_norm_conv or parameters.batch_norm_decoder:
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
+                train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+        else:
+            optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
+            train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
         
         # write summaries during evaluation
         eval_summary_hook = tf.train.SummarySaverHook(save_steps=100,

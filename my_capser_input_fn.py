@@ -99,7 +99,6 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
                      'mask_with_labels': True,
-                     'dropout_keep_prob': parameters.dropout_keep_prob,
                      'is_training': True}
     else:
         feed_dict = {'vernier_images': vernier_images,
@@ -108,7 +107,6 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
                      'mask_with_labels': False,
-                     'dropout_keep_prob': 1,
                      'is_training': False}
     return feed_dict, shapelabels
 

@@ -87,32 +87,45 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 ###################################
 #     Create capser network:      #
 ###################################
-def conv_layers(X, conv1_params, conv2_params, conv3_params):
-    with tf.name_scope('convolutional_layers'):
+def conv_layers(X, conv1_params, conv2_params, conv3_params, parameters, phase=True):
+    with tf.name_scope('1_convolutional_layers'):
         conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
-        tf.summary.histogram('1_1_conv1_output', conv1)
+        if parameters.batch_norm_conv:
+            conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+        tf.summary.histogram('conv1_output', conv1)
         conv2 = tf.layers.conv2d(conv1, name='conv2', **conv2_params)
-        tf.summary.histogram('1_2_conv2_output', conv2)
+        if parameters.batch_norm_conv:
+            conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
+        tf.summary.histogram('conv2_output', conv2)
         conv3 = tf.layers.conv2d(conv2, name='conv3', **conv3_params)
-        tf.summary.histogram('1_3_conv3_output', conv3)
+        if parameters.batch_norm_conv:
+            conv3 = tf.layers.batch_normalization(conv3, training=phase, name='conv3_bn')
+        tf.summary.histogram('conv3_output', conv3)
         return conv3
 
 
 def primary_caps_layer(conv_output, parameters):
-    with tf.name_scope('primary_capsules'):
+    with tf.name_scope('2_primary_capsules'):
         caps1_reshaped = tf.reshape(conv_output, [parameters.batch_size, parameters.caps1_ncaps, parameters.caps1_ndims], name='caps1_reshaped')
         caps1_output = squash(caps1_reshaped, name='caps1_output')
         caps1_output_norm = safe_norm(caps1_output, axis=-1, keepdims=False, name='caps1_output_norm')
-        tf.summary.histogram('2_caps1_output_norm', caps1_output_norm)
+        tf.summary.histogram('caps1_output_norm', caps1_output_norm)
         return caps1_output
 
 
 def secondary_caps_layer(caps1_output, parameters):
-    with tf.name_scope('secondary_caps_layer'):
+    with tf.name_scope('3_secondary_caps_layer'):
         # Initialize and repeat weights for further calculations:
-        W_init = lambda: tf.random_normal(
-            shape=(1, parameters.caps1_ncaps, parameters.caps2_ncaps, parameters.caps2_ndims, parameters.caps1_ndims),
-            stddev=parameters.init_sigma, dtype=tf.float32, name='W_init')
+        if parameters.random_seed:
+            W_init = lambda: tf.random_normal(
+                shape=(1, parameters.caps1_ncaps, parameters.caps2_ncaps, parameters.caps2_ndims, parameters.caps1_ndims),
+                stddev=parameters.init_sigma, dtype=tf.float32, seed=42, name='W_init')
+        else:
+            W_init = lambda: tf.random_normal(
+                shape=(
+                1, parameters.caps1_ncaps, parameters.caps2_ncaps, parameters.caps2_ndims, parameters.caps1_ndims),
+                stddev=parameters.init_sigma, dtype=tf.float32, name='W_init')
+
         W = tf.Variable(W_init, dtype=tf.float32, name="W")
         W_tiled = tf.tile(W, [parameters.batch_size, 1, 1, 1, 1], name="W_tiled")
 
@@ -129,7 +142,7 @@ def secondary_caps_layer(caps1_output, parameters):
         
         # Compute the norm of the output for each output caps and each instance:
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')
-        tf.summary.histogram('3_caps2_output_norm', caps2_output_norm[0, :, :, :])
+        tf.summary.histogram('caps2_output_norm', caps2_output_norm[0, :, :, :])
         return caps2_output, caps2_output_norm
 
 
@@ -194,12 +207,14 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
     # Finally comes the decoder (two dense fully connected ELU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder'):
         hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1' + name_extra)
-        hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn' + name_extra)
+        if parameters.batch_norm_decoder:
+            hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn' + name_extra)
         hidden1 = tf.nn.elu(hidden1, name='hidden1_activation')
         tf.summary.histogram('_hidden1_bn' + name_extra, hidden1)
 
         hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, use_bias=False, activation=None, name='hidden2' + name_extra)
-        hidden2 = tf.layers.batch_normalization(hidden2, training=phase, name='hidden2_bn' + name_extra)
+        if parameters.batch_norm_decoder:
+            hidden2 = tf.layers.batch_normalization(hidden2, training=phase, name='hidden2_bn' + name_extra)
         hidden2 = tf.nn.elu(hidden2, name='hidden2_activation')
         tf.summary.histogram('_hidden2_bn' + name_extra, hidden2)
 
