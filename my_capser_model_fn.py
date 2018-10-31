@@ -77,41 +77,54 @@ def model_fn(features, labels, mode, params):
         
         # Define the loss-function to be optimized
         margin_loss = compute_margin_loss(caps2_output_norm, shapelabels, parameters)
-        tf.summary.scalar('2_margin_loss', margin_loss)
+        tf.summary.scalar('2_margin_loss', parameters.alpha_margin * margin_loss)
         
-        with tf.name_scope('Reconstruction_loss'):
+        with tf.name_scope('3_Reconstruction_loss'):
             # Create decoder outputs for vernier and shape images batch
             vernier_decoder_output, vernier_decoder_output_img = compute_reconstruction(
                     mask_with_labels, shapelabels[:, 0], shapelabels_pred[:, 0], caps2_output, parameters, is_training, '_vernier')
             shape_decoder_output, shape_decoder_output_img = compute_reconstruction(
                     mask_with_labels, shapelabels[:, 1], shapelabels_pred[:, 1], caps2_output, parameters, is_training, '_shape')
             decoder_output_img = vernier_decoder_output_img + shape_decoder_output_img
+
+            tf.summary.image('decoder_output_img', decoder_output_img, 6)
+            tf.summary.image('vernier_decoder_output_img', vernier_decoder_output_img, 6)
+            tf.summary.image('shape_decoder_output_img', shape_decoder_output_img, 6)
             
             # Calculate reconstruction loss for vernier and shapes images batch
             vernier_reconstruction_loss = compute_reconstruction_loss(vernier_images, vernier_decoder_output, parameters)
             shape_reconstruction_loss = compute_reconstruction_loss(shape_images, shape_decoder_output, parameters)
             reconstruction_loss = vernier_reconstruction_loss + shape_reconstruction_loss
-            
-            tf.summary.image('decoder_output_img', decoder_output_img, 6)
-            tf.summary.scalar('3_reconstruction_loss', reconstruction_loss)
+
+            tf.summary.scalar('vernier_reconstruction_loss', parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss)
+            tf.summary.scalar('shape_reconstruction_loss', parameters.alpha_shape_reconstruction * shape_reconstruction_loss)
+            tf.summary.scalar('reconstruction_loss', reconstruction_loss)
 
 
-        tf.summary.scalar('4_vernieroffset_loss', vernieroffset_loss)
+        tf.summary.scalar('4_vernieroffset_loss', parameters.alpha_vernieroffset * vernieroffset_loss)
         tf.summary.scalar('5_vernieroffset_accuracy', vernieroffset_accuracy)
 
         # Combine all previously defined losses:
         final_loss = tf.add_n([parameters.alpha_margin * margin_loss,
-                      parameters.alpha_reconstruction * reconstruction_loss,
-                      parameters.alpha_vernieroffset * vernieroffset_loss],
-                      name='final_loss')
+                               parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss,
+                               parameters.alpha_shape_reconstruction * shape_reconstruction_loss,
+                               parameters.alpha_vernieroffset * vernieroffset_loss],
+                              name='final_loss')
 
 
-        # Training operations: Adam optimizer with default TF parameters
+        # Training operations: learning rate
+        global_step = tf.train.get_global_step()
+        if parameters.exp_learning_decay:
+            learning_rate = tf.train.exponential_decay(parameters.learning_rate, global_step, parameters.decay_steps, parameters.decay_rate, staircase=True)
+        else:
+            learning_rate = parameters.learning_rate
+
+        # Training operations: Adam optimizer considering bn if applied
         if parameters.batch_norm_conv or parameters.batch_norm_decoder:
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
-                optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
-                train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+                train_op = optimizer.minimize(loss=final_loss, global_step=global_step, name='train_op')
         else:
             optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
             train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')

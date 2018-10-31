@@ -22,22 +22,24 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = 'test_new19'
+MODEL_NAME = 'test_new25'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
 ###########################
-#     Reproducability     #
+#     Reproducibility     #
 ###########################
-flags.DEFINE_boolean('random_seed', True,  'if true, set random_seed=42 for the weights initialization')
+flags.DEFINE_boolean('random_seed', False,  'if true, set random_seed=42 for the weights initialization')
+# Note: seed=42 usually leads to very bad results (= no vernier offset discrimination)
+# Contrary to that seed=1 leads to good results
 
 
 ###########################
 #   Stimulus parameters   #
 ###########################
-batch_size = 32
-n_steps = 5000
-eval_freq = 50
+batch_size = 64
+n_steps = 10000
+eval_freq = 25
 flags.DEFINE_integer('n_train_samples', batch_size*n_steps, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', batch_size*eval_freq, 'number of samples in the test set')
 
@@ -49,7 +51,7 @@ flags.DEFINE_integer('shape_size', 20, 'size of the shapes')
 flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('n_shapes', [1, 3, 5, 7], 'pool of shape repetitions per stimulus')
-flags.DEFINE_float('noise', 0.005, 'amount of added random Gaussian noise')
+flags.DEFINE_float('noise', 0.025, 'amount of added random Gaussian noise')
 
 
 ###########################
@@ -67,14 +69,14 @@ stride3 = 2
 dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
 dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 
-conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
-                'padding': 'valid', 'activation': tf.nn.relu}
+conv1_params = {'filters': caps1_nmaps*caps1_ndims // 4, 'kernel_size': kernel1, 'strides': stride1,
+                'padding': 'valid'}
 
-conv2_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel2, 'strides': stride2,
-                'padding': 'valid', 'activation': tf.nn.relu}
+conv2_params = {'filters': caps1_nmaps*caps1_ndims // 4, 'kernel_size': kernel2, 'strides': stride2,
+                'padding': 'valid'}
 
 conv3_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel3, 'strides': stride3,
-                'padding': 'valid', 'activation': tf.nn.relu}
+                'padding': 'valid'}
 
 flags.DEFINE_integer('caps1_nmaps', caps1_nmaps, 'primary caps, number of feature maps')
 flags.DEFINE_integer('caps1_ncaps', caps1_nmaps * dim1 * dim2, 'primary caps, number of caps')
@@ -104,17 +106,24 @@ flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_freq', eval_freq, 'frequency for eval spec')
 flags.DEFINE_integer('n_epochs', 1, 'number of epochs')
 flags.DEFINE_integer('n_steps', n_steps, 'number of steps')
-flags.DEFINE_float('learning_rate', 0.001, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 3, 'number of iterations in routing algorithm')
-
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
-flags.DEFINE_float('regularization_scale', 0.0005*im_size[0]*im_size[1],
-                   'regularization coefficient for reconstruction loss, default to 0.0005*im_size[0]*im_size[1] (reduce_mean)')
+
+# Learning rate
+flags.DEFINE_boolean('exp_learning_decay', True, 'if true, use the following parameters for exponential learning rate decay')
+flags.DEFINE_float('learning_rate', 0.002, 'chosen learning rate for training')
+flags.DEFINE_integer('decay_steps', 500, 'number of steps after which the learning rate exp decays')
+flags.DEFINE_float('decay_rate', 0.90, 'decay rate for exponential decay of learning rate')
+
+# Losses
+# flags.DEFINE_float('regularization_scale', 0.0005*im_size[0]*im_size[1], 'regularization coefficient for reconstruction loss, default to 0.0005*im_size[0]*im_size[1] (reduce_mean)')
 flags.DEFINE_float('alpha_margin', 1., 'alpha for margin loss')
-flags.DEFINE_float('alpha_reconstruction', 0.0005, 'alpha for reconstruction loss (reduce_sum)')
+flags.DEFINE_float('alpha_vernier_reconstruction', 0.001, 'alpha for reconstruction loss for vernier image (reduce_sum)')
+flags.DEFINE_float('alpha_shape_reconstruction', 0.0005, 'alpha for reconstruction loss for shape image (reduce_sum)')
 flags.DEFINE_float('alpha_vernieroffset', 1., 'alpha for vernieroffset loss')
 
-flags.DEFINE_boolean('batch_norm_conv', False, 'use batch normalization between every conv layer')  #
+# Regulariztion:
+flags.DEFINE_boolean('batch_norm_conv', True, 'use batch normalization between every conv layer')  #
 flags.DEFINE_boolean('batch_norm_decoder', True, 'use batch normalization for the decoder layers')
 
 

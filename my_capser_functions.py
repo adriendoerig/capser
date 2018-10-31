@@ -88,17 +88,22 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 ###################################
 def conv_layers(X, conv1_params, conv2_params, conv3_params, parameters, phase=True):
     with tf.name_scope('1_convolutional_layers'):
-        conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
+        conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **conv1_params)
         if parameters.batch_norm_conv:
             conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+        conv1 = tf.nn.relu(conv1)
         tf.summary.histogram('conv1_output', conv1)
-        conv2 = tf.layers.conv2d(conv1, name='conv2', **conv2_params)
+
+        conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **conv2_params)
         if parameters.batch_norm_conv:
             conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
+        conv2 = tf.nn.relu(conv2)
         tf.summary.histogram('conv2_output', conv2)
-        conv3 = tf.layers.conv2d(conv2, name='conv3', **conv3_params)
+
+        conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **conv3_params)
         if parameters.batch_norm_conv:
             conv3 = tf.layers.batch_normalization(conv3, training=phase, name='conv3_bn')
+        conv3 = tf.nn.relu(conv3)
         tf.summary.histogram('conv3_output', conv3)
         return conv3
 
@@ -118,7 +123,7 @@ def secondary_caps_layer(caps1_output, parameters):
         if parameters.random_seed:
             W_init = lambda: tf.random_normal(
                 shape=(1, parameters.caps1_ncaps, parameters.caps2_ncaps, parameters.caps2_ndims, parameters.caps1_ndims),
-                stddev=parameters.init_sigma, dtype=tf.float32, seed=42, name='W_init')
+                stddev=parameters.init_sigma, dtype=tf.float32, seed=1, name='W_init')
         else:
             W_init = lambda: tf.random_normal(
                 shape=(

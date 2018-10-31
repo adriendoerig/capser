@@ -34,7 +34,7 @@ print('-------------------------------------------------------')
 ###########################
 #      Preparations:      #
 ###########################
-# For reproducability:
+# For reproducibility:
 tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
