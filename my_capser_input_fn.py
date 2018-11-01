@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 My script for the input fn that is working with tfrecords files
-Last update on 29.10.2018
+Last update on 31.10.2018
 @author: Lynn
 """
 
@@ -87,12 +87,15 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
     nshapeslabels = tf.reshape(nshapeslabels, [parameters.batch_size, 1])
     vernierlabels = tf.reshape(vernierlabels, [parameters.batch_size, 1])
 
-    # Add some random gaussian noise:
-    vernier_images = tf.add(vernier_images, tf.random_normal(shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0, stddev=parameters.noise))
-    shape_images = tf.add(shape_images, tf.random_normal(shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0, stddev=parameters.noise))
-
     # The input-function must return a dict wrapping the images.
     if train:
+        # Add some random gaussian noise:
+        vernier_images = tf.add(vernier_images, tf.random_normal(
+            shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
+            stddev=parameters.train_noise))
+        shape_images = tf.add(shape_images, tf.random_normal(
+            shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
+            stddev=parameters.train_noise))
         feed_dict = {'vernier_images': vernier_images,
                      'shape_images': shape_images,
                      'shapelabels': shapelabels,
@@ -101,6 +104,13 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
                      'mask_with_labels': True,
                      'is_training': True}
     else:
+        # Add some random gaussian noise:
+        vernier_images = tf.add(vernier_images, tf.random_normal(
+            shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
+            stddev=parameters.test_noise))
+        shape_images = tf.add(shape_images, tf.random_normal(
+            shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
+            stddev=parameters.test_noise))
         feed_dict = {'vernier_images': vernier_images,
                      'shape_images': shape_images,
                      'shapelabels': shapelabels,

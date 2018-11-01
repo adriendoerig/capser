@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Second try: model fn with tfrecords files
-Last update on 29.10.2018
+Last update on 01.11.2018
 @author: Lynn
 
 All functions that are called in this script are described in more detail in
@@ -9,6 +9,7 @@ my_capser_functions.py
 """
 
 import tensorflow as tf
+import numpy as np
 
 from my_parameters import parameters
 from my_parameters import conv1_params, conv2_params, conv3_params
@@ -28,27 +29,35 @@ def model_fn(features, labels, mode, params):
     # Inputs
     vernier_images = features['vernier_images']
     shape_images = features['shape_images']
-    X = tf.add(vernier_images, shape_images)
-    tf.summary.image('input_images', X, 6)
-
     shapelabels = labels
     vernierlabels = features['vernier_offsets']
-    
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
+
+    # For the case that we want a vernier only condition (not implemented yet and also not sure whether this makes sense):
+    if parameters.only_venier and features['is_training']:
+        only_vernier_cond_idx = np.random.choice(parameters.batch_size, int(parameters.batch_size * parameters.only_venier_percent), False)
+        print(only_vernier_cond_idx, '\n')
+        tf.assign(shape_images[only_vernier_cond_idx, :, :, :], vernier_images[only_vernier_cond_idx, :, :, :])
+        shapelabels[only_vernier_cond_idx, 1] = 0
+
+    X = tf.add(vernier_images, shape_images)
+    tf.summary.image('input_images', X, 6)
     
     ###################################################
     
-    # Convolutional layers:
+    # Create convolutional layers and their output:
     conv_output = conv_layers(X, conv1_params, conv2_params, conv3_params, parameters, is_training)
     
-    # Primary caps:
+    # Create primary caps and their output:
     caps1_output = primary_caps_layer(conv_output, parameters)
     
-    # Secondary caps:
+    # Create secondary caps and their output and also divide vernier caps activation and shape caps activation:
     caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters)
-    
     vernier_caps_activation = caps2_output[:, :, 0, :, :]
+    vernier_caps_activation = tf.expand_dims(vernier_caps_activation, 2)
+
+    # Give me different measures of vernier acuity only based on what the vernier capsule is doing:
     pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)
     
     ###################################################
@@ -81,8 +90,9 @@ def model_fn(features, labels, mode, params):
         
         with tf.name_scope('3_Reconstruction_loss'):
             # Create decoder outputs for vernier and shape images batch
+            # Note: instead of passing vernier_caps_activation, you can also pass caps2_output but I think it slows down the calculations
             vernier_decoder_output, vernier_decoder_output_img = compute_reconstruction(
-                    mask_with_labels, shapelabels[:, 0], shapelabels_pred[:, 0], caps2_output, parameters, is_training, '_vernier')
+                    mask_with_labels, shapelabels[:, 0], shapelabels_pred[:, 0], vernier_caps_activation, parameters, is_training, '_vernier')
             shape_decoder_output, shape_decoder_output_img = compute_reconstruction(
                     mask_with_labels, shapelabels[:, 1], shapelabels_pred[:, 1], caps2_output, parameters, is_training, '_shape')
             decoder_output_img = vernier_decoder_output_img + shape_decoder_output_img
@@ -92,6 +102,7 @@ def model_fn(features, labels, mode, params):
             tf.summary.image('shape_decoder_output_img', shape_decoder_output_img, 6)
             
             # Calculate reconstruction loss for vernier and shapes images batch
+
             vernier_reconstruction_loss = compute_reconstruction_loss(vernier_images, vernier_decoder_output, parameters)
             shape_reconstruction_loss = compute_reconstruction_loss(shape_images, shape_decoder_output, parameters)
             reconstruction_loss = vernier_reconstruction_loss + shape_reconstruction_loss

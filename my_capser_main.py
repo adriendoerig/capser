@@ -2,7 +2,7 @@
 """
 My capsnet: On my way to an own capsnet!
 After the 100th try: Main script (that is actually working!)
-Last update on 29.10.2018
+Last update on 31.10.2018
 @author: Lynn
 
 This script is needed to execute the training, evaluation and prediction
@@ -90,7 +90,7 @@ for n_category in range(len(parameters.test_data_paths)):
         print('Result: ' + str(results[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
     
     txt_file_name = parameters.logdir + '/uncrowding_exp_results_step_' + str(parameters.n_steps) + \
-    '_noise_' + str(parameters.noise) + '_shape_size_' + str(parameters.shape_size) + '.txt'
+    '_noise_' + str(parameters.test_noise) + '_shape_size_' + str(parameters.shape_size) + '.txt'
     if not os.path.exists(txt_file_name):
         with open(txt_file_name, 'w') as f:
             f.write(category + ' : \t' + str(results) + '\n')

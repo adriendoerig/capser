@@ -6,7 +6,7 @@ Including:
     squash, safe_norm, routing_by_agreement,
     compute_margin_loss, compute_reconstruction, compute_reconstruction_loss,
     conv_layers, primary_caps_layer, secondary_caps_layer, caps_prediction
-Last update on 29.10.2018
+Last update on 31.10.2018
 @author: Lynn
 """
 
@@ -200,13 +200,14 @@ def compute_accuracy(labels, labels_pred):
 ################################
 def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, parameters, phase=True, name_extra=None):
     with tf.name_scope('compute_decoder_input'):
+        current_caps2_ncaps = caps2_output.get_shape().as_list()[2]
         reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
-        reconstruction_mask = tf.one_hot(reconstruction_targets, depth=parameters.caps2_ncaps, name='reconstruction_mask')
-        reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
+        reconstruction_mask = tf.one_hot(reconstruction_targets, depth=current_caps2_ncaps, name='reconstruction_mask')
+        reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, current_caps2_ncaps, 1, 1], name='reconstruction_mask')
         caps2_output_masked = tf.multiply(caps2_output, reconstruction_mask, name='caps2_output_masked')
         
         # Flatten decoder inputs:
-        decoder_input = tf.reshape(caps2_output_masked, [parameters.batch_size, parameters.caps2_ndims*parameters.caps2_ncaps], name='decoder_input')
+        decoder_input = tf.reshape(caps2_output_masked, [parameters.batch_size, parameters.caps2_ndims*current_caps2_ncaps], name='decoder_input')
 
     # Finally comes the decoder (two dense fully connected ELU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder'):

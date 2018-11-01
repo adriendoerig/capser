@@ -2,7 +2,7 @@
 """
 My capsnet: my_batchmaker!
 Involving all basic shapes (verniers, squares, circles, polygons, stars)
-Last update on 29.10.2018
+Last update on 31.10.2018
 @author: Lynn
 """
 
@@ -238,8 +238,8 @@ class stim_maker_fn:
                             vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                         col += self.shapeSize
 
-            vernier_images[idx_batch, :, :] = vernier_image + np.random.normal(0, noise, size=self.imSize)
-            shape_images[idx_batch, :, :] = shape_image + np.random.normal(0, noise, size=self.imSize)
+            vernier_images[idx_batch, :, :] = vernier_image #+ np.random.normal(0, noise, size=self.imSize)
+            shape_images[idx_batch, :, :] = shape_image #+ np.random.normal(0, noise, size=self.imSize)
             shapelabels[idx_batch, 0] = 0
             shapelabels[idx_batch, 1] = selected_shape 
             nshapeslabels[idx_batch] = selected_repetitions
@@ -301,10 +301,10 @@ class stim_maker_fn:
                     col = np.random.randint(0, self.imSize[1] - self.shapeSize)
                 vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
             
-            vernier_images[idx_batch, :, :] = vernier_image + np.random.normal(0, noise, size=self.imSize)
-            shape_images[idx_batch, :, :] = shape_image + np.random.normal(0, noise, size=self.imSize)
+            vernier_images[idx_batch, :, :] = vernier_image #+ np.random.normal(0, noise, size=self.imSize)
+            shape_images[idx_batch, :, :] = shape_image #+ np.random.normal(0, noise, size=self.imSize)
             shapelabels[idx_batch, 0] = 0
-            shapelabels[idx_batch, 1] = selected_shape  
+            shapelabels[idx_batch, 1] = selected_shape
             nshapeslabels[idx_batch] = selected_repetitions
             vernierlabels[idx_batch] = offset_direction
 

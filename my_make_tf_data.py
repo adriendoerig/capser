@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 My script to create tfrecords files based on batchmaker class
-Last update on 29.10.2018
+Last update on 31.10.2018
 @author: Lynn
 
 This code is inspired by this youtube-vid and code:
@@ -114,7 +114,7 @@ if training:
     mode = 'training'
     shape_types_train = parameters.shape_types
     make_tfrecords(stim_maker, mode, shape_types_train, parameters.n_shapes,
-                   parameters.n_train_samples, parameters.noise, parameters.train_data_path)
+                   parameters.n_train_samples, parameters.train_noise, parameters.train_data_path)
     print('\n-------------------------------------------------------')
     print('Finished creation of training set')
     print('-------------------------------------------------------')
@@ -129,14 +129,14 @@ if testing:
         test_data_path = parameters.test_data_paths[i]
         eval_file = test_data_path + '.tfrecords'
         make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                       parameters.n_test_samples, parameters.noise, eval_file)
+                       parameters.n_test_samples, parameters.test_noise, eval_file)
         
         if not os.path.exists(test_data_path):
             os.mkdir(test_data_path)
         for stim_idx in range(3):
             test_file = test_data_path + '/' + str(stim_idx) + '.tfrecords'
             make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                           parameters.n_test_samples, parameters.noise, test_file, stim_idx)
+                           parameters.n_test_samples, parameters.test_noise, test_file, stim_idx)
     print('\n-------------------------------------------------------')
     print('Finished creation of test sets')
     print('-------------------------------------------------------')
