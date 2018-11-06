@@ -53,7 +53,7 @@ beholder_hook = BeholderHook(parameters.logdir)
 # Create the estimator:
 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
-eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_freq)
+eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
 
 # Save parameters from parameter file for reproducability
 save_params(parameters)
@@ -67,9 +67,6 @@ tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
 ##################################
 # Lets have less annoying logs:
 logging.getLogger().setLevel(logging.CRITICAL)
-
-# We need this many batches to go through all the test_samples:
-n_batches = parameters.n_test_samples // parameters.batch_size * 2
 
 
 for n_category in range(len(parameters.test_data_paths)):

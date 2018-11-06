@@ -105,11 +105,10 @@ def model_fn(features, labels, mode, params):
 
             vernier_reconstruction_loss = compute_reconstruction_loss(vernier_images, vernier_decoder_output, parameters)
             shape_reconstruction_loss = compute_reconstruction_loss(shape_images, shape_decoder_output, parameters)
-            reconstruction_loss = vernier_reconstruction_loss + shape_reconstruction_loss
 
             tf.summary.scalar('vernier_reconstruction_loss', parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss)
             tf.summary.scalar('shape_reconstruction_loss', parameters.alpha_shape_reconstruction * shape_reconstruction_loss)
-            tf.summary.scalar('reconstruction_loss', reconstruction_loss)
+            tf.summary.scalar('reconstruction_loss', parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss + parameters.alpha_shape_reconstruction * shape_reconstruction_loss)
 
 
         tf.summary.scalar('4_vernieroffset_loss', parameters.alpha_vernieroffset * vernieroffset_loss)
