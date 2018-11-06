@@ -16,7 +16,7 @@ import os
 #from tensorboard.plugins.beholder import BeholderHook
 
 from GCP_parameters import logdir_path, n_steps, eval_freq, n_test_samples, batch_size, \
-test_data_paths, 
+test_data_paths
 from GCP_capser_model_fn import model_fn
 from GCP_capser_input_fn import train_input_fn, eval_input_fn, predict_input_fn
 #from my_capser_functions import save_params
