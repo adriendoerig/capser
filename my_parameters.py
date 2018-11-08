@@ -133,8 +133,7 @@ flags.DEFINE_float('alpha_location', 1., 'alpha for location loss')
 
 
 # Regulariztion:
-flags.DEFINE_boolean('batch_norm_conv', True, 'use batch normalization between every conv layer')  #
+flags.DEFINE_boolean('batch_norm_conv', True, 'use batch normalization between every conv layer')
 flags.DEFINE_boolean('batch_norm_decoder', True, 'use batch normalization for the decoder layers')
-
 
 parameters = tf.app.flags.FLAGS
