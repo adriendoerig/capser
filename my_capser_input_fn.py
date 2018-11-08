@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 My script for the input fn that is working with tfrecords files
-Last update on 31.10.2018
+Last update on 08.11.2018
 @author: Lynn
 """
 

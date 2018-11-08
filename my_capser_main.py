@@ -2,7 +2,7 @@
 """
 My capsnet: On my way to an own capsnet!
 After the 100th try: Main script (that is actually working!)
-Last update on 31.10.2018
+Last update on 08.11.2018
 @author: Lynn
 
 This script is needed to execute the training, evaluation and prediction
@@ -53,7 +53,7 @@ beholder_hook = BeholderHook(parameters.logdir)
 # Create the estimator:
 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
-eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_freq)
+eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
 
 # Save parameters from parameter file for reproducability
 save_params(parameters)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 My script to create tfrecords files based on batchmaker class
-Last update on 31.10.2018
+Last update on 08.11.2018
 @author: Lynn
 
 This code is inspired by this youtube-vid and code:
