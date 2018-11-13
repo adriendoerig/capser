@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 My script to create tfrecords files based on batchmaker class
-Last update on 08.11.2018
 @author: Lynn
 
 This code is inspired by this youtube-vid and code:
 https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
+
+Last update on 13.11.2018
+-> added requirements for nshapes and location loss
 """
 
 import sys
@@ -68,10 +70,12 @@ def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, o
             
             # Either create training or testing dataset
             if state=='training':
-                vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
+                [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
+                 x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
             elif state=='testing':
                 chosen_shape = shape_types
-                vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, noise)
+                [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
+                 x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, noise)
 
             # Convert the image to raw bytes.
             vernier_images_bytes = vernier_images.tostring()
@@ -79,13 +83,21 @@ def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, o
             shapelabels_bytes = shapelabels.tostring()
             nshapeslabels_bytes = nshapeslabels.tostring()
             vernierlabels_bytes = vernierlabels.tostring()
+            x_shape_bytes = x_shape.tostring()
+            y_shape_bytes = y_shape.tostring()
+            x_vernier_bytes = x_vernier.tostring()
+            y_vernier_bytes = y_vernier.tostring()
 
             # Create a dict with the data to save in the TFRecords file
             data = {'vernier_images': wrap_bytes(vernier_images_bytes),
                     'shape_images': wrap_bytes(shape_images_bytes),
                     'shapelabels': wrap_bytes(shapelabels_bytes),
                     'nshapeslabels': wrap_bytes(nshapeslabels_bytes),
-                    'vernierlabels': wrap_bytes(vernierlabels_bytes)}
+                    'vernierlabels': wrap_bytes(vernierlabels_bytes),
+                    'x_shape': wrap_bytes(x_shape_bytes),
+                    'y_shape': wrap_bytes(y_shape_bytes),
+                    'x_vernier': wrap_bytes(x_vernier_bytes),
+                    'y_vernier': wrap_bytes(y_vernier_bytes)}
 
             # Wrap the data as TensorFlow Features.
             feature = tf.train.Features(feature=data)

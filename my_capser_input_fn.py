@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 My script for the input fn that is working with tfrecords files
-Last update on 08.11.2018
 @author: Lynn
+
+Last update on 13.11.2018
+-> added requirements for nshapes and location loss
+-> added some data augmentation (random noise & l/r, u/d flipping)
 """
 
 import tensorflow as tf
@@ -19,7 +22,11 @@ def parse_tfrecords(serialized_data):
                 'shape_images': tf.FixedLenFeature([], tf.string),
                 'shapelabels': tf.FixedLenFeature([], tf.string),
                 'nshapeslabels': tf.FixedLenFeature([], tf.string),
-                'vernierlabels': tf.FixedLenFeature([], tf.string)}
+                'vernierlabels': tf.FixedLenFeature([], tf.string),
+                'x_shape': tf.FixedLenFeature([], tf.string),
+                'y_shape': tf.FixedLenFeature([], tf.string),
+                'x_vernier': tf.FixedLenFeature([], tf.string),
+                'y_vernier': tf.FixedLenFeature([], tf.string)}
 
     # Parse the serialized data so we get a dict with our data.
     parsed_data = tf.parse_single_example(serialized=serialized_data, features=features)
@@ -45,7 +52,23 @@ def parse_tfrecords(serialized_data):
     vernierlabels = parsed_data['vernierlabels']
     vernierlabels = tf.decode_raw(vernierlabels, tf.float32)
     vernierlabels = tf.cast(vernierlabels, tf.int64)
-    return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels
+    
+    x_shape = parsed_data['x_shape']
+    x_shape = tf.decode_raw(x_shape, tf.float32)
+    x_shape = tf.cast(x_shape, tf.int64)
+    
+    y_shape = parsed_data['y_shape']
+    y_shape = tf.decode_raw(y_shape, tf.float32)
+    y_shape = tf.cast(y_shape, tf.int64)
+    
+    x_vernier = parsed_data['x_vernier']
+    x_vernier = tf.decode_raw(x_vernier, tf.float32)
+    x_vernier = tf.cast(x_vernier, tf.int64)
+    
+    y_vernier = parsed_data['y_vernier']
+    y_vernier = tf.decode_raw(y_vernier, tf.float32)
+    y_vernier = tf.cast(y_vernier, tf.int64)
+    return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
 
 
 ###########################
@@ -78,7 +101,8 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
     iterator = dataset.make_one_shot_iterator()
     
     # Get the next batch of images and labels.
-    vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels = iterator.get_next()
+    [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, 
+     x_shape, y_shape, x_vernier, y_vernier] = iterator.get_next()
 
     # reshape images (they were flattened when transformed into bytes)
     vernier_images = tf.reshape(vernier_images, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
@@ -86,36 +110,89 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
     shapelabels = tf.reshape(shapelabels, [parameters.batch_size, 2])
     nshapeslabels = tf.reshape(nshapeslabels, [parameters.batch_size, 1])
     vernierlabels = tf.reshape(vernierlabels, [parameters.batch_size, 1])
+    x_shape = tf.reshape(x_shape, [parameters.batch_size, 1])
+    y_shape = tf.reshape(y_shape, [parameters.batch_size, 1])
+    x_vernier = tf.reshape(x_vernier, [parameters.batch_size, 1])
+    y_vernier = tf.reshape(y_vernier, [parameters.batch_size, 1])
 
-    # The input-function must return a dict wrapping the images.
+
     if train:
-        # Add some random gaussian noise:
+###############################################
+#       Lets do some data augmentation:       #
+###############################################
+        # Add some random gaussian TRAINING noise (always):
         vernier_images = tf.add(vernier_images, tf.random_normal(
             shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
             stddev=parameters.train_noise))
         shape_images = tf.add(shape_images, tf.random_normal(
             shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
             stddev=parameters.train_noise))
+        
+        # Flipping (code is somewhat messy, but the following calculations r used):
+        # - change vernierlabels: abs(vernierlabels - 1)
+        # - change coordinates shape / coordinates vernier (nshapes=1):
+        #       - x: im_size[1] - (x + nshapes*shapesize)
+        #       - y: im_size[0] - (y + shapesize)
+
+        rnd_idx = np.random.randint(0, 4)
+
+        # flip left-right:
+        if rnd_idx==1:
+            vernier_images = tf.image.flip_left_right(vernier_images)
+            shape_images = tf.image.flip_left_right(shape_images)
+            vernierlabels = tf.abs(tf.subtract(vernierlabels, 1))
+            x_shape = tf.subtract(tf.constant(parameters.im_size[1], tf.int64), tf.add(x_shape,
+                                  tf.multiply(nshapeslabels, parameters.shape_size)))
+            x_vernier = tf.subtract(tf.constant(parameters.im_size[1], tf.int64), tf.add(x_vernier, parameters.shape_size))
+        # flip up-down:
+        elif rnd_idx==2:
+            vernier_images = tf.image.flip_up_down(vernier_images)
+            shape_images = tf.image.flip_up_down(shape_images)
+            vernierlabels = tf.abs(tf.subtract(vernierlabels, 1))
+            y_shape = tf.subtract(tf.constant(parameters.im_size[0], tf.int64), tf.add(y_shape, parameters.shape_size))
+            y_vernier = tf.subtract(tf.constant(parameters.im_size[0], tf.int64), tf.add(y_vernier, parameters.shape_size))
+        # flip left-right and up-down:
+        elif rnd_idx==3:
+            vernier_images = tf.image.flip_up_down(tf.image.flip_left_right(vernier_images))
+            shape_images = tf.image.flip_up_down(tf.image.flip_left_right(shape_images))
+            x_shape = tf.subtract(tf.constant(parameters.im_size[1], tf.int64), tf.add(x_shape,
+                                  tf.multiply(nshapeslabels, parameters.shape_size)))
+            y_shape = tf.subtract(tf.constant(parameters.im_size[0], tf.int64), tf.add(y_shape, parameters.shape_size))
+            x_vernier = tf.subtract(tf.constant(parameters.im_size[1], tf.int64), tf.add(x_vernier, parameters.shape_size))
+            y_vernier = tf.subtract(tf.constant(parameters.im_size[0], tf.int64), tf.add(y_vernier, parameters.shape_size))
+
+
         feed_dict = {'vernier_images': vernier_images,
                      'shape_images': shape_images,
                      'shapelabels': shapelabels,
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
+                     'x_shape': x_shape,
+                     'y_shape': y_shape,
+                     'x_vernier': x_vernier,
+                     'y_vernier': y_vernier,
                      'mask_with_labels': True,
                      'is_training': True}
+
     else:
-        # Add some random gaussian noise:
+        # For the test and validation set, we dont really need data augmentation,
+        # but we'd still like some TEST noise
         vernier_images = tf.add(vernier_images, tf.random_normal(
             shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
             stddev=parameters.test_noise))
         shape_images = tf.add(shape_images, tf.random_normal(
             shape=[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
             stddev=parameters.test_noise))
+
         feed_dict = {'vernier_images': vernier_images,
                      'shape_images': shape_images,
                      'shapelabels': shapelabels,
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
+                     'x_shape': x_shape,
+                     'y_shape': y_shape,
+                     'x_vernier': x_vernier,
+                     'y_vernier': y_vernier,
                      'mask_with_labels': False,
                      'is_training': False}
     return feed_dict, shapelabels

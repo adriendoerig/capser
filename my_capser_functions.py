@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-My capsnet: capsule functions
-Version 2
+My capsnet: all functions relevant for the capsnet
 Including:
     squash, safe_norm, routing_by_agreement,
-    compute_margin_loss, compute_reconstruction, compute_reconstruction_loss,
-    conv_layers, primary_caps_layer, secondary_caps_layer, caps_prediction
-Last update on 08.11.2018
+    conv_layers, primary_caps_layer, secondary_caps_layer,
+    predict_shapelabels, create_masked_decoder_input, compute_margin_loss,
+    compute_accuracy, compute_reconstruction, compute_reconstruction_loss,
+    compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
+
+Last update on 13.11.2018
+-> added nshapes and location loss
 """
 
 import tensorflow as tf
@@ -101,8 +104,8 @@ def conv_layers(X, conv1_params, conv2_params, conv3_params, parameters, phase=T
         tf.summary.histogram('conv2_output', conv2)
 
         conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **conv3_params)
-        if parameters.batch_norm_conv:
-            conv3 = tf.layers.batch_normalization(conv3, training=phase, name='conv3_bn')
+#        if parameters.batch_norm_conv:
+#            conv3 = tf.layers.batch_normalization(conv3, training=phase, name='conv3_bn')
         conv3 = tf.nn.relu(conv3)
         tf.summary.histogram('conv3_output', conv3)
         return conv3
@@ -196,9 +199,9 @@ def compute_accuracy(labels, labels_pred):
 
 
 ################################
-#       Reconstruction:        #
+#    Create decoder input:     #
 ################################
-def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, parameters, phase=True, name_extra=None):
+def create_masked_decoder_input(mask_with_labels, labels, labels_pred, caps2_output, parameters):
     with tf.name_scope('compute_decoder_input'):
         current_caps2_ncaps = caps2_output.get_shape().as_list()[2]
         reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
@@ -208,9 +211,15 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
         
         # Flatten decoder inputs:
         decoder_input = tf.reshape(caps2_output_masked, [parameters.batch_size, parameters.caps2_ndims*current_caps2_ncaps], name='decoder_input')
+        return decoder_input
 
+
+################################
+#    Create reconstruction:    #
+################################
+def compute_reconstruction(decoder_input,  parameters, phase=True, name_extra=None):
     # Finally comes the decoder (two dense fully connected ELU layers followed by a dense output sigmoid layer):
-    with tf.name_scope('decoder'):
+    with tf.name_scope('decoder_reconstruction'):
         hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1' + name_extra)
         if parameters.batch_norm_decoder:
             hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn' + name_extra)
@@ -223,27 +232,28 @@ def compute_reconstruction(mask_with_labels, labels, labels_pred, caps2_output, 
         hidden2 = tf.nn.elu(hidden2, name='hidden2_activation')
         tf.summary.histogram('_hidden2_bn' + name_extra, hidden2)
 
-        decoder_output = tf.layers.dense(hidden2, parameters.n_output, activation=tf.nn.sigmoid, name='decoder_output' + name_extra)
-        decoder_output_img = tf.reshape(decoder_output, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
-                                        name='decoder_output_img')
-        return decoder_output, decoder_output_img
+        reconstructed_output = tf.layers.dense(hidden2, parameters.n_output, activation=tf.nn.sigmoid, name='reconstructed_output' + name_extra)
+        reconstructed_output_img = tf.reshape(
+                reconstructed_output,[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                name='reconstructed_output_img')
+        return reconstructed_output, reconstructed_output_img
 
 
 ################################
 #     Reconstruction loss:     #
 ################################
-def compute_reconstruction_loss(X, decoder_output, parameters):
+def compute_reconstruction_loss(X, reconstructed_output, parameters):
     with tf.name_scope('compute_reconstruction_loss'):
         imgs_flat = tf.reshape(X, [parameters.batch_size, parameters.n_output], name='imgs_flat')
         imgs_flat = tf.cast(imgs_flat, tf.float32)
-        squared_difference = tf.square(imgs_flat - decoder_output, name='squared_difference')
+        squared_difference = tf.square(imgs_flat - reconstructed_output, name='squared_difference')
         # reconstruction_loss = tf.reduce_mean(squared_difference, name='reconstruction_loss')
         reconstruction_loss = tf.reduce_sum(squared_difference, name='reconstruction_loss')
         return reconstruction_loss
 
 
 ################################
-#     vernieroffset loss:      #
+#     Vernieroffset loss:      #
 ################################
 def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
     with tf.name_scope('compute_vernieroffset_loss'):
@@ -260,3 +270,41 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
         accuracy_vernierlabels = tf.reduce_mean(tf.cast(correct_vernierlabels, tf.float32), name='accuracy_vernierlabels')
         return pred_vernierlabels, xent_vernierlabels, accuracy_vernierlabels
 
+
+################################
+#     nshapeslabels loss:      #
+################################
+def compute_nshapes_loss(shape_decoder_input, nshapeslabels, depth):
+    with tf.name_scope('compute_nshapes_loss'):
+        shape_caps_activation = tf.squeeze(shape_decoder_input)
+        nshapeslabels = tf.squeeze(nshapeslabels)
+        nshapeslabels = tf.cast(nshapeslabels, tf.float32)
+
+        T_nshapes = tf.one_hot(tf.cast(nshapeslabels, tf.int32), depth, name='T_nshapes')
+        logits_nshapes = tf.layers.dense(shape_caps_activation, depth, tf.nn.relu, name='logits_nshapes')
+        xent_nshapes = tf.losses.softmax_cross_entropy(T_nshapes, logits_nshapes)
+
+        pred_nshapes = tf.argmax(logits_nshapes, axis=1)
+        correct_nshapes = tf.equal(nshapeslabels, tf.cast(pred_nshapes, tf.float32), name='correct_nshapes')
+        accuracy_nshapes = tf.reduce_mean(tf.cast(correct_nshapes, tf.float32), name='accuracy_nshapes')
+        return xent_nshapes, accuracy_nshapes
+
+
+################################
+#     location loss:      #
+################################
+def compute_location_loss(decoder_input, x_label, x_depth, y_label, y_depth, name_extra=None):
+    with tf.name_scope('compute_' + name_extra + '_location_loss'):
+        caps_activation = tf.squeeze(decoder_input)
+        x_label = tf.squeeze(x_label)
+        x_label = tf.cast(x_label, tf.float32)
+        T_x = tf.one_hot(tf.cast(x_label, tf.int32), x_depth, name='T_x'+name_extra)
+        x_logits = tf.layers.dense(caps_activation, x_depth, tf.nn.relu, name='logits_x'+name_extra)
+        x_xent = tf.losses.softmax_cross_entropy(T_x, x_logits)
+        
+        y_label = tf.squeeze(y_label)
+        y_label = tf.cast(y_label, tf.float32)
+        T_y = tf.one_hot(tf.cast(y_label, tf.int32), y_depth, name='T_y'+name_extra)
+        y_logits = tf.layers.dense(caps_activation, y_depth, tf.nn.relu, name='logits_y'+name_extra)
+        y_xent = tf.losses.softmax_cross_entropy(T_y, y_logits)
+        return x_xent, y_xent

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-My capsnet: On my way to an own capsnet!
-After the 100th try: Main script (that is actually working!)
-Last update on 08.11.2018
+My capsnet: Main script
+Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-This script is needed to execute the training, evaluation and prediction
+Last update on 13.11.2018
+-> insertion of eval_throttle_secs parameter
 """
 
 import logging
