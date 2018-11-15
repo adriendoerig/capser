@@ -285,6 +285,7 @@ def compute_nshapes_loss(shape_decoder_input, nshapeslabels, depth):
         xent_nshapes = tf.losses.softmax_cross_entropy(T_nshapes, logits_nshapes)
 
         pred_nshapes = tf.argmax(logits_nshapes, axis=1)
+        tf.summary.histogram('pred_nshapes', pred_nshapes)
         correct_nshapes = tf.equal(nshapeslabels, tf.cast(pred_nshapes, tf.float32), name='correct_nshapes')
         accuracy_nshapes = tf.reduce_mean(tf.cast(correct_nshapes, tf.float32), name='accuracy_nshapes')
         return xent_nshapes, accuracy_nshapes

@@ -24,7 +24,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log'
+MODEL_NAME = '_log_new_index'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
@@ -52,8 +52,8 @@ flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('n_shapes', [1, 3, 5, 7], 'pool of shape repetitions per stimulus')
 
 # Can still be changed after creation of tfrecords file:
-flags.DEFINE_float('train_noise', 0.025, 'amount of added random Gaussian noise')
-flags.DEFINE_float('test_noise', 0.05, 'amount of added random Gaussian noise')
+flags.DEFINE_float('train_noise', 0.02, 'amount of added random Gaussian noise')
+flags.DEFINE_float('test_noise', 0.03, 'amount of added random Gaussian noise')
 
 
 ###########################
@@ -107,15 +107,15 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 
 
 # For training
-flags.DEFINE_integer('batch_size', 20, 'batch size')
+flags.DEFINE_integer('batch_size', 12, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 2, 'number of iterations in routing algorithm')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
-flags.DEFINE_integer('eval_throttle_secs', 1800, 'minimal seconds between evaluation passes')
+flags.DEFINE_integer('eval_throttle_secs', 3000, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', 1, 'number of epochs')
-flags.DEFINE_integer('n_steps', 10000, 'number of steps')
+flags.DEFINE_integer('n_steps', 20000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 

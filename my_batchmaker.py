@@ -6,6 +6,7 @@ Involving all basic shapes (verniers, squares, circles, polygons, stars)
 
 Last update on 13.11.2018
 -> added requirements for nshape and location loss
+-> nshapeslabels now with index labels [0, len(n_shapes)]
 """
 
 import numpy as np
@@ -205,6 +206,7 @@ class stim_maker_fn:
             if idx==0:
                 # Vernier test stimuli:
                 selected_repetitions = 0
+                nshapes_label = 0  # actually, this should not have a value but since we only use this for training, its ok!
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize)
                 vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                 x_vernier_ind, y_vernier_ind = col, row
@@ -213,6 +215,7 @@ class stim_maker_fn:
             elif idx==1:
                 # Crowded test stimuli:
                 selected_repetitions = np.min(n_shapes)
+                nshapes_label = 0
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize)
                 vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                 shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
@@ -222,6 +225,7 @@ class stim_maker_fn:
             elif idx==2:
                 # Uncrowded test stimuli:
                 selected_repetitions = np.max(n_shapes)
+                nshapes_label = len(n_shapes)-1
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize*selected_repetitions)
                 x_shape_ind, y_shape_ind = col, row
                 
@@ -255,7 +259,7 @@ class stim_maker_fn:
             shape_images[idx_batch, :, :] = shape_image #+ np.random.normal(0, noise, size=self.imSize)
             shapelabels[idx_batch, 0] = 0
             shapelabels[idx_batch, 1] = selected_shape 
-            nshapeslabels[idx_batch] = selected_repetitions
+            nshapeslabels[idx_batch] = nshapes_label
             vernierlabels[idx_batch] = offset_direction
             x_shape[idx_batch] = x_shape_ind
             y_shape[idx_batch] = y_shape_ind
@@ -334,7 +338,7 @@ class stim_maker_fn:
             shapelabels[idx_batch, 0] = 0
             shapelabels[idx_batch, 1] = selected_shape
             vernierlabels[idx_batch] = offset_direction
-            nshapeslabels[idx_batch] = selected_repetitions
+            nshapeslabels[idx_batch] = idx_n_shapes
             x_shape[idx_batch] = x_shape_ind
             y_shape[idx_batch] = y_shape_ind
             x_vernier[idx_batch] = x_vernier_ind

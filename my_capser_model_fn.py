@@ -147,7 +147,7 @@ def model_fn(features, labels, mode, params):
 ##########################################
         with tf.name_scope('5_Nshapes_loss'):
             if parameters.decode_nshapes:
-                n_different_nshapes = len(parameters.n_shapes)  # or rather max?
+                n_different_nshapes = len(parameters.n_shapes)  # or rather len/max?
                 nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_decoder_input, nshapeslabels, n_different_nshapes)
             else:
                 nshapes_loss = 0
@@ -159,11 +159,13 @@ def model_fn(features, labels, mode, params):
 #       Decode x and y coordinates       #
 ##########################################
         with tf.name_scope('6_Location_loss'):
+            possible_x_coords = parameters.im_size[1]-parameters.shape_size
+            possible_y_coords = parameters.im_size[0]-parameters.shape_size
             if parameters.decode_location:
                 x_shapeloss, y_shapeloss = compute_location_loss(
-                        shape_decoder_input, x_shape, parameters.im_size[1], y_shape, parameters.im_size[0], name_extra='shape')
+                        shape_decoder_input, x_shape, possible_x_coords, y_shape, possible_y_coords, name_extra='shape')
                 x_vernierloss, y_vernierloss = compute_location_loss(
-                        vernier_decoder_input, x_vernier, parameters.im_size[1], y_vernier, parameters.im_size[0], name_extra='vernier')
+                        vernier_decoder_input, x_vernier, possible_x_coords, y_vernier, possible_y_coords, name_extra='vernier')
 
                 location_loss = x_shapeloss + y_shapeloss + x_vernierloss + y_vernierloss
 
