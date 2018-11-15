@@ -302,10 +302,14 @@ def compute_location_loss(decoder_input, x_label, x_depth, y_label, y_depth, nam
         T_x = tf.one_hot(tf.cast(x_label, tf.int32), x_depth, name='T_x'+name_extra)
         x_logits = tf.layers.dense(caps_activation, x_depth, tf.nn.relu, name='logits_x'+name_extra)
         x_xent = tf.losses.softmax_cross_entropy(T_x, x_logits)
+        pred_x = tf.argmax(x_logits, axis=1)
+        tf.summary.histogram('pred_x_'+name_extra, pred_x)
         
         y_label = tf.squeeze(y_label)
         y_label = tf.cast(y_label, tf.float32)
         T_y = tf.one_hot(tf.cast(y_label, tf.int32), y_depth, name='T_y'+name_extra)
         y_logits = tf.layers.dense(caps_activation, y_depth, tf.nn.relu, name='logits_y'+name_extra)
         y_xent = tf.losses.softmax_cross_entropy(T_y, y_logits)
+        pred_y = tf.argmax(y_logits, axis=1)
+        tf.summary.histogram('pred_y_'+name_extra, pred_y)
         return x_xent, y_xent

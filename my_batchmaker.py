@@ -4,9 +4,10 @@ My capsnet: my_batchmaker!
 Involving all basic shapes (verniers, squares, circles, polygons, stars)
 @author: Lynn
 
-Last update on 13.11.2018
+Last update on 15.11.2018
 -> added requirements for nshape and location loss
 -> nshapeslabels now with index labels [0, len(n_shapes)]
+-> added overlapping_shapes parameter
 """
 
 import numpy as np
@@ -363,6 +364,7 @@ class stim_maker_fn:
 #test_noise = parameters.test_noise
 #batch_size = parameters.batch_size
 #shape_types = parameters.shape_types
+#overlap = parameters.overlapping_shapes
 #test = stim_maker_fn(imSize, shapeSize, barWidth)
 
 #plt.imshow(test.drawShape(3))
@@ -370,7 +372,7 @@ class stim_maker_fn:
 
 #[train_vernier_images, train_shape_images, train_shapelabels, train_nshapeslabels, 
 #train_vernierlabels, train_x_shape, train_y_shape, train_x_vernier, train_y_vernier] = test.makeTrainBatch(
-#        shape_types, n_shapes, batch_size, train_noise, overlap=None)
+#        shape_types, n_shapes, batch_size, train_noise, overlap=overlap)
 #for i in range(batch_size):
 #    plt.imshow(np.squeeze(train_vernier_images[i, :, :] + train_shape_images[i, :, :]))
 #    plt.pause(0.5)

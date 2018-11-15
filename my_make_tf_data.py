@@ -7,8 +7,9 @@ This code is inspired by this youtube-vid and code:
 https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 
-Last update on 13.11.2018
+Last update on 15.11.2018
 -> added requirements for nshapes and location loss
+-> added overlapping_shapes parameter
 """
 
 import sys
@@ -47,7 +48,7 @@ def print_progress(count, total):
 ##################################
 #      tfrecords function:       #
 ##################################
-def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, out_path, stim_idx=None):
+def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, overlap, out_path, stim_idx=None):
     '''Function to create tfrecord files based on stim_maker class'''
     # Inputs:
     # stim_maker instance
@@ -71,7 +72,7 @@ def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, o
             # Either create training or testing dataset
             if state=='training':
                 [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
-                 x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap=None)
+                 x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap)
             elif state=='testing':
                 chosen_shape = shape_types
                 [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
@@ -126,7 +127,7 @@ if training:
     mode = 'training'
     shape_types_train = parameters.shape_types
     make_tfrecords(stim_maker, mode, shape_types_train, parameters.n_shapes,
-                   parameters.n_train_samples, parameters.train_noise, parameters.train_data_path)
+                   parameters.n_train_samples, parameters.train_noise, parameters.overlapping_shapes, parameters.train_data_path)
     print('\n-------------------------------------------------------')
     print('Finished creation of training set')
     print('-------------------------------------------------------')
@@ -141,14 +142,14 @@ if testing:
         test_data_path = parameters.test_data_paths[i]
         eval_file = test_data_path + '.tfrecords'
         make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                       parameters.n_test_samples, parameters.test_noise, eval_file)
+                       parameters.n_test_samples, parameters.test_noise, parameters.overlapping_shapes, eval_file)
         
         if not os.path.exists(test_data_path):
             os.mkdir(test_data_path)
         for stim_idx in range(3):
             test_file = test_data_path + '/' + str(stim_idx) + '.tfrecords'
             make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                           parameters.n_test_samples, parameters.test_noise, test_file, stim_idx)
+                           parameters.n_test_samples, parameters.test_noise, parameters.overlapping_shapes, test_file, stim_idx)
     print('\n-------------------------------------------------------')
     print('Finished creation of test sets')
     print('-------------------------------------------------------')

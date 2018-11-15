@@ -3,9 +3,10 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 13.11.2018
+Last update on 15.11.2018
 -> added requirements for nshapes and location loss
 -> added some data augmentation (random noise & l/r, u/d flipping)
+-> added num_repeat to None for training and drop_remainder=True
 """
 
 import tensorflow as tf
@@ -92,7 +93,7 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
         
     # Repeat the dataset the given number of times and get a batch of data
     dataset = dataset.repeat(num_repeat)
-    dataset = dataset.batch(parameters.batch_size)
+    dataset = dataset.batch(parameters.batch_size, drop_remainder=True)
     
     # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
     dataset = dataset.prefetch(2)
