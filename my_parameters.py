@@ -41,7 +41,7 @@ flags.DEFINE_boolean('random_seed', False,  'if true, set random_seed=42 for the
 #   Stimulus parameters   #
 ###########################
 flags.DEFINE_integer('n_train_samples', 100000, 'number of samples in the training set')
-flags.DEFINE_integer('n_test_samples', 2000, 'number of samples in the test set')
+flags.DEFINE_integer('n_test_samples', 3200, 'number of samples in the test set')
 
 im_size = [60, 150]
 shape_types = [0, 1, 2, 3, 4, 5]
@@ -109,7 +109,7 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 
 
 # For training
-flags.DEFINE_integer('batch_size', 32, 'batch size')
+flags.DEFINE_integer('batch_size', 2, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 2, 'number of iterations in routing algorithm')
 
