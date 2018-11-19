@@ -5,9 +5,11 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 13.11.2018
+Last update on 19.11.2018
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
+-> added some summaries
+-> added alphas for each coordinate type
 """
 
 import tensorflow as tf
@@ -42,6 +44,9 @@ def model_fn(features, labels, mode, params):
     y_vernier = features['y_vernier']
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
+    
+    tf.summary.histogram('input_vernier_images', vernier_images)
+    tf.summary.histogram('input_shape_images', shape_images)
     
     X = tf.add(vernier_images, shape_images)
     tf.summary.image('input_images', X, 6)
@@ -167,12 +172,23 @@ def model_fn(features, labels, mode, params):
                 x_vernierloss, y_vernierloss = compute_location_loss(
                         vernier_decoder_input, x_vernier, possible_x_coords, y_vernier, possible_y_coords, name_extra='vernier')
 
-                location_loss = x_shapeloss + y_shapeloss + x_vernierloss + y_vernierloss
+                location_loss = parameters.alpha_x_shapeloss * x_shapeloss + \
+                    parameters.alpha_y_shapeloss * y_shapeloss + \
+                    parameters.alpha_x_vernierloss * x_vernierloss + \
+                    parameters.alpha_y_vernierloss * y_vernierloss
 
             else:
+                x_shapeloss = 0
+                y_shapeloss = 0
+                x_vernierloss = 0
+                y_vernierloss = 0
                 location_loss = 0
             
-            tf.summary.scalar('location_loss', parameters.alpha_location * location_loss)
+            tf.summary.scalar('x_shapeloss', parameters.alpha_x_shapeloss * x_shapeloss)
+            tf.summary.scalar('y_shapeloss', parameters.alpha_y_shapeloss * y_shapeloss)
+            tf.summary.scalar('x_vernierloss', parameters.alpha_x_vernierloss * x_vernierloss)
+            tf.summary.scalar('y_vernierloss', parameters.alpha_y_vernierloss * y_vernierloss)
+            tf.summary.scalar('location_loss', location_loss)
 
 
 ##########################################
@@ -183,7 +199,10 @@ def model_fn(features, labels, mode, params):
                                parameters.alpha_shape_reconstruction * shape_reconstruction_loss,
                                parameters.alpha_vernieroffset * vernieroffset_loss,
                                parameters.alpha_nshapes * nshapes_loss,
-                               parameters.alpha_location * location_loss],
+                               parameters.alpha_x_shapeloss * x_shapeloss,
+                               parameters.alpha_y_shapeloss * y_shapeloss, 
+                               parameters.alpha_x_vernierloss * x_vernierloss,
+                               parameters.alpha_y_vernierloss * y_vernierloss],
                               name='final_loss')
 
 

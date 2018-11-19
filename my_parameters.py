@@ -3,9 +3,11 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 15.11.2018
+Last update on 19.11.2018
 -> added nshapes and location loss
+-> added alphas for each coordinate type
 -> added overlapping_shapes parameter
+-> added data augmentation (noise, flipping, contrast, brightness)
 """
 
 import tensorflow as tf
@@ -40,7 +42,7 @@ flags.DEFINE_boolean('random_seed', False,  'if true, set random_seed=42 for the
 ###########################
 #   Stimulus parameters   #
 ###########################
-flags.DEFINE_integer('n_train_samples', 100000, 'number of samples in the training set')
+flags.DEFINE_integer('n_train_samples', 200000, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 3200, 'number of samples in the test set')
 
 im_size = [60, 150]
@@ -50,12 +52,18 @@ flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
 flags.DEFINE_integer('shape_size', 20, 'size of the shapes')
 flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
-flags.DEFINE_list('n_shapes', [1, 3, 5, 7], 'pool of shape repetitions per stimulus')
+flags.DEFINE_list('n_shapes', [0, 1, 2, 3, 4, 5, 6, 7], 'pool of shape repetitions per stimulus')
 flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier might overlap')
 
-# Can still be changed after creation of tfrecords file:
+
+###########################
+#    Data augmentation    #
+###########################
 flags.DEFINE_float('train_noise', 0.02, 'amount of added random Gaussian noise')
 flags.DEFINE_float('test_noise', 0.03, 'amount of added random Gaussian noise')
+flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
+flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
+flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
 
 
 ###########################
@@ -109,7 +117,7 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 
 
 # For training
-flags.DEFINE_integer('batch_size', 2, 'batch size')
+flags.DEFINE_integer('batch_size', 32, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 2, 'number of iterations in routing algorithm')
 
@@ -131,7 +139,10 @@ flags.DEFINE_float('alpha_margin', 1., 'alpha for margin loss')
 flags.DEFINE_float('alpha_vernier_reconstruction', 0.0005, 'alpha for reconstruction loss for vernier image (reduce_sum)')
 flags.DEFINE_float('alpha_shape_reconstruction', 0.0001, 'alpha for reconstruction loss for shape image (reduce_sum)')
 flags.DEFINE_float('alpha_nshapes', 1., 'alpha for nshapes loss')
-flags.DEFINE_float('alpha_location', 0.1, 'alpha for location loss')
+flags.DEFINE_float('alpha_x_shapeloss', 0.1, 'alpha for loss of x coordinate of shape')
+flags.DEFINE_float('alpha_y_shapeloss', 0.3, 'alpha for loss of y coordinate of shape')
+flags.DEFINE_float('alpha_x_vernierloss', 0.1, 'alpha for loss of x coordinate of vernier')
+flags.DEFINE_float('alpha_y_vernierloss', 0.3, 'alpha for loss of y coordinate of vernier')
 
 
 # Regulariztion:

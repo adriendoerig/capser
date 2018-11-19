@@ -215,8 +215,8 @@ class stim_maker_fn:
 
             elif idx==1:
                 # Crowded test stimuli:
-                selected_repetitions = np.min(n_shapes)
-                nshapes_label = 0
+                selected_repetitions = 1
+                nshapes_label = n_shapes.index(selected_repetitions)
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize)
                 vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                 shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
@@ -226,7 +226,7 @@ class stim_maker_fn:
             elif idx==2:
                 # Uncrowded test stimuli:
                 selected_repetitions = np.max(n_shapes)
-                nshapes_label = len(n_shapes)-1
+                nshapes_label = n_shapes.index(selected_repetitions)
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize*selected_repetitions)
                 x_shape_ind, y_shape_ind = col, row
                 
