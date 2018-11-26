@@ -5,12 +5,13 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 21.11.2018
+Last update on 26.11.2018
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
 -> added alphas for each coordinate type
 -> network can be run with 2 or 3 conv layers now
+-> you can choose now between xentropy of squared_diff as location or nshapes loss
 """
 
 import tensorflow as tf
@@ -152,8 +153,7 @@ def model_fn(features, labels, mode, params):
 ##########################################
         with tf.name_scope('5_Nshapes_loss'):
             if parameters.decode_nshapes:
-                n_different_nshapes = len(parameters.n_shapes)  # or rather len/max?
-                nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_decoder_input, nshapeslabels, n_different_nshapes)
+                nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters)
             else:
                 nshapes_loss = 0
                 
@@ -164,13 +164,11 @@ def model_fn(features, labels, mode, params):
 #       Decode x and y coordinates       #
 ##########################################
         with tf.name_scope('6_Location_loss'):
-            possible_x_coords = parameters.im_size[1]-parameters.shape_size
-            possible_y_coords = parameters.im_size[0]-parameters.shape_size
             if parameters.decode_location:
                 x_shapeloss, y_shapeloss = compute_location_loss(
-                        shape_decoder_input, x_shape, possible_x_coords, y_shape, possible_y_coords, name_extra='shape')
+                        shape_decoder_input, x_shape, y_shape, parameters, name_extra='shape')
                 x_vernierloss, y_vernierloss = compute_location_loss(
-                        vernier_decoder_input, x_vernier, possible_x_coords, y_vernier, possible_y_coords, name_extra='vernier')
+                        vernier_decoder_input, x_vernier, y_vernier, parameters, name_extra='vernier')
 
                 location_loss = parameters.alpha_x_shapeloss * x_shapeloss + \
                     parameters.alpha_y_shapeloss * y_shapeloss + \

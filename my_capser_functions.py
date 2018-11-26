@@ -9,8 +9,10 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 13.11.2018
+Last update on 26.11.2018
 -> added nshapes and location loss
+-> network can be run with 2 or 3 conv layers now
+-> you can choose now between xentropy of squared_diff as location or nshapes loss
 """
 
 import tensorflow as tf
@@ -285,42 +287,60 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
 ################################
 #     nshapeslabels loss:      #
 ################################
-def compute_nshapes_loss(shape_decoder_input, nshapeslabels, depth):
+def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters):
     with tf.name_scope('compute_nshapes_loss'):
+        depth = len(parameters.n_shapes)  # or rather len/max?
         shape_caps_activation = tf.squeeze(shape_decoder_input)
         nshapeslabels = tf.squeeze(nshapeslabels)
         nshapeslabels = tf.cast(nshapeslabels, tf.float32)
 
         T_nshapes = tf.one_hot(tf.cast(nshapeslabels, tf.int32), depth, name='T_nshapes')
         logits_nshapes = tf.layers.dense(shape_caps_activation, depth, tf.nn.relu, name='logits_nshapes')
-        xent_nshapes = tf.losses.softmax_cross_entropy(T_nshapes, logits_nshapes)
+        
+        if parameters.nshapes_loss == 'xentropy':
+            loss_nshapes = tf.losses.softmax_cross_entropy(T_nshapes, logits_nshapes)
+        elif parameters.nshapes_loss == 'squared_diff':
+            loss_nshapes = tf.square(T_nshapes - logits_nshapes, name='squared_difference')
 
         pred_nshapes = tf.argmax(logits_nshapes, axis=1)
         tf.summary.histogram('pred_nshapes', pred_nshapes)
         correct_nshapes = tf.equal(nshapeslabels, tf.cast(pred_nshapes, tf.float32), name='correct_nshapes')
         accuracy_nshapes = tf.reduce_mean(tf.cast(correct_nshapes, tf.float32), name='accuracy_nshapes')
-        return xent_nshapes, accuracy_nshapes
+        return loss_nshapes, accuracy_nshapes
 
 
 ################################
 #     location loss:      #
 ################################
-def compute_location_loss(decoder_input, x_label, x_depth, y_label, y_depth, name_extra=None):
+def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extra=None):
     with tf.name_scope('compute_' + name_extra + '_location_loss'):
+        # Loss for x-coordinates:
+        x_depth = parameters.im_size[1]-parameters.shape_size
         caps_activation = tf.squeeze(decoder_input)
         x_label = tf.squeeze(x_label)
         x_label = tf.cast(x_label, tf.float32)
         T_x = tf.one_hot(tf.cast(x_label, tf.int32), x_depth, name='T_x'+name_extra)
         x_logits = tf.layers.dense(caps_activation, x_depth, tf.nn.relu, name='logits_x'+name_extra)
-        x_xent = tf.losses.softmax_cross_entropy(T_x, x_logits)
+        
+        if parameters.location_loss == 'xentropy':
+            x_loss = tf.losses.softmax_cross_entropy(T_x, x_logits)
+        elif parameters.location_loss == 'squared_diff':
+            x_loss = tf.square(T_x - x_logits, name='x_squared_difference')
         pred_x = tf.argmax(x_logits, axis=1)
         tf.summary.histogram('pred_x_'+name_extra, pred_x)
         
+        # Loss for y-coordinates:
+        y_depth = parameters.im_size[0]-parameters.shape_size
         y_label = tf.squeeze(y_label)
         y_label = tf.cast(y_label, tf.float32)
         T_y = tf.one_hot(tf.cast(y_label, tf.int32), y_depth, name='T_y'+name_extra)
         y_logits = tf.layers.dense(caps_activation, y_depth, tf.nn.relu, name='logits_y'+name_extra)
-        y_xent = tf.losses.softmax_cross_entropy(T_y, y_logits)
+        
+        if parameters.location_loss == 'xentropy':
+            y_loss = tf.losses.softmax_cross_entropy(T_y, y_logits)
+        elif parameters.location_loss == 'squared_diff':
+            y_loss = tf.square(T_y - y_logits, name='y_squared_difference')
+        
         pred_y = tf.argmax(y_logits, axis=1)
         tf.summary.histogram('pred_y_'+name_extra, pred_y)
-        return x_xent, y_xent
+        return x_loss, y_loss

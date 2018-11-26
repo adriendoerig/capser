@@ -3,12 +3,13 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 19.11.2018
+Last update on 26.11.2018
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
 -> added data augmentation (noise, flipping, contrast, brightness)
 -> network can be run with 2 or 3 conv layers now
+-> you can choose now between xentropy of squared_diff as location or nshapes loss
 """
 
 import tensorflow as tf
@@ -131,12 +132,6 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 ###########################
 #    Hyperparameters      #
 ###########################
-# Margin loss
-flags.DEFINE_float('m_plus', 0.9, 'the parameter of m plus')
-flags.DEFINE_float('m_minus', 0.1, 'the parameter of m minus')
-flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit classes')
-
-
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
@@ -150,11 +145,19 @@ flags.DEFINE_integer('n_steps', 30000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
-# Losses
+###########################
+#         Losses          #
+###########################
 flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
-flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
-flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
 
+flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
+flags.DEFINE_string('nshapes_loss', 'xentropy', 'currently either xentropy or squared_diff')
+
+flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
+flags.DEFINE_string('location_loss', 'xentropy', 'currently either xentropy or squared_diff')
+
+
+# Control magnitude of losses
 flags.DEFINE_float('alpha_vernieroffset', 1., 'alpha for vernieroffset loss')
 flags.DEFINE_float('alpha_margin', 0.5, 'alpha for margin loss')
 flags.DEFINE_float('alpha_vernier_reconstruction', 0.0005, 'alpha for reconstruction loss for vernier image (reduce_sum)')
@@ -165,8 +168,15 @@ flags.DEFINE_float('alpha_y_shapeloss', 0.1, 'alpha for loss of y coordinate of 
 flags.DEFINE_float('alpha_x_vernierloss', 0.1, 'alpha for loss of x coordinate of vernier')
 flags.DEFINE_float('alpha_y_vernierloss', 0.1, 'alpha for loss of y coordinate of vernier')
 
+# Margin loss
+flags.DEFINE_float('m_plus', 0.9, 'the parameter of m plus')
+flags.DEFINE_float('m_minus', 0.1, 'the parameter of m minus')
+flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit classes')
 
-# Regulariztion:
+
+###########################
+#     Regulariation       #
+###########################
 flags.DEFINE_boolean('batch_norm_conv', True, 'use batch normalization between every conv layer')
 flags.DEFINE_boolean('batch_norm_decoder', True, 'use batch normalization for the decoder layers')
 
