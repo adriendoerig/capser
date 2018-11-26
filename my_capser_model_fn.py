@@ -5,18 +5,18 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 19.11.2018
+Last update on 21.11.2018
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
 -> added alphas for each coordinate type
+-> network can be run with 2 or 3 conv layers now
 """
 
 import tensorflow as tf
 #import numpy as np
 
 from my_parameters import parameters
-from my_parameters import conv1_params, conv2_params, conv3_params
 from my_capser_functions import \
 conv_layers, primary_caps_layer, secondary_caps_layer, \
 predict_shapelabels, create_masked_decoder_input, compute_margin_loss, \
@@ -56,7 +56,7 @@ def model_fn(features, labels, mode, params):
 #          Build the capsnet:            #
 ##########################################
     # Create convolutional layers and their output:
-    conv_output = conv_layers(X, conv1_params, conv2_params, conv3_params, parameters, is_training)
+    conv_output = conv_layers(X, parameters, is_training)
     
     # Create primary caps and their output:
     caps1_output = primary_caps_layer(conv_output, parameters)

@@ -8,6 +8,7 @@ Last update on 19.11.2018
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
 -> added data augmentation (noise, flipping, contrast, brightness)
+-> network can be run with 2 or 3 conv layers now
 """
 
 import tensorflow as tf
@@ -27,7 +28,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log'
+MODEL_NAME = '_log6'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
@@ -59,8 +60,8 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_float('train_noise', 0.02, 'amount of added random Gaussian noise')
-flags.DEFINE_float('test_noise', 0.03, 'amount of added random Gaussian noise')
+flags.DEFINE_float('train_noise', 0.08, 'amount of added random Gaussian noise')
+flags.DEFINE_float('test_noise', 0.04, 'amount of added random Gaussian noise')
 flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
 flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
@@ -69,27 +70,47 @@ flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, mu
 ###########################
 #   Network parameters    #
 ###########################
+n_conv_layers = 3
+flags.DEFINE_integer('n_conv_layers', n_conv_layers, 'number of conv layers used (currently only 2 or 3)')
+
 # Conv and primary caps:
 caps1_nmaps = 6
 caps1_ndims = 3
-kernel1 = 6
-kernel2 = 6
-kernel3 = 6
-stride1 = 1
-stride2 = 2
-stride3 = 2
-# For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
-dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 
-conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
-                'padding': 'valid'}
+if n_conv_layers==2:
+    # Case of 2 conv layers:
+    kernel1 = 3
+    kernel2 = 6
+    stride1 = 1
+    stride2 = 2
+    # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
+    dim1 = int((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) + 1
+    dim2 = int((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) + 1
+    conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
+                    'padding': 'valid'}
+    conv2_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel2, 'strides': stride2,
+                    'padding': 'valid'}
+    flags.DEFINE_list('conv_params', [conv1_params, conv2_params], 'list with the conv parameters')
+    
+elif n_conv_layers==3:
+    # Case of 3 conv layers:
+    kernel1 = 3
+    kernel2 = 7
+    kernel3 = 7
+    stride1 = 1
+    stride2 = 2
+    stride3 = 2
+    # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
+    dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
+    dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
+    conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
+                    'padding': 'valid'}
+    conv2_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel2, 'strides': stride2,
+                    'padding': 'valid'}
+    conv3_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel3, 'strides': stride3,
+                    'padding': 'valid'}
+    flags.DEFINE_list('conv_params', [conv1_params, conv2_params, conv3_params], 'list with the conv parameters')
 
-conv2_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel2, 'strides': stride2,
-                'padding': 'valid'}
-
-conv3_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel3, 'strides': stride3,
-                'padding': 'valid'}
 
 flags.DEFINE_integer('caps1_nmaps', caps1_nmaps, 'primary caps, number of feature maps')
 flags.DEFINE_integer('caps1_ncaps', caps1_nmaps * dim1 * dim2, 'primary caps, number of caps')
@@ -117,15 +138,15 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 
 
 # For training
-flags.DEFINE_integer('batch_size', 32, 'batch size')
+flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 2, 'number of iterations in routing algorithm')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
-flags.DEFINE_integer('eval_throttle_secs', 1200, 'minimal seconds between evaluation passes')
+flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 20000, 'number of steps')
+flags.DEFINE_integer('n_steps', 30000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
@@ -134,15 +155,15 @@ flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction 
 flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
 flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
 
-flags.DEFINE_float('alpha_vernieroffset', 2., 'alpha for vernieroffset loss')
-flags.DEFINE_float('alpha_margin', 1., 'alpha for margin loss')
+flags.DEFINE_float('alpha_vernieroffset', 1., 'alpha for vernieroffset loss')
+flags.DEFINE_float('alpha_margin', 0.5, 'alpha for margin loss')
 flags.DEFINE_float('alpha_vernier_reconstruction', 0.0005, 'alpha for reconstruction loss for vernier image (reduce_sum)')
 flags.DEFINE_float('alpha_shape_reconstruction', 0.0001, 'alpha for reconstruction loss for shape image (reduce_sum)')
-flags.DEFINE_float('alpha_nshapes', 1., 'alpha for nshapes loss')
+flags.DEFINE_float('alpha_nshapes', 0.3, 'alpha for nshapes loss')
 flags.DEFINE_float('alpha_x_shapeloss', 0.1, 'alpha for loss of x coordinate of shape')
-flags.DEFINE_float('alpha_y_shapeloss', 0.3, 'alpha for loss of y coordinate of shape')
+flags.DEFINE_float('alpha_y_shapeloss', 0.1, 'alpha for loss of y coordinate of shape')
 flags.DEFINE_float('alpha_x_vernierloss', 0.1, 'alpha for loss of x coordinate of vernier')
-flags.DEFINE_float('alpha_y_vernierloss', 0.3, 'alpha for loss of y coordinate of vernier')
+flags.DEFINE_float('alpha_y_vernierloss', 0.1, 'alpha for loss of y coordinate of vernier')
 
 
 # Regulariztion:

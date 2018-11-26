@@ -89,26 +89,37 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 ###################################
 #     Create capser network:      #
 ###################################
-def conv_layers(X, conv1_params, conv2_params, conv3_params, parameters, phase=True):
+def conv_layers(X, parameters, phase=True):
     with tf.name_scope('1_convolutional_layers'):
-        conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **conv1_params)
-        if parameters.batch_norm_conv:
-            conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
-        conv1 = tf.nn.relu(conv1)
-        tf.summary.histogram('conv1_output', conv1)
+        if parameters.n_conv_layers==2:
+            conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
+            if parameters.batch_norm_conv:
+                conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+            conv1 = tf.nn.relu(conv1)
+            tf.summary.histogram('conv1_output', conv1)
+    
+            conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
+            conv_output = tf.nn.relu(conv2)
+            tf.summary.histogram('conv2_output', conv_output)
+            tf.summary.histogram('conv3_output', 0)
 
-        conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **conv2_params)
-        if parameters.batch_norm_conv:
-            conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
-        conv2 = tf.nn.relu(conv2)
-        tf.summary.histogram('conv2_output', conv2)
-
-        conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **conv3_params)
-#        if parameters.batch_norm_conv:
-#            conv3 = tf.layers.batch_normalization(conv3, training=phase, name='conv3_bn')
-        conv3 = tf.nn.relu(conv3)
-        tf.summary.histogram('conv3_output', conv3)
-        return conv3
+        elif parameters.n_conv_layers==3:
+            conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
+            if parameters.batch_norm_conv:
+                conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+            conv1 = tf.nn.relu(conv1)
+            tf.summary.histogram('conv1_output', conv1)
+    
+            conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
+            if parameters.batch_norm_conv:
+                conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
+            conv2 = tf.nn.relu(conv2)
+            tf.summary.histogram('conv2_output', conv2)
+    
+            conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **parameters.conv_params[2])
+            conv_output = tf.nn.relu(conv3)
+            tf.summary.histogram('conv3_output', conv_output)
+        return conv_output
 
 
 def primary_caps_layer(conv_output, parameters):
