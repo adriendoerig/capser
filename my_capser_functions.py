@@ -300,7 +300,8 @@ def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters):
         if parameters.nshapes_loss == 'xentropy':
             loss_nshapes = tf.losses.softmax_cross_entropy(T_nshapes, logits_nshapes)
         elif parameters.nshapes_loss == 'squared_diff':
-            loss_nshapes = tf.square(T_nshapes - logits_nshapes, name='squared_difference')
+            squared_diff_nshapes = tf.square(T_nshapes - logits_nshapes, name='squared_diff_nshapes')
+            loss_nshapes = tf.reduce_sum(squared_diff_nshapes, name='squared_diff_loss_nshapes')
 
         pred_nshapes = tf.argmax(logits_nshapes, axis=1)
         tf.summary.histogram('pred_nshapes', pred_nshapes)
@@ -325,7 +326,8 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         if parameters.location_loss == 'xentropy':
             x_loss = tf.losses.softmax_cross_entropy(T_x, x_logits)
         elif parameters.location_loss == 'squared_diff':
-            x_loss = tf.square(T_x - x_logits, name='x_squared_difference')
+            x_squared_diff = tf.square(T_x - x_logits, name='x_squared_difference')
+            x_loss = tf.reduce_sum(x_squared_diff, name='x_squared_difference_loss')
         pred_x = tf.argmax(x_logits, axis=1)
         tf.summary.histogram('pred_x_'+name_extra, pred_x)
         
@@ -339,7 +341,8 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         if parameters.location_loss == 'xentropy':
             y_loss = tf.losses.softmax_cross_entropy(T_y, y_logits)
         elif parameters.location_loss == 'squared_diff':
-            y_loss = tf.square(T_y - y_logits, name='y_squared_difference')
+            y_squared_diff = tf.square(T_y - y_logits, name='y_squared_difference')
+            y_loss = tf.reduce_sum(y_squared_diff, name='y_squared_difference_loss')
         
         pred_y = tf.argmax(y_logits, axis=1)
         tf.summary.histogram('pred_y_'+name_extra, pred_y)

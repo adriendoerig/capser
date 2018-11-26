@@ -29,7 +29,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log6'
+MODEL_NAME = '_log7'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
@@ -62,7 +62,7 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 #    Data augmentation    #
 ###########################
 flags.DEFINE_float('train_noise', 0.08, 'amount of added random Gaussian noise')
-flags.DEFINE_float('test_noise', 0.04, 'amount of added random Gaussian noise')
+flags.DEFINE_float('test_noise', 0.12, 'amount of added random Gaussian noise')
 flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
 flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
@@ -151,10 +151,10 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
-flags.DEFINE_string('nshapes_loss', 'xentropy', 'currently either xentropy or squared_diff')
+flags.DEFINE_string('nshapes_loss', 'squared_diff', 'currently either xentropy or squared_diff')
 
 flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
-flags.DEFINE_string('location_loss', 'xentropy', 'currently either xentropy or squared_diff')
+flags.DEFINE_string('location_loss', 'squared_diff', 'currently either xentropy or squared_diff')
 
 
 # Control magnitude of losses
