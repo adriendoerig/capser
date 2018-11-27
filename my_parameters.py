@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 26.11.2018
+Last update on 27.11.2018
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -151,10 +151,12 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
-flags.DEFINE_string('nshapes_loss', 'squared_diff', 'currently either xentropy or squared_diff')
+nshapes_loss = 'squared_diff'
+flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
 flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
-flags.DEFINE_string('location_loss', 'squared_diff', 'currently either xentropy or squared_diff')
+location_loss = 'squared_diff'
+flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 
 
 # Control magnitude of losses
@@ -162,11 +164,22 @@ flags.DEFINE_float('alpha_vernieroffset', 1., 'alpha for vernieroffset loss')
 flags.DEFINE_float('alpha_margin', 0.5, 'alpha for margin loss')
 flags.DEFINE_float('alpha_vernier_reconstruction', 0.0005, 'alpha for reconstruction loss for vernier image (reduce_sum)')
 flags.DEFINE_float('alpha_shape_reconstruction', 0.0001, 'alpha for reconstruction loss for shape image (reduce_sum)')
-flags.DEFINE_float('alpha_nshapes', 0.3, 'alpha for nshapes loss')
-flags.DEFINE_float('alpha_x_shapeloss', 0.1, 'alpha for loss of x coordinate of shape')
-flags.DEFINE_float('alpha_y_shapeloss', 0.1, 'alpha for loss of y coordinate of shape')
-flags.DEFINE_float('alpha_x_vernierloss', 0.1, 'alpha for loss of x coordinate of vernier')
-flags.DEFINE_float('alpha_y_vernierloss', 0.1, 'alpha for loss of y coordinate of vernier')
+
+if nshapes_loss=='xentropy':
+    flags.DEFINE_float('alpha_nshapes', 0.01, 'alpha for nshapes loss')
+elif nshapes_loss=='squared_diff':
+    flags.DEFINE_float('alpha_nshapes', 0.002, 'alpha for nshapes loss')
+
+if location_loss=='xentropy':
+    flags.DEFINE_float('alpha_x_shapeloss', 0.01, 'alpha for loss of x coordinate of shape')
+    flags.DEFINE_float('alpha_y_shapeloss', 0.01, 'alpha for loss of y coordinate of shape')
+    flags.DEFINE_float('alpha_x_vernierloss', 0.01, 'alpha for loss of x coordinate of vernier')
+    flags.DEFINE_float('alpha_y_vernierloss', 0.01, 'alpha for loss of y coordinate of vernier')
+elif location_loss=='squared_diff':
+    flags.DEFINE_float('alpha_x_shapeloss', 0.000004, 'alpha for loss of x coordinate of shape')
+    flags.DEFINE_float('alpha_y_shapeloss', 0.00005, 'alpha for loss of y coordinate of shape')
+    flags.DEFINE_float('alpha_x_vernierloss', 0.000004, 'alpha for loss of x coordinate of vernier')
+    flags.DEFINE_float('alpha_y_vernierloss', 0.00005, 'alpha for loss of y coordinate of vernier')
 
 # Margin loss
 flags.DEFINE_float('m_plus', 0.9, 'the parameter of m plus')
