@@ -48,7 +48,7 @@ flags.DEFINE_integer('n_train_samples', 200000, 'number of samples in the traini
 flags.DEFINE_integer('n_test_samples', 3200, 'number of samples in the test set')
 
 im_size = [60, 150]
-shape_types = [0, 1, 2, 3, 4, 5]
+shape_types = [0, 1, 2, 3, 4, 5, 6]
 flags.DEFINE_list('im_size', im_size, 'image size of datasets')
 flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
 flags.DEFINE_integer('shape_size', 20, 'size of the shapes')
