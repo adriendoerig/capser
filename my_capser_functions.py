@@ -289,7 +289,7 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
 def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters):
     with tf.name_scope('compute_nshapes_loss'):
         shape_caps_activation = tf.squeeze(shape_decoder_input)
-        nshapeslabels = tf.squeeze(nshapeslabels)
+        nshapeslabels = tf.squeeze(tf.cast(nshapeslabels, tf.int64))
         
         depth = len(parameters.n_shapes)  # or rather len/max?
         T_nshapes = tf.one_hot(tf.cast(nshapeslabels, tf.int64), depth, name='T_nshapes')

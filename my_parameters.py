@@ -29,7 +29,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log7'
+MODEL_NAME = '_log11'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
@@ -76,7 +76,7 @@ flags.DEFINE_integer('n_conv_layers', n_conv_layers, 'number of conv layers used
 
 # Conv and primary caps:
 caps1_nmaps = 6
-caps1_ndims = 3
+caps1_ndims = 6
 
 if n_conv_layers==2:
     # Case of 2 conv layers:
@@ -95,8 +95,8 @@ if n_conv_layers==2:
     
 elif n_conv_layers==3:
     # Case of 3 conv layers:
-    kernel1 = 3
-    kernel2 = 7
+    kernel1 = 4
+    kernel2 = 6
     kernel3 = 7
     stride1 = 1
     stride2 = 2
@@ -120,7 +120,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 4, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 8, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -141,7 +141,7 @@ flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 30000, 'number of steps')
+flags.DEFINE_integer('n_steps', 60000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
@@ -151,11 +151,11 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
-nshapes_loss = 'squared_diff'
+nshapes_loss = 'xentropy'
 flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
 flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
-location_loss = 'squared_diff'
+location_loss = 'xentropy'
 flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 
 
