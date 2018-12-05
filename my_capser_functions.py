@@ -9,10 +9,11 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 27.11.2018
+Last update on 05.12.2018
 -> added nshapes and location loss
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
+-> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 """
 
 import tensorflow as tf
@@ -233,19 +234,21 @@ def create_masked_decoder_input(mask_with_labels, labels, labels_pred, caps2_out
 def compute_reconstruction(decoder_input,  parameters, phase=True, name_extra=None):
     # Finally comes the decoder (two dense fully connected ELU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder_reconstruction'):
-        hidden1 = tf.layers.dense(decoder_input, parameters.n_hidden1, use_bias=False, activation=None, name='hidden1' + name_extra)
-        if parameters.batch_norm_decoder:
-            hidden1 = tf.layers.batch_normalization(hidden1, training=phase, name='hidden1_bn' + name_extra)
-        hidden1 = tf.nn.elu(hidden1, name='hidden1_activation')
-        tf.summary.histogram('_hidden1_bn' + name_extra, hidden1)
+        hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False,
+                                                  activation=None, name='hidden_reconstruction_1' + name_extra)
+        if parameters.batch_norm_reconstruction:
+            hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase, name='hidden_reconstruction_1_bn' + name_extra)
+        hidden_reconstruction_1 = tf.nn.elu(hidden_reconstruction_1, name='hidden_reconstruction_1_activation')
+        tf.summary.histogram('_hidden_reconstruction_1_bn' + name_extra, hidden_reconstruction_1)
 
-        hidden2 = tf.layers.dense(hidden1, parameters.n_hidden2, use_bias=False, activation=None, name='hidden2' + name_extra)
-        if parameters.batch_norm_decoder:
-            hidden2 = tf.layers.batch_normalization(hidden2, training=phase, name='hidden2_bn' + name_extra)
-        hidden2 = tf.nn.elu(hidden2, name='hidden2_activation')
-        tf.summary.histogram('_hidden2_bn' + name_extra, hidden2)
+        hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False,
+                                                  activation=None, name='hidden_reconstruction_2' + name_extra)
+        if parameters.batch_norm_reconstruction:
+            hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase, name='hidden_reconstruction_2_bn' + name_extra)
+        hidden_reconstruction_2 = tf.nn.elu(hidden_reconstruction_2, name='hidden_reconstruction_2_activation')
+        tf.summary.histogram('_hidden_reconstruction_2_bn' + name_extra, hidden_reconstruction_2)
 
-        reconstructed_output = tf.layers.dense(hidden2, parameters.n_output, activation=tf.nn.sigmoid, name='reconstructed_output' + name_extra)
+        reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output, activation=tf.nn.sigmoid, name='reconstructed_output' + name_extra)
         reconstructed_output_img = tf.reshape(
                 reconstructed_output,[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                 name='reconstructed_output_img')
@@ -268,13 +271,18 @@ def compute_reconstruction_loss(X, reconstructed_output, parameters):
 ################################
 #     Vernieroffset loss:      #
 ################################
-def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
+def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, parameters, phase=True, depth=2):
     with tf.name_scope('compute_vernieroffset_loss'):
         vernier_caps_activation = tf.squeeze(vernier_caps_activation)
         vernierlabels = tf.squeeze(vernierlabels)
-        
         T_vernierlabels = tf.one_hot(tf.cast(vernierlabels, tf.int64), depth, name='T_vernierlabels')
-        logits_vernierlabels = tf.layers.dense(vernier_caps_activation, depth, tf.nn.relu, name='logits_vernierlabels')
+        
+        # Layer to reproduce the vernieroffset:
+        hidden_vernieroffset = tf.layers.dense(vernier_caps_activation, depth, use_bias=False, activation=None, name='hidden_vernieroffset')
+        if parameters.batch_norm_vernieroffset:
+            hidden_vernieroffset = tf.layers.batch_normalization(hidden_vernieroffset, training=phase, name='hidden_vernieroffset_bn')
+        logits_vernierlabels = tf.nn.relu(hidden_vernieroffset, name='logits_vernierlabels')
+        
         xent_vernierlabels = tf.losses.softmax_cross_entropy(T_vernierlabels, logits_vernierlabels)
         
         pred_vernierlabels = tf.argmax(logits_vernierlabels, axis=1, name='pred_vernierlabels', output_type=tf.int64)
@@ -286,14 +294,20 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, depth=2):
 ################################
 #     nshapeslabels loss:      #
 ################################
-def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters):
+def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters, phase=True):
     with tf.name_scope('compute_nshapes_loss'):
         shape_caps_activation = tf.squeeze(shape_decoder_input)
         nshapeslabels = tf.squeeze(tf.cast(nshapeslabels, tf.int64))
         
         depth = len(parameters.n_shapes)  # or rather len/max?
         T_nshapes = tf.one_hot(tf.cast(nshapeslabels, tf.int64), depth, name='T_nshapes')
-        logits_nshapes = tf.layers.dense(shape_caps_activation, depth, tf.nn.relu, name='logits_nshapes')
+        
+        # Layer to reproduce the number of shapes:
+        hidden_nshapes = tf.layers.dense(shape_caps_activation, depth, use_bias=False, activation=None, name='hidden_nshapes')
+        if parameters.batch_norm_nshapes:
+            hidden_nshapes = tf.layers.batch_normalization(hidden_nshapes, training=phase, name='hidden_nshapes_bn')
+        logits_nshapes = tf.nn.relu(hidden_nshapes, name='logits_nshapes')
+        
         pred_nshapes = tf.argmax(logits_nshapes, axis=1, name='predicted_nshapes', output_type=tf.int64)
         tf.summary.histogram('nshapes_real', nshapeslabels)
         tf.summary.histogram('nshapes_pred', pred_nshapes)
@@ -311,7 +325,7 @@ def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters):
 ################################
 #     location loss:      #
 ################################
-def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extra=None):
+def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extra=None, phase=True):
     with tf.name_scope('compute_' + name_extra + '_location_loss'):
         caps_activation = tf.squeeze(decoder_input)
         
@@ -319,7 +333,13 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         x_label = tf.squeeze(x_label)
         x_depth = parameters.im_size[1]-parameters.shape_size
         T_x = tf.one_hot(tf.cast(x_label, tf.int64), x_depth, dtype=tf.float32, name='T_x_'+name_extra)
-        x_logits = tf.layers.dense(caps_activation, x_depth, tf.nn.relu, name='logits_x_'+name_extra)
+        
+        # Layer to reproduce the precise x_coord of the first shape:
+        hidden_x = tf.layers.dense(caps_activation, x_depth, use_bias=False, activation=None, name='hidden_x'+name_extra)
+        if parameters.batch_norm_location:
+            hidden_x = tf.layers.batch_normalization(hidden_x, training=phase, name='hidden_x_bn'+name_extra)
+        x_logits = tf.nn.relu(hidden_x, name='x_logits'+name_extra)
+        
         pred_x = tf.argmax(x_logits, axis=1, name='pred_x'+name_extra, output_type=tf.int64)
         tf.summary.histogram('x_real_'+name_extra, x_label)
         tf.summary.histogram('x_pred_'+name_extra, pred_x)
@@ -334,7 +354,12 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         y_label = tf.squeeze(y_label)
         y_depth = parameters.im_size[0]-parameters.shape_size
         T_y = tf.one_hot(tf.cast(y_label, tf.int64), y_depth, dtype=tf.float32, name='T_y_'+name_extra)
-        y_logits = tf.layers.dense(caps_activation, y_depth, tf.nn.relu, name='logits_y_'+name_extra)
+        
+        hidden_y = tf.layers.dense(caps_activation, y_depth, use_bias=False, activation=None, name='hidden_y'+name_extra)
+        if parameters.batch_norm_location:
+            hidden_y = tf.layers.batch_normalization(hidden_y, training=phase, name='hidden_y_bn'+name_extra)
+        y_logits = tf.nn.relu(hidden_y, name='y_logits'+name_extra)
+        
         pred_y = tf.argmax(y_logits, axis=1, name='pred_y_'+name_extra, output_type=tf.int64)
         tf.summary.histogram('y_real_'+name_extra, y_label)
         tf.summary.histogram('y_pred_'+name_extra, pred_y)

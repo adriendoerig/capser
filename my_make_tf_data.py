@@ -22,7 +22,7 @@ from my_batchmaker import stim_maker_fn
 ##################################
 #       Extra parameters:        #
 ##################################
-training = 1
+training = 0
 testing = 1
 
 
@@ -135,10 +135,9 @@ if training:
 
 if testing:
     mode = 'testing'
-    shape_types_test = parameters.shape_types
-    shape_types_test.append(42)
-    for i in range(len(parameters.shape_types)-1):
-        chosen_shape = parameters.shape_types[i+1]
+    shape_types_test = parameters.test_shape_types
+    for i in range(len(shape_types_test)-1):
+        chosen_shape = shape_types_test[i+1]
         test_data_path = parameters.test_data_paths[i]
         eval_file = test_data_path + '.tfrecords'
         make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,

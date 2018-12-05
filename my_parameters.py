@@ -3,13 +3,14 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 27.11.2018
+Last update on 05.12.2018
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
 -> added data augmentation (noise, flipping, contrast, brightness)
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
+-> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 """
 
 import tensorflow as tf
@@ -29,7 +30,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log11'
+MODEL_NAME = '_log2'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 
@@ -49,11 +50,13 @@ flags.DEFINE_integer('n_test_samples', 3200, 'number of samples in the test set'
 
 im_size = [60, 150]
 shape_types = [0, 1, 2, 3, 4, 5, 6]
+test_shape_types = [0, 1, 2, 3, 4, 5, 42]
 flags.DEFINE_list('im_size', im_size, 'image size of datasets')
 flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
 flags.DEFINE_integer('shape_size', 20, 'size of the shapes')
 flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
+flags.DEFINE_list('test_shape_types', test_shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('n_shapes', [0, 1, 2, 3, 4, 5, 6, 7], 'pool of shape repetitions per stimulus')
 flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier might overlap')
 
@@ -62,7 +65,7 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 #    Data augmentation    #
 ###########################
 flags.DEFINE_float('train_noise', 0.08, 'amount of added random Gaussian noise')
-flags.DEFINE_float('test_noise', 0.12, 'amount of added random Gaussian noise')
+flags.DEFINE_float('test_noise', 0.2, 'amount of added random Gaussian noise')
 flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
 flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
@@ -95,9 +98,9 @@ if n_conv_layers==2:
     
 elif n_conv_layers==3:
     # Case of 3 conv layers:
-    kernel1 = 4
+    kernel1 = 6
     kernel2 = 6
-    kernel3 = 7
+    kernel3 = 6
     stride1 = 1
     stride2 = 2
     stride3 = 2
@@ -124,8 +127,8 @@ flags.DEFINE_integer('caps2_ndims', 8, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
-flags.DEFINE_integer('n_hidden1', 512, 'size of hidden layer 1 in decoder')
-flags.DEFINE_integer('n_hidden2', 1024, 'size of hidden layer 2 in decoder')
+flags.DEFINE_integer('n_hidden_reconstruction_1', 512, 'size of hidden layer 1 in decoder')
+flags.DEFINE_integer('n_hidden_reconstruction_2', 1024, 'size of hidden layer 2 in decoder')
 flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the decoder')
 
 
@@ -151,11 +154,11 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
-nshapes_loss = 'xentropy'
+nshapes_loss = 'squared_diff'
 flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
 flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
-location_loss = 'xentropy'
+location_loss = 'squared_diff'
 flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 
 
@@ -188,10 +191,13 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 
 
 ###########################
-#     Regulariation       #
+#     Regularization       #
 ###########################
 flags.DEFINE_boolean('batch_norm_conv', True, 'use batch normalization between every conv layer')
-flags.DEFINE_boolean('batch_norm_decoder', True, 'use batch normalization for the decoder layers')
+flags.DEFINE_boolean('batch_norm_reconstruction', True, 'use batch normalization for the reconstruction decoder layers')
+flags.DEFINE_boolean('batch_norm_vernieroffset', False, 'use batch normalization for the vernieroffset loss layer')
+flags.DEFINE_boolean('batch_norm_nshapes', True, 'use batch normalization for the nshapes loss layer')
+flags.DEFINE_boolean('batch_norm_location', True, 'use batch normalization for the location loss layer')
 
 
 parameters = tf.app.flags.FLAGS

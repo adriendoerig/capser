@@ -329,7 +329,7 @@ def train_input_fn():
 
 
 def eval_input_fn():
-    rnd_idx = np.random.randint(0, len(parameters.shape_types))
+    rnd_idx = np.random.randint(0, len(parameters.test_data_paths))
     eval_file = parameters.test_data_paths[rnd_idx] + '.tfrecords'
     return input_fn(filenames=eval_file, train=False, parameters=parameters)
 

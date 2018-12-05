@@ -5,13 +5,14 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 26.11.2018
+Last update on 05.12.2018
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
 -> added alphas for each coordinate type
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
+-> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 """
 
 import tensorflow as tf
@@ -69,7 +70,8 @@ def model_fn(features, labels, mode, params):
 
     # Give me different measures of vernier acuity only based on what the vernier capsule is doing:
     with tf.name_scope('1_vernier_acuity'):
-        pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation, vernierlabels)
+        pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation,
+                                                                                                    vernierlabels, parameters, is_training)
         tf.summary.scalar('vernieroffset_loss', parameters.alpha_vernieroffset * vernieroffset_loss)
         tf.summary.scalar('vernieroffset_accuracy', vernieroffset_accuracy)
     
@@ -153,7 +155,7 @@ def model_fn(features, labels, mode, params):
 ##########################################
         with tf.name_scope('5_Nshapes_loss'):
             if parameters.decode_nshapes:
-                nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters)
+                nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters, is_training)
             else:
                 nshapes_loss = 0
                 
@@ -165,10 +167,8 @@ def model_fn(features, labels, mode, params):
 ##########################################
         with tf.name_scope('6_Location_loss'):
             if parameters.decode_location:
-                x_shapeloss, y_shapeloss = compute_location_loss(
-                        shape_decoder_input, x_shape, y_shape, parameters, name_extra='shape')
-                x_vernierloss, y_vernierloss = compute_location_loss(
-                        vernier_decoder_input, x_vernier, y_vernier, parameters, name_extra='vernier')
+                x_shapeloss, y_shapeloss = compute_location_loss(shape_decoder_input, x_shape, y_shape, parameters, 'shape', is_training)
+                x_vernierloss, y_vernierloss = compute_location_loss(vernier_decoder_input, x_vernier, y_vernier, parameters, 'vernier', is_training)
 
                 location_loss = parameters.alpha_x_shapeloss * x_shapeloss + \
                     parameters.alpha_y_shapeloss * y_shapeloss + \
@@ -207,7 +207,7 @@ def model_fn(features, labels, mode, params):
 ##########################################
 #        Training operations             #
 ##########################################
-        if parameters.batch_norm_conv or parameters.batch_norm_decoder:
+        if parameters.batch_norm_conv or parameters.batch_norm_reconstruction or parameters.batch_norm_vernieroffset or parameters.batch_norm_nshapes or parameters.batch_norm_location:
             # The following is needed due to how tf.layers.batch_normalzation works:
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
