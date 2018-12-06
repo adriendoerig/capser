@@ -9,11 +9,12 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 05.12.2018
+Last update on 06.12.2018
 -> added nshapes and location loss
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
+-> added save_path-variable in save_params
 """
 
 import tensorflow as tf
@@ -21,8 +22,8 @@ import tensorflow as tf
 ################################
 #    Small helper function:    #
 ################################
-def save_params(parameters):
-    with open(parameters.logdir + '/parameters.txt', 'w') as f_txt:
+def save_params(save_path, parameters):
+    with open(save_path + '/parameters.txt', 'w') as f_txt:
         f_py = open('./my_parameters.py')
         variables = f_py.read()
         f_txt.write(variables)
@@ -371,3 +372,4 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
             y_loss = tf.reduce_sum(y_squared_diff, name='y_squared_difference_loss_'+name_extra)
 
         return x_loss, y_loss
+

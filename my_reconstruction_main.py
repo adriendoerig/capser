@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-My capsnet: Main script
-Execute the training, evaluation and prediction of the capsnet
+My capsnet: let's decode the reconstructions seperately
+Main script
 @author: Lynn
 
-Last update on 06.12.2018
--> insertion of eval_throttle_secs parameter
+Last update on 06.12.18
+-> first draft of the reconstruction code
 -> small change for save_params
 """
+
 
 import logging
 import numpy as np
@@ -17,7 +18,7 @@ from tensorboard.plugins.beholder import Beholder
 from tensorboard.plugins.beholder import BeholderHook
 
 from my_parameters import parameters
-from my_capser_model_fn import model_fn
+from my_reconstruction_model_fn import model_fn
 from my_capser_input_fn import train_input_fn, eval_input_fn, predict_input_fn
 from my_capser_functions import save_params
 
@@ -48,16 +49,16 @@ tf.set_random_seed(42)
 logging.getLogger().setLevel(logging.INFO)
 
 # Beholder to check on weights during training in tensorboard:
-beholder = Beholder(parameters.logdir)
-beholder_hook = BeholderHook(parameters.logdir)
+beholder = Beholder(parameters.logdir_reconstruction)
+beholder_hook = BeholderHook(parameters.logdir_reconstruction)
 
 # Create the estimator:
-capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
+capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir_reconstruction)
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
 eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
 
 # Save parameters from parameter file for reproducability
-save_params(parameters.logdir, parameters)
+save_params(parameters.logdir_reconstruction, parameters)
 
 # Lets go!
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
@@ -86,7 +87,7 @@ for n_category in range(len(parameters.test_data_paths)):
         print('Finished calculations for stimulus type ' + str(stim_idx))
         print('Result: ' + str(results[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
     
-    txt_file_name = parameters.logdir + '/uncrowding_exp_results_step_' + str(parameters.n_steps) + \
+    txt_file_name = parameters.logdir_reconstruction + '/uncrowding_exp_results_step_' + str(parameters.n_steps) + \
     '_noise_' + str(parameters.test_noise) + '_shape_size_' + str(parameters.shape_size) + '.txt'
     if not os.path.exists(txt_file_name):
         with open(txt_file_name, 'w') as f:

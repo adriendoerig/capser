@@ -367,27 +367,27 @@ class stim_maker_fn:
 #          HAVE A LOOK AT WHAT THE CODE DOES                #
 #############################################################
 
-from my_parameters import parameters
-imSize = parameters.im_size
-shapeSize = parameters.shape_size
-barWidth = parameters.bar_width
-n_shapes = parameters.n_shapes
-train_noise = parameters.train_noise
-test_noise = parameters.test_noise
-batch_size = parameters.batch_size
-shape_types = parameters.shape_types
-overlap = parameters.overlapping_shapes
-test = stim_maker_fn(imSize, shapeSize, barWidth)
+#from my_parameters import parameters
+#imSize = parameters.im_size
+#shapeSize = parameters.shape_size
+#barWidth = parameters.bar_width
+#n_shapes = parameters.n_shapes
+#train_noise = parameters.train_noise
+#test_noise = parameters.test_noise
+#batch_size = parameters.batch_size
+#shape_types = parameters.shape_types
+#overlap = parameters.overlapping_shapes
+#test = stim_maker_fn(imSize, shapeSize, barWidth)
 
 #plt.imshow(test.drawShape(6))
 #test.plotStim([1, 2, 3, 4, 5, 6], 0.05)
 
-[train_vernier_images, train_shape_images, train_shapelabels, train_nshapeslabels, 
-train_vernierlabels, train_x_shape, train_y_shape, train_x_vernier, train_y_vernier] = test.makeTrainBatch(
-        shape_types, n_shapes, batch_size, train_noise, overlap=overlap)
-for i in range(batch_size):
-    plt.imshow(np.squeeze(train_vernier_images[i, :, :] + train_shape_images[i, :, :]))
-    plt.pause(0.5)
+#[train_vernier_images, train_shape_images, train_shapelabels, train_nshapeslabels, 
+#train_vernierlabels, train_x_shape, train_y_shape, train_x_vernier, train_y_vernier] = test.makeTrainBatch(
+#        shape_types, n_shapes, batch_size, train_noise, overlap=overlap)
+#for i in range(batch_size):
+#    plt.imshow(np.squeeze(train_vernier_images[i, :, :] + train_shape_images[i, :, :]))
+#    plt.pause(0.5)
 
 #[test_vernier_images, test_shape_images, test_shapelabels, test_nshapeslabels, 
 #test_vernierlabels, test_x_shape, test_y_shape, test_x_vernier, test_y_vernier] = test.makeTestBatch(42, n_shapes, batch_size, None, test_noise)

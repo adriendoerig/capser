@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Nov 20 16:54:46 2018
+First attempts to get some visualization of the trained model
+
 @author: Lynn
+
+Last update: 06.12.18
+-> some improvements of the code
 """
 
-meta_file = '\model.ckpt-8400.meta'
+meta_path = '.\data\_log'
+meta_file = '\model.ckpt-60000.meta'
 
 import tensorflow as tf
 import numpy as np
@@ -18,6 +23,11 @@ plotflag_kernels = 0
 plotflag_conv_output = 1
 train_flag = 0
 
+test_shape = 3
+batch_size = 1
+
+plt.close('all')
+
 print('--------------------------------------')
 print('TF version:', tf.__version__)
 print('Starting restoration script...')
@@ -25,27 +35,18 @@ print('--------------------------------------')
 
 
 tf.reset_default_graph()  
-imported_meta = tf.train.import_meta_graph('.\data\_log' + meta_file)
+imported_meta = tf.train.import_meta_graph(meta_path + meta_file)
 
-imSize = parameters.im_size
-shapeSize = parameters.shape_size
-barWidth = parameters.bar_width
-n_shapes = parameters.n_shapes
-train_noise = parameters.train_noise
-test_noise = parameters.test_noise
-batch_size = 1
-shape_types = parameters.shape_types
-overlap = parameters.overlapping_shapes
-test = stim_maker_fn(imSize, shapeSize, barWidth)
-
+test = stim_maker_fn(parameters.im_size, parameters.shape_size, parameters.bar_width)
 
 [train_vernier_images, train_shape_images, train_shapelabels, train_nshapeslabels, 
 train_vernierlabels, train_x_shape, train_y_shape, train_x_vernier, train_y_vernier] = test.makeTrainBatch(
-        shape_types, n_shapes, batch_size, train_noise, overlap=overlap)
+        parameters.shape_types, parameters.n_shapes, batch_size, parameters.train_noise, 
+        overlap=parameters.overlapping_shapes)
 
 [test_vernier_images, test_shape_images, test_shapelabels, test_nshapeslabels, 
 test_vernierlabels, test_x_shape, test_y_shape, test_x_vernier, test_y_vernier] = test.makeTestBatch(
- 1, n_shapes, batch_size, None, test_noise)
+ test_shape, parameters.n_shapes, batch_size, None, parameters.test_noise)
 
 if train_flag:
     input_img = train_vernier_images + train_shape_images
@@ -54,7 +55,7 @@ else:
 
 
 with tf.Session() as sess:  
-    imported_meta.restore(sess, tf.train.latest_checkpoint('.\data\_log'))
+    imported_meta.restore(sess, tf.train.latest_checkpoint(meta_path))
 
     # accessing the default graph which we restored
     graph = tf.get_default_graph()
@@ -62,8 +63,6 @@ with tf.Session() as sess:
     # get all names of ops
     all_ops = graph.get_operations()
     n_ops = len(all_ops)
-#    for op in all_ops:
-#        print(op.name)
     
     # get kernels and biases for all conv layers:
     conv1_kernel_tf = graph.get_tensor_by_name('conv1/kernel:0')
@@ -92,7 +91,7 @@ with tf.Session() as sess:
             stddev=parameters.test_noise))
     input_img = input_img_tf.eval()
     
-    # convolute input and final filters:
+    # convolve input and final filters:
     conv1_output_tf = tf.nn.conv2d(input_img_tf, conv1_kernel_tf, [1, 1, 1, 1], 'VALID')
     conv1_output_tf = tf.nn.relu(conv1_output_tf)
     conv1_output = conv1_output_tf.eval()

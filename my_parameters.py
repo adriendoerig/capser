@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 05.12.2018
+Last update on 06.12.2018
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -11,6 +11,7 @@ Last update on 05.12.2018
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
+-> added some parameters for the reconstruction script
 """
 
 import tensorflow as tf
@@ -32,7 +33,8 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
 MODEL_NAME = '_log2'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
-
+flags.DEFINE_string('logdir_rec', data_path + '/' + MODEL_NAME + '_rec/',
+                    'save the model results with the reconstruction decoder here')
 
 ###########################
 #     Reproducibility     #
@@ -141,7 +143,8 @@ flags.DEFINE_float('learning_rate', 0.0005, 'chosen learning rate for training')
 flags.DEFINE_integer('iter_routing', 2, 'number of iterations in routing algorithm')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
-flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
+flags.DEFINE_integer('eval_steps', 50,
+                     'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
 flags.DEFINE_integer('n_steps', 60000, 'number of steps')
