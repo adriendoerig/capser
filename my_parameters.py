@@ -31,7 +31,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log2'
+MODEL_NAME = '_log_test'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 flags.DEFINE_string('logdir_rec', data_path + '/' + MODEL_NAME + '_rec/',
                     'save the model results with the reconstruction decoder here')
@@ -40,8 +40,6 @@ flags.DEFINE_string('logdir_rec', data_path + '/' + MODEL_NAME + '_rec/',
 #     Reproducibility     #
 ###########################
 flags.DEFINE_boolean('random_seed', False,  'if true, set random_seed=42 for the weights initialization')
-# Note: seed=42 usually leads to very bad results (= no vernier offset discrimination)
-# Contrary to that seed=1 leads to good results
 
 
 ###########################
@@ -66,8 +64,8 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_float('train_noise', 0.08, 'amount of added random Gaussian noise')
-flags.DEFINE_float('test_noise', 0.2, 'amount of added random Gaussian noise')
+flags.DEFINE_float('train_noise', 0.05, 'amount of added random Gaussian noise')
+flags.DEFINE_float('test_noise', 0.16, 'amount of added random Gaussian noise')
 flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
 flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
@@ -81,7 +79,7 @@ flags.DEFINE_integer('n_conv_layers', n_conv_layers, 'number of conv layers used
 
 # Conv and primary caps:
 caps1_nmaps = 6
-caps1_ndims = 6
+caps1_ndims = 3
 
 if n_conv_layers==2:
     # Case of 2 conv layers:
@@ -125,7 +123,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 8, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 4, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -147,7 +145,7 @@ flags.DEFINE_integer('eval_steps', 50,
                      'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 60000, 'number of steps')
+flags.DEFINE_integer('n_steps', 80000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
@@ -157,11 +155,11 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
-nshapes_loss = 'squared_diff'
+nshapes_loss = 'xentropy'
 flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
 flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
-location_loss = 'squared_diff'
+location_loss = 'xentropy'
 flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 
 
@@ -172,22 +170,22 @@ flags.DEFINE_float('alpha_vernier_reconstruction', 0.0005, 'alpha for reconstruc
 flags.DEFINE_float('alpha_shape_reconstruction', 0.0001, 'alpha for reconstruction loss for shape image (reduce_sum)')
 
 if nshapes_loss=='xentropy':
-    flags.DEFINE_float('alpha_nshapes', 0.01, 'alpha for nshapes loss')
+    flags.DEFINE_float('alpha_nshapes', 0.4, 'alpha for nshapes loss')
 elif nshapes_loss=='squared_diff':
     flags.DEFINE_float('alpha_nshapes', 0.002, 'alpha for nshapes loss')
 
 if location_loss=='xentropy':
-    flags.DEFINE_float('alpha_x_shapeloss', 0.01, 'alpha for loss of x coordinate of shape')
-    flags.DEFINE_float('alpha_y_shapeloss', 0.01, 'alpha for loss of y coordinate of shape')
-    flags.DEFINE_float('alpha_x_vernierloss', 0.01, 'alpha for loss of x coordinate of vernier')
-    flags.DEFINE_float('alpha_y_vernierloss', 0.01, 'alpha for loss of y coordinate of vernier')
+    flags.DEFINE_float('alpha_x_shapeloss', 0.1, 'alpha for loss of x coordinate of shape')
+    flags.DEFINE_float('alpha_y_shapeloss', 0.1, 'alpha for loss of y coordinate of shape')
+    flags.DEFINE_float('alpha_x_vernierloss', 0.1, 'alpha for loss of x coordinate of vernier')
+    flags.DEFINE_float('alpha_y_vernierloss', 0.1, 'alpha for loss of y coordinate of vernier')
 elif location_loss=='squared_diff':
     flags.DEFINE_float('alpha_x_shapeloss', 0.000004, 'alpha for loss of x coordinate of shape')
     flags.DEFINE_float('alpha_y_shapeloss', 0.00005, 'alpha for loss of y coordinate of shape')
     flags.DEFINE_float('alpha_x_vernierloss', 0.000004, 'alpha for loss of x coordinate of vernier')
     flags.DEFINE_float('alpha_y_vernierloss', 0.00005, 'alpha for loss of y coordinate of vernier')
 
-# Margin loss
+# Margin loss extras
 flags.DEFINE_float('m_plus', 0.9, 'the parameter of m plus')
 flags.DEFINE_float('m_minus', 0.1, 'the parameter of m minus')
 flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit classes')
@@ -198,7 +196,7 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 ###########################
 flags.DEFINE_boolean('batch_norm_conv', True, 'use batch normalization between every conv layer')
 flags.DEFINE_boolean('batch_norm_reconstruction', True, 'use batch normalization for the reconstruction decoder layers')
-flags.DEFINE_boolean('batch_norm_vernieroffset', False, 'use batch normalization for the vernieroffset loss layer')
+flags.DEFINE_boolean('batch_norm_vernieroffset', True, 'use batch normalization for the vernieroffset loss layer')
 flags.DEFINE_boolean('batch_norm_nshapes', True, 'use batch normalization for the nshapes loss layer')
 flags.DEFINE_boolean('batch_norm_location', True, 'use batch normalization for the location loss layer')
 

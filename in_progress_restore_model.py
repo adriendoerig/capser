@@ -66,7 +66,11 @@ with tf.Session() as sess:
     
     # get kernels and biases for all conv layers:
     conv1_kernel_tf = graph.get_tensor_by_name('conv1/kernel:0')
+#    conv1_kernel_tf2 = graph.get_tensor_by_name('1_convolutional_layers/conv1/Conv2D:0')
+#    conv1_kernel_tf3 = graph.get_tensor_by_name('1_convolutional_layers/conv1_output/tag:0')
     conv1_kernel = conv1_kernel_tf.eval()
+#    conv1_kernel2 = conv1_kernel_tf2.eval()
+#    conv1_kernel3 = conv1_kernel_tf3.eval()
     conv1_bias_tf = graph.get_tensor_by_name('conv1/bias:0')
     conv1_bias = conv1_bias_tf.eval()
     

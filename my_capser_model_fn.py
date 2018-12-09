@@ -150,6 +150,15 @@ def model_fn(features, labels, mode, params):
             tf.summary.scalar('reconstruction_loss', reconstruction_loss)
 
 
+        blub = 0
+        if blub:
+            hidden_reconstruction_1 = tf.layers.dense(vernier_decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False,
+                                                  activation=None, name='hidden_reconstruction_1')
+            tf.summary.histogram('hidden_reconstruction_1_hist', hidden_reconstruction_1)
+        else:
+            hidden_reconstruction_1 = 0
+
+
     ##########################################
     #            Decode nshapes              #
     ##########################################
@@ -161,7 +170,7 @@ def model_fn(features, labels, mode, params):
                 nshapes_accuracy = 0
                 
             tf.summary.scalar('nshapes_loss', parameters.alpha_nshapes * nshapes_loss)
-            tf.summary.scalar('nshapes_accuracy', parameters.alpha_nshapes * nshapes_accuracy)
+            tf.summary.scalar('nshapes_accuracy', nshapes_accuracy)
 
 
     ##########################################
