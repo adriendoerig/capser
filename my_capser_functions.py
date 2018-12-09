@@ -15,6 +15,7 @@ Last update on 06.12.2018
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 -> added save_path-variable in save_params
+-> added distance to tensorboard for nshapes and location loss
 """
 
 import tensorflow as tf
@@ -310,15 +311,16 @@ def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters, phase=T
         logits_nshapes = tf.nn.relu(hidden_nshapes, name='logits_nshapes')
         
         pred_nshapes = tf.argmax(logits_nshapes, axis=1, name='predicted_nshapes', output_type=tf.int64)
+        squared_diff_nshapes = tf.square(tf.cast(nshapeslabels, tf.float32) - tf.cast(pred_nshapes, tf.float32), name='squared_diff_nshapes')
         tf.summary.histogram('nshapes_real', nshapeslabels)
         tf.summary.histogram('nshapes_pred', pred_nshapes)
+        tf.summary.histogram('nshapes_distance', tf.sqrt(squared_diff_nshapes))
         correct_nshapes = tf.equal(nshapeslabels, pred_nshapes, name='correct_nshapes')
         accuracy_nshapes = tf.reduce_mean(tf.cast(correct_nshapes, tf.float32), name='accuracy_nshapes')
         
         if parameters.nshapes_loss == 'xentropy':
             loss_nshapes = tf.losses.softmax_cross_entropy(T_nshapes, logits_nshapes)
         elif parameters.nshapes_loss == 'squared_diff':
-            squared_diff_nshapes = tf.square(tf.cast(nshapeslabels, tf.float32) - tf.cast(pred_nshapes, tf.float32), name='squared_diff_nshapes')
             loss_nshapes = tf.reduce_sum(squared_diff_nshapes, name='squared_diff_loss_nshapes')
         return loss_nshapes, accuracy_nshapes
 
@@ -342,13 +344,14 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         x_logits = tf.nn.relu(hidden_x, name='x_logits'+name_extra)
         
         pred_x = tf.argmax(x_logits, axis=1, name='pred_x'+name_extra, output_type=tf.int64)
+        x_squared_diff = tf.square(tf.cast(x_label, tf.float32) - tf.cast(pred_x, tf.float32), name='x_squared_difference_'+name_extra)
         tf.summary.histogram('x_real_'+name_extra, x_label)
         tf.summary.histogram('x_pred_'+name_extra, pred_x)
+        tf.summary.histogram('x_distance'+name_extra, tf.sqrt(x_squared_diff))
         
         if parameters.location_loss == 'xentropy':
             x_loss = tf.losses.softmax_cross_entropy(T_x, x_logits)
         elif parameters.location_loss == 'squared_diff':
-            x_squared_diff = tf.square(tf.cast(x_label, tf.float32) - tf.cast(pred_x, tf.float32), name='x_squared_difference_'+name_extra)
             x_loss = tf.reduce_sum(x_squared_diff, name='x_squared_difference_loss_'+name_extra)
         
         # Loss for y-coordinates:
@@ -362,13 +365,14 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         y_logits = tf.nn.relu(hidden_y, name='y_logits'+name_extra)
         
         pred_y = tf.argmax(y_logits, axis=1, name='pred_y_'+name_extra, output_type=tf.int64)
+        y_squared_diff = tf.square(tf.cast(y_label, tf.float32) - tf.cast(pred_y, tf.float32), name='y_squared_difference_'+name_extra)
         tf.summary.histogram('y_real_'+name_extra, y_label)
         tf.summary.histogram('y_pred_'+name_extra, pred_y)
+        tf.summary.histogram('y_distance'+name_extra, tf.sqrt(y_squared_diff))
         
         if parameters.location_loss == 'xentropy':
             y_loss = tf.losses.softmax_cross_entropy(T_y, y_logits)
         elif parameters.location_loss == 'squared_diff':
-            y_squared_diff = tf.square(tf.cast(y_label, tf.float32) - tf.cast(pred_y, tf.float32), name='y_squared_difference_'+name_extra)
             y_loss = tf.reduce_sum(y_squared_diff, name='y_squared_difference_loss_'+name_extra)
 
         return x_loss, y_loss
