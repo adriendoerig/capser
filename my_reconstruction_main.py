@@ -4,9 +4,11 @@ My capsnet: let's decode the reconstructions seperately
 Main script
 @author: Lynn
 
-Last update on 06.12.18
+Last update on 10.12.18
 -> first draft of the reconstruction code
--> small change for save_params
+-> restore necessary parameters via params in Estimator API
+-> unfortunately, the code is not as flexible as I would like it to be
+-> decide whether to train whole model or only the reconstruction decoder
 """
 
 
@@ -42,6 +44,38 @@ np.random.seed(42)
 tf.set_random_seed(42)
 
 
+#########################################
+#    Restore all relevant parameters:   #
+#########################################
+imported_meta = tf.train.import_meta_graph(parameters.logdir + parameters.restoration_file)
+
+with tf.Session() as sess:
+    # accessing the restored default graph and all operations:
+    imported_meta.restore(sess, tf.train.latest_checkpoint(parameters.logdir))
+    graph = tf.get_default_graph()
+    
+    # get kernels and biases for all conv layers:
+    conv1_kernel_restored = graph.get_tensor_by_name('conv1/kernel:0').eval()
+    conv1_bias_restored = graph.get_tensor_by_name('conv1/bias:0').eval()
+    
+    conv2_kernel_restored = graph.get_tensor_by_name('conv2/kernel:0').eval()
+    conv2_bias_restored = graph.get_tensor_by_name('conv2/bias:0').eval()
+    
+    conv3_kernel_restored = graph.get_tensor_by_name('conv3/kernel:0').eval()
+    conv3_bias_restored = graph.get_tensor_by_name('conv3/bias:0').eval()
+    
+    # restore weights between first and second caps layer
+    W_restored = graph.get_tensor_by_name('3_secondary_caps_layer/W:0').eval()
+
+
+params = {'conv1_kernel_restored': conv1_kernel_restored,
+          'conv1_bias_restored': conv1_bias_restored,
+          'conv2_kernel_restored': conv2_kernel_restored,
+          'conv2_bias_restored': conv2_bias_restored,
+          'conv3_kernel_restored': conv3_kernel_restored,
+          'conv3_bias_restored': conv3_bias_restored,
+          'W_restored': W_restored}
+
 ##################################
 #    Training and evaluation:    #
 ##################################
@@ -53,7 +87,7 @@ beholder = Beholder(parameters.logdir_reconstruction)
 beholder_hook = BeholderHook(parameters.logdir_reconstruction)
 
 # Create the estimator:
-capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir_reconstruction)
+capser = tf.estimator.Estimator(model_fn=model_fn, params=params, model_dir=parameters.logdir_reconstruction)
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
 eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
 

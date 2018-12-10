@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 06.12.2018
+Last update on 10.12.2018
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -22,6 +22,7 @@ flags = tf.app.flags
 ###########################
 #          Paths          #
 ###########################
+# In general
 data_path = './data'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 flags.DEFINE_string('train_data_path', data_path+'/train.tfrecords', 'path for the tfrecords file involving the training set')
@@ -31,10 +32,14 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log_test'
+MODEL_NAME = '_log_4'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
-flags.DEFINE_string('logdir_rec', data_path + '/' + MODEL_NAME + '_rec/',
-                    'save the model results with the reconstruction decoder here')
+
+# For reconstruction
+flags.DEFINE_string('logdir_reconstruction', data_path + '/' + MODEL_NAME + '_rec/', 'save results with reconstructed weights here')
+flags.DEFINE_string('restoration_file', 'model.ckpt-2314.meta', 'name of restored meta file')
+flags.DEFINE_boolean('only_train_decoder', True, 'decide whether to train the whole model again or only the reconstruction decoder')
+
 
 ###########################
 #     Reproducibility     #
@@ -65,7 +70,7 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 #    Data augmentation    #
 ###########################
 flags.DEFINE_float('train_noise', 0.05, 'amount of added random Gaussian noise')
-flags.DEFINE_float('test_noise', 0.16, 'amount of added random Gaussian noise')
+flags.DEFINE_float('test_noise', 0.10, 'amount of added random Gaussian noise')
 flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
 flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')

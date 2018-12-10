@@ -3,11 +3,12 @@
 My capsnet: let's decode the reconstructions seperately
 @author: Lynn
 
-Last update on 06.12.18
+Last update on 10.12.18
 -> first draft of the reconstruction code
+-> unfortunately, the code is not as flexible as I would like it to be
+-> decide whether to train whole model or only the reconstruction decoder
 """
 
-restoration_file = '\model.ckpt-60000.meta'
 
 import tensorflow as tf
 
@@ -38,59 +39,40 @@ def model_fn(features, labels, mode, params):
     tf.summary.image('input_images', X, 6)
 
 
-    #########################################
-    #    Restore all relevant parameters:   #
-    #########################################
-    tf.reset_default_graph()  
-    imported_meta = tf.train.import_meta_graph(parameters.logdir + parameters.restoration_file)
-    
-    with tf.Session() as sess:
-        # accessing the restored default graph and all operations:
-        imported_meta.restore(sess, tf.train.latest_checkpoint(parameters.logdir))
-        graph = tf.get_default_graph()
-        
-        # get kernels and biases for all conv layers:
-        conv1_kernel_restored = graph.get_tensor_by_name('conv1/kernel:0')
-        conv1_bias_restored = graph.get_tensor_by_name('conv1/bias:0')
-        
-        conv2_kernel_restored = graph.get_tensor_by_name('conv2/kernel:0')
-        conv2_bias_restored = graph.get_tensor_by_name('conv2/bias:0')
-        
-        conv3_kernel_restored = graph.get_tensor_by_name('conv3/kernel:0')
-        conv3_bias_restored = graph.get_tensor_by_name('conv3/bias:0')
-        
-        # restore weights between first and second caps layer
-        W_restored = graph.get_tensor_by_name('3_secondary_caps_layer/W:0')
-        
-    
+    conv1_kernel_restored = tf.constant(params['conv1_kernel_restored'])
+    conv1_bias_restored = tf.constant(params['conv1_bias_restored'])
+    conv2_kernel_restored = tf.constant(params['conv2_kernel_restored'])
+    conv2_bias_restored = tf.constant(params['conv2_bias_restored'])
+    conv3_kernel_restored = tf.constant(params['conv3_kernel_restored'])
+    conv3_bias_restored = tf.constant(params['conv3_bias_restored'])
+    W_restored = tf.constant(params['W_restored'])
+
+
     ###################################
     #      Convolutional layers:      #
     ###################################
     # Set up the conv layers the same as before but initialize them with our restored values
     with tf.name_scope('1_convolutional_layers'):
-        conv1 = tf.layers.conv2d(X, name='conv1', activation=None,
-                                 kernel_initializer=conv1_kernel_restored,
-                                 bias_initializer=conv1_bias_restored,
-                                 **parameters.conv_params[0])
+        # Conv 1:
+        conv1 = tf.nn.conv2d(X, conv1_kernel_restored, [1, 1, 1, 1], 'VALID')
+        conv1 = tf.nn.bias_add(conv1, conv1_bias_restored)
         if parameters.batch_norm_conv:
             conv1 = tf.layers.batch_normalization(conv1, training=is_training, name='conv1_bn')
-        conv1 = tf.nn.relu(conv1)
+        conv1 = tf.nn.elu(conv1)
         tf.summary.histogram('conv1_output', conv1)
 
-        conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None,
-                                 kernel_initializer=conv2_kernel_restored,
-                                 bias_initializer=conv2_bias_restored,
-                                 **parameters.conv_params[1])
+        # Conv 2:
+        conv2 = tf.nn.conv2d(conv1, conv2_kernel_restored, [1, 2, 2, 1], 'VALID')
+        conv2 = tf.nn.bias_add(conv2, conv2_bias_restored)
         if parameters.batch_norm_conv:
             conv2 = tf.layers.batch_normalization(conv2, training=is_training, name='conv2_bn')
-        conv2 = tf.nn.relu(conv2)
+        conv2 = tf.nn.elu(conv2)
         tf.summary.histogram('conv2_output', conv2)
 
-        conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None,
-                                 kernel_initializer=conv3_kernel_restored,
-                                 bias_initializer=conv3_bias_restored,
-                                 **parameters.conv_params[2])
-        conv_output = tf.nn.relu(conv3)
+        # Conv 3:
+        conv3 = tf.nn.conv2d(conv2, conv3_kernel_restored, [1, 2, 2, 1], 'VALID')
+        conv3 = tf.nn.bias_add(conv3, conv3_bias_restored)
+        conv_output = tf.nn.elu(conv3)
         tf.summary.histogram('conv3_output', conv_output)
     
     
@@ -186,9 +168,9 @@ def model_fn(features, labels, mode, params):
     ##########################################
         with tf.name_scope('4_Reconstruction_loss'):
             # Create decoder outputs for vernier and shape images batch
-            vernier_reconstructed_output, vernier_reconstructed_output_img = compute_reconstruction(
+            vernier_reconstructed_output, vernier_reconstructed_output_img, hidden_reconstruction_1, hidden_reconstruction_2 = compute_reconstruction(
                     vernier_decoder_input, parameters, is_training, '_vernier')
-            shape_reconstructed_output, shape_reconstructed_output_img = compute_reconstruction(
+            shape_reconstructed_output, shape_reconstructed_output_img, hidden_reconstruction_1, hidden_reconstruction_2 = compute_reconstruction(
                     shape_decoder_input, parameters, is_training, '_shape')
 
             decoder_output_img = vernier_reconstructed_output_img + shape_reconstructed_output_img
@@ -220,19 +202,19 @@ def model_fn(features, labels, mode, params):
     ##########################################
     #        Training operations             #
     ##########################################
-        if parameters.batch_norm_conv or parameters.batch_norm_reconstruction or parameters.batch_norm_vernieroffset or parameters.batch_norm_nshapes or parameters.batch_norm_location:
-            # The following is needed due to how tf.layers.batch_normalzation works:
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(update_ops):
-                optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
-                train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
-        else:
+        if parameters.only_train_decoder:
+            var_list = [hidden_reconstruction_1, hidden_reconstruction_2, vernier_reconstructed_output, shape_reconstructed_output]
+    
+        # The following is needed due to how tf.layers.batch_normalzation works:
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
             optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
-            train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+            train_op = optimizer.minimize(loss=final_loss, var_list=var_list,
+                                          global_step=tf.train.get_global_step(), name='train_op')
         
         # write summaries during evaluation
         eval_summary_hook = tf.train.SummarySaverHook(save_steps=100,
-                                                      output_dir=parameters.logdir_rec + '/eval',
+                                                      output_dir=parameters.logdir_reconstruction + '/eval',
                                                       summary_op=tf.summary.merge_all())
         
         # Wrap all of this in an EstimatorSpec.

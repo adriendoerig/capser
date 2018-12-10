@@ -219,7 +219,7 @@ class stim_maker_fn:
             if idx==0:
                 # Vernier test stimuli:
                 selected_repetitions = 0
-                nshapes_label = 0  # actually, this should not have a value but since we only use this for training, its ok!
+                nshapes_label = 0
                 col = np.random.randint(0, self.imSize[1] - self.shapeSize)
                 vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                 x_vernier_ind, y_vernier_ind = col, row

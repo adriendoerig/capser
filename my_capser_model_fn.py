@@ -150,15 +150,6 @@ def model_fn(features, labels, mode, params):
             tf.summary.scalar('reconstruction_loss', reconstruction_loss)
 
 
-        blub = 0
-        if blub:
-            hidden_reconstruction_1 = tf.layers.dense(vernier_decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False,
-                                                  activation=None, name='hidden_reconstruction_1')
-            tf.summary.histogram('hidden_reconstruction_1_hist', hidden_reconstruction_1)
-        else:
-            hidden_reconstruction_1 = 0
-
-
     ##########################################
     #            Decode nshapes              #
     ##########################################
@@ -218,13 +209,9 @@ def model_fn(features, labels, mode, params):
     ##########################################
     #        Training operations             #
     ##########################################
-        if parameters.batch_norm_conv or parameters.batch_norm_reconstruction or parameters.batch_norm_vernieroffset or parameters.batch_norm_nshapes or parameters.batch_norm_location:
-            # The following is needed due to how tf.layers.batch_normalzation works:
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(update_ops):
-                optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
-                train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
-        else:
+        # The following is needed due to how tf.layers.batch_normalzation works:
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
             optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
             train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
         
