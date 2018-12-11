@@ -122,7 +122,7 @@ for n_category in range(len(parameters.test_data_paths)):
         print('Result: ' + str(results[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
     
     txt_file_name = parameters.logdir_reconstruction + '/uncrowding_exp_results_step_' + str(parameters.n_steps) + \
-    '_noise_' + str(parameters.test_noise) + '_shape_size_' + str(parameters.shape_size) + '.txt'
+    '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
     if not os.path.exists(txt_file_name):
         with open(txt_file_name, 'w') as f:
             f.write(category + ' : \t' + str(results) + '\n')

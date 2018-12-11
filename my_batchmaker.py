@@ -372,8 +372,8 @@ class stim_maker_fn:
 #shapeSize = parameters.shape_size
 #barWidth = parameters.bar_width
 #n_shapes = parameters.n_shapes
-#train_noise = parameters.train_noise
-#test_noise = parameters.test_noise
+#train_noise = parameters.train_noise[0]
+#test_noise = parameters.test_noise[0]
 #batch_size = parameters.batch_size
 #shape_types = parameters.shape_types
 #overlap = parameters.overlapping_shapes

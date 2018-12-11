@@ -32,7 +32,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log_4'
+MODEL_NAME = '_log_6'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 # For reconstruction
@@ -69,8 +69,8 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_float('train_noise', 0.05, 'amount of added random Gaussian noise')
-flags.DEFINE_float('test_noise', 0.10, 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.02, 0.15], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.05, 0.2], 'amount of added random Gaussian noise')
 flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
 flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
@@ -103,14 +103,14 @@ if n_conv_layers==2:
     
 elif n_conv_layers==3:
     # Case of 3 conv layers:
-    kernel1 = 6
+    kernel1 = 5
     kernel2 = 6
     kernel3 = 6
     stride1 = 1
     stride2 = 2
     stride3 = 2
     # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-    dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
+    dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
     dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
     conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
                     'padding': 'valid'}
@@ -150,7 +150,7 @@ flags.DEFINE_integer('eval_steps', 50,
                      'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 80000, 'number of steps')
+flags.DEFINE_integer('n_steps', 30000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 

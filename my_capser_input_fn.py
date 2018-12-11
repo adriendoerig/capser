@@ -86,12 +86,14 @@ def parse_tfrecords_train(serialized_data):
     #       Data augmentation:       #
     ##################################
     # Add some random gaussian TRAINING noise (always):
+    noise1 = tf.random_uniform([1], parameters.train_noise[0], parameters.train_noise[1], tf.float32)
+    noise2 = tf.random_uniform([1], parameters.train_noise[0], parameters.train_noise[1], tf.float32)
     vernier_images = tf.add(vernier_images, tf.random_normal(
         shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=parameters.train_noise))
+        stddev=noise1))
     shape_images = tf.add(shape_images, tf.random_normal(
         shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=parameters.train_noise))
+        stddev=noise2))
 
 
     # Adjust brightness and contrast by a random factor
@@ -244,12 +246,14 @@ def parse_tfrecords_test(serialized_data):
     
     # For the test and validation set, we dont really need data augmentation,
     # but we'd still like some TEST noise
+    noise1 = tf.random_uniform([1], parameters.test_noise[0], parameters.test_noise[1], tf.float32)
+    noise2 = tf.random_uniform([1], parameters.test_noise[0], parameters.test_noise[1], tf.float32)
     vernier_images = tf.add(vernier_images, tf.random_normal(
         shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=parameters.test_noise))
+        stddev=noise1))
     shape_images = tf.add(shape_images, tf.random_normal(
         shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=parameters.test_noise))
+        stddev=noise2))
     
     return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
 
