@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 10.12.2018
+Last update on 12.12.2018
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -12,6 +12,7 @@ Last update on 10.12.2018
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 -> added some parameters for the reconstruction script
+-> train and test noise is randomly changed now between a lower and upper border
 """
 
 import tensorflow as tf
@@ -32,7 +33,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log_6'
+MODEL_NAME = '_log2'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 
 # For reconstruction
@@ -69,8 +70,8 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.02, 0.15], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.05, 0.2], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.05, 0.15], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.1, 0.3], 'amount of added random Gaussian noise')
 flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
 flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
@@ -103,14 +104,14 @@ if n_conv_layers==2:
     
 elif n_conv_layers==3:
     # Case of 3 conv layers:
-    kernel1 = 5
+    kernel1 = 6
     kernel2 = 6
     kernel3 = 6
     stride1 = 1
     stride2 = 2
     stride3 = 2
     # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-    dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
+    dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
     dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
     conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
                     'padding': 'valid'}

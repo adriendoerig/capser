@@ -3,10 +3,11 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 19.11.2018
+Last update on 12.12.2018
 -> added requirements for nshapes and location loss
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
+-> train and test noise is randomly changed now between a lower and upper border
 """
 
 import tensorflow as tf
@@ -111,7 +112,7 @@ def parse_tfrecords_train(serialized_data):
         shape_images_augmented = tf.image.random_brightness(shape_images_augmented, parameters.max_delta_brightness)
         return vernier_images_augmented, shape_images_augmented
 
-    # Maybe flip left-right:
+    # Maybe change contrast and brightness:
     pred = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
     vernier_images, shape_images = tf.cond(pred, bright_contrast, contrast_bright)
 
