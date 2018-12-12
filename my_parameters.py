@@ -70,11 +70,11 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.05, 0.15], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.1, 0.3], 'amount of added random Gaussian noise')
-flags.DEFINE_float('max_delta_brightness', 0.5, 'max factor to adjust brightness (+/-), must be non-negative')
-flags.DEFINE_float('min_delta_contrast', 0.5, 'min factor to adjust contrast, must be non-negative')
-flags.DEFINE_float('max_delta_contrast', 1.5, 'max factor to adjust contrast, must be non-negative')
+flags.DEFINE_list('train_noise', [0.05, 0.1], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.1, 0.2], 'amount of added random Gaussian noise')
+flags.DEFINE_float('max_delta_brightness', 0.2, 'max factor to adjust brightness (+/-), must be non-negative')
+flags.DEFINE_float('min_delta_contrast', 0.8, 'min factor to adjust contrast, must be non-negative')
+flags.DEFINE_float('max_delta_contrast', 1.2, 'max factor to adjust contrast, must be non-negative')
 
 
 ###########################

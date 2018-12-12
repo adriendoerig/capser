@@ -8,6 +8,7 @@ Last update on 12.12.2018
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
 -> train and test noise is randomly changed now between a lower and upper border
+-> clip the pixel values, so that adding venier and shape images leads to pixel intensities of maximally 1
 """
 
 import tensorflow as tf
@@ -174,6 +175,10 @@ def parse_tfrecords_train(serialized_data):
     # Get rid of extra-dimension:
     vernier_images = tf.squeeze(vernier_images, axis=0)
     shape_images = tf.squeeze(shape_images, axis=0)
+    
+    # Lets clip the pixel values, so that if we add them the maximum pixel intensity will be 1:
+    vernier_images = tf.clip_by_value(vernier_images, 0, 0.5)
+    shape_images = tf.clip_by_value(shape_images, 0, 0.5)
 
     return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
 
@@ -255,6 +260,10 @@ def parse_tfrecords_test(serialized_data):
     shape_images = tf.add(shape_images, tf.random_normal(
         shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
         stddev=noise2))
+    
+    # Lets clip the pixel values, so that if we add them the maximum pixel intensity will be 1:
+    vernier_images = tf.clip_by_value(vernier_images, 0, 0.5)
+    shape_images = tf.clip_by_value(shape_images, 0, 0.5)
     
     return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
 
