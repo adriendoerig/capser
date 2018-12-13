@@ -13,6 +13,7 @@ Last update on 12.12.2018
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 -> added some parameters for the reconstruction script
 -> train and test noise is randomly changed now between a lower and upper border
+-> change for random_seed with regards to change in secondary_caps_layer()
 """
 
 import tensorflow as tf
@@ -45,7 +46,7 @@ flags.DEFINE_boolean('only_train_decoder', True, 'decide whether to train the wh
 ###########################
 #     Reproducibility     #
 ###########################
-flags.DEFINE_boolean('random_seed', False,  'if true, set random_seed=42 for the weights initialization')
+flags.DEFINE_integer('random_seed', None, 'if not None, set seed for weights initialization')
 
 
 ###########################

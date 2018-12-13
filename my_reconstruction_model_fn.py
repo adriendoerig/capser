@@ -3,18 +3,19 @@
 My capsnet: let's decode the reconstructions seperately
 @author: Lynn
 
-Last update on 10.12.18
+Last update on 12.12.18
 -> first draft of the reconstruction code
 -> unfortunately, the code is not as flexible as I would like it to be
 -> decide whether to train whole model or only the reconstruction decoder
+-> small change in secondary_caps_layer() with regards to reconstruction decoder script
 """
 
 
 import tensorflow as tf
 
 from my_parameters import parameters
-from my_capser_functions import safe_norm, routing_by_agreement, \
-primary_caps_layer, compute_vernieroffset_loss, predict_shapelabels, \
+from my_capser_functions import primary_caps_layer, secondary_caps_layer, \
+compute_vernieroffset_loss, predict_shapelabels, \
 compute_accuracy, compute_margin_loss, create_masked_decoder_input, \
 compute_reconstruction, compute_reconstruction_loss
 
@@ -77,36 +78,12 @@ def model_fn(features, labels, mode, params):
     
     
     ###################################
-    #     Primary capsule layer:      #
+    #         Capsule layers:         #
     ###################################
     caps1_output = primary_caps_layer(conv_output, parameters)
-
-
-    ###################################
-    #     Secondary capsule layer:    #
-    ###################################
+    
     # Set up the 2nd caps layer the same as before but initialize W with our restored values
-    with tf.name_scope('3_secondary_caps_layer'):
-        # Initialize and repeat weights for further calculations:
-        W_init = W_restored
-        W = tf.Variable(W_init, dtype=tf.float32, name='W')
-        W_tiled = tf.tile(W, [parameters.batch_size, 1, 1, 1, 1], name='W_tiled')
-    
-        # Create second array by repeating the output of the 1st layer 10 times:
-        caps1_output_expanded = tf.expand_dims(caps1_output, -1, name='caps1_output_expanded')
-        caps1_output_tile = tf.expand_dims(caps1_output_expanded, 2, name='caps1_output_tile')
-        caps1_output_tiled = tf.tile(caps1_output_tile, [1, 1, parameters.caps2_ncaps, 1, 1], name='caps1_output_tiled')
-    
-        # Now we multiply these matrices (matrix multiplication):
-        caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled, name='caps2_predicted')
-        
-        # Routing by agreement:
-        caps2_output = routing_by_agreement(caps2_predicted, parameters.batch_size, parameters)
-        
-        # Compute the norm of the output for each output caps and each instance:
-        caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')
-        tf.summary.histogram('caps2_output_norm', caps2_output_norm[0, :, :, :])
-
+    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters, W_restored)
 
     ###################################
     #    Calculate vernier acuity:    #

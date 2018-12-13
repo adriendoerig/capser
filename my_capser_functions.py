@@ -9,7 +9,7 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 10.12.2018
+Last update on 12.12.2018
 -> added nshapes and location loss
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
@@ -17,6 +17,7 @@ Last update on 10.12.2018
 -> added save_path-variable in save_params
 -> added distance to tensorboard for nshapes and location loss
 -> changes for the reconstruction decoder, now using reuse=True
+-> change in secondary_caps_layer()
 """
 
 import tensorflow as tf
@@ -137,21 +138,16 @@ def primary_caps_layer(conv_output, parameters):
         return caps1_output
 
 
-def secondary_caps_layer(caps1_output, parameters):
+def secondary_caps_layer(caps1_output, parameters, W_init=None):
     with tf.name_scope('3_secondary_caps_layer'):
         # Initialize and repeat weights for further calculations:
-        if parameters.random_seed:
+        if W_init==None:
             W_init = lambda: tf.random_normal(
                 shape=(1, parameters.caps1_ncaps, parameters.caps2_ncaps, parameters.caps2_ndims, parameters.caps1_ndims),
-                stddev=parameters.init_sigma, dtype=tf.float32, seed=1, name='W_init')
-        else:
-            W_init = lambda: tf.random_normal(
-                shape=(
-                1, parameters.caps1_ncaps, parameters.caps2_ncaps, parameters.caps2_ndims, parameters.caps1_ndims),
-                stddev=parameters.init_sigma, dtype=tf.float32, name='W_init')
+                stddev=parameters.init_sigma, dtype=tf.float32, seed=parameters.random_seed, name='W_init')
 
-        W = tf.Variable(W_init, dtype=tf.float32, name="W")
-        W_tiled = tf.tile(W, [parameters.batch_size, 1, 1, 1, 1], name="W_tiled")
+        W = tf.Variable(W_init, dtype=tf.float32, name='W')
+        W_tiled = tf.tile(W, [parameters.batch_size, 1, 1, 1, 1], name='W_tiled')
 
         # Create second array by repeating the output of the 1st layer 10 times:
         caps1_output_expanded = tf.expand_dims(caps1_output, -1, name='caps1_output_expanded')
@@ -179,7 +175,7 @@ def predict_shapelabels(caps2_output, n_labels):
         labels_proba = safe_norm(caps2_output, axis=-2, name='labels_proba')
 
         # Predict n_labels largest values:
-        _, labels_pred = tf.nn.top_k(labels_proba[:, 0, :, 0], n_labels, name="y_proba")
+        _, labels_pred = tf.nn.top_k(labels_proba[:, 0, :, 0], n_labels, name='y_proba')
         labels_pred = tf.cast(labels_pred, tf.int64)
         labels_pred = tf.contrib.framework.sort(labels_pred, axis=-1, direction='ASCENDING', name='labels_pred_sorted')
         return labels_pred
