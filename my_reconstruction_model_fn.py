@@ -3,33 +3,45 @@
 My capsnet: let's decode the reconstructions seperately
 @author: Lynn
 
-Last update on 12.12.18
+Last update on 14.12.18
 -> first draft of the reconstruction code
 -> unfortunately, the code is not as flexible as I would like it to be
 -> decide whether to train whole model or only the reconstruction decoder
 -> small change in secondary_caps_layer() with regards to reconstruction decoder script
+-> loss is in the if clause now
 """
 
 
 import tensorflow as tf
 
 from my_parameters import parameters
-from my_capser_functions import primary_caps_layer, secondary_caps_layer, \
-compute_vernieroffset_loss, predict_shapelabels, \
-compute_accuracy, compute_margin_loss, create_masked_decoder_input, \
-compute_reconstruction, compute_reconstruction_loss
+from my_capser_functions import \
+conv_layers, primary_caps_layer, secondary_caps_layer, \
+predict_shapelabels, create_masked_decoder_input, compute_margin_loss, \
+compute_accuracy, compute_reconstruction, compute_reconstruction_loss, \
+compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 
-print('--------------------------------------')
-print('TF version:', tf.__version__)
-print('Starting reconstruction script...')
-print('--------------------------------------')
+
+
+class RestoreHook(tf.train.SessionRunHook):
+    def __init__(self, init_fn):
+        self.init_fn = init_fn
+
+    def after_create_session(self, session, coord=None):
+        if session.run(tf.train.get_or_create_global_step()) == 0:
+            self.init_fn(session)
 
 
 def model_fn(features, labels, mode, params):
     vernier_images = features['vernier_images']
     shape_images = features['shape_images']
     shapelabels = labels
+    nshapeslabels = features['nshapeslabels']
     vernierlabels = features['vernier_offsets']
+    x_shape = features['x_shape']
+    y_shape = features['y_shape']
+    x_vernier = features['x_vernier']
+    y_vernier = features['y_vernier']
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
     
@@ -38,43 +50,90 @@ def model_fn(features, labels, mode, params):
     
     X = tf.add(vernier_images, shape_images)
     tf.summary.image('input_images', X, 6)
+    
+    
+    ##########################################
+    #          Restore variables:            #
+    ##########################################
+    var_to_restore = tf.contrib.framework.get_trainable_variables()
+    init_fn = tf.contrib.framework.assign_from_checkpoint_fn(parameters.logdir + parameters.restoration_file, var_to_restore, ignore_missing_vars=True)
+    
+    
+    # restore all params as tf.Variable or tf.constant?
+#    conv1_kernel = tf.Variable(params['conv1_kernel'], tf.float32, name='conv1/kernel')
+#    conv1_bias = tf.Variable(params['conv1_bias'], tf.float32, name='conv1/bias')
+#    conv1_bn_gamma = tf.Variable(params['conv1_bn_gamma'], tf.float32, name='conv1_bn/gamma')
+#    conv1_bn_beta = tf.Variable(params['conv1_bn_beta'], tf.float32, name='conv1_bn/beta')
+    
+#    conv1_kernel = tf.get_variable('conv1/kernel', initializer=tf.constant(params['conv1_kernel']))
+#    conv1_bias = tf.get_variable('conv1/bias', initializer=tf.constant(params['conv1_bias']))
+#    conv1_bn_gamma = tf.get_variable('conv1_bn/gamma', initializer=tf.constant(params['conv1_bn_gamma']))
+#    conv1_bn_beta = tf.get_variable('conv1_bn/beta', initializer=tf.constant(params['conv1_bn_beta']))
+    
+#    conv2_kernel = tf.Variable(params['conv2_kernel'], tf.float32, name='conv2/kernel')
+#    conv2_bias = tf.Variable(params['conv2_bias'], tf.float32, name='conv2/bias')
+#    conv2_bn_gamma = tf.Variable(params['conv2_bn_gamma'], tf.float32, name='conv2_bn/gamma')
+#    conv2_bn_beta = tf.Variable(params['conv2_bn_beta'], tf.float32, name='conv2_bn/beta')
+    
+#    conv2_kernel = tf.get_variable('conv2/kernel', initializer=tf.constant(params['conv2_kernel']))
+#    conv2_bias = tf.get_variable('conv2/bias', initializer=tf.constant(params['conv2_bias']))
+#    conv2_bn_gamma = tf.get_variable('conv2_bn/gamma', initializer=tf.constant(params['conv2_bn_gamma']))
+#    conv2_bn_beta = tf.get_variable('conv2_bn/beta', initializer=tf.constant(params['conv2_bn_beta']))
+    
+#    conv3_kernel = tf.Variable(params['conv3_kernel'], tf.float32, name='conv3/kernel')
+#    conv3_bias = tf.Variable(params['conv3_bias'], tf.float32, name='conv3/bias')
+    
+#    conv3_kernel = tf.get_variable('conv3/kernel', initializer=tf.constant(params['conv3_kernel']))
+#    conv3_bias = tf.get_variable('conv3/bias', initializer=tf.constant(params['conv3_bias']))
+    
+#    W = tf.Variable(params['W'], tf.float32, name='3_secondary_caps_layer/W')
+#    
+#    tf.Variable(params['hidden_vernieroffset_kernel'], tf.float32, name='hidden_vernieroffset/kernel')
+#    tf.Variable(params['hidden_vernieroffset_bn_gamma'], tf.float32, name='hidden_vernieroffset_bn/gamma')
+#    tf.Variable(params['hidden_vernieroffset_bn_beta'], tf.float32, name='hidden_vernieroffset_bn/beta')
+#    
+#    tf.Variable(params['hidden_nshapes_kernel'], tf.float32, name='hidden_nshapes/kernel')
+#    tf.Variable(params['hidden_nshapes_bn_gamma'], tf.float32, name='hidden_nshapes_bn/gamma')
+#    tf.Variable(params['hidden_nshapes_bn_beta'], tf.float32, name='hidden_nshapes_bn/beta')
+#    
+#    tf.Variable(params['hidden_xshape_kernel'], tf.float32, name='hidden_xshape/kernel')
+#    tf.Variable(params['hidden_x_bnshape_gamma'], tf.float32, name='hidden_x_bnshape/gamma')
+#    tf.Variable(params['hidden_x_bnshape_beta'], tf.float32, name='hidden_x_bnshape/beta')
+#    
+#    tf.Variable(params['hidden_yshape_kernel'], tf.float32, name='hidden_yshape/kernel')
+#    tf.Variable(params['hidden_y_bnshape_gamma'], tf.float32, name='hidden_y_bnshape/gamma')
+#    tf.Variable(params['hidden_y_bnshape_beta'], tf.float32, name='hidden_y_bnshape/beta')
+#    
+#    tf.Variable(params['hidden_xvernier_kernel'], tf.float32, name='hidden_xvernier/kernel')
+#    tf.Variable(params['hidden_x_bnvernier_gamma'], tf.float32, name='hidden_x_bnvernier/gamma')
+#    tf.Variable(params['hidden_x_bnvernier_beta'], tf.float32, name='hidden_x_bnvernier/beta')
+#    
+#    tf.Variable(params['hidden_yvernier_kernel'], tf.float32, name='hidden_yvernier/kernel')
+#    tf.Variable(params['hidden_y_bnvernier_gamma'], tf.float32, name='hidden_y_bnvernier/gamma')
+#    tf.Variable(params['hidden_y_bnvernier_beta'], tf.float32, name='hidden_y_bnvernier/beta')
 
 
-    conv1_kernel_restored = tf.constant(params['conv1_kernel_restored'])
-    conv1_bias_restored = tf.constant(params['conv1_bias_restored'])
-    conv2_kernel_restored = tf.constant(params['conv2_kernel_restored'])
-    conv2_bias_restored = tf.constant(params['conv2_bias_restored'])
-    conv3_kernel_restored = tf.constant(params['conv3_kernel_restored'])
-    conv3_bias_restored = tf.constant(params['conv3_bias_restored'])
-    W_restored = tf.constant(params['W_restored'])
+    ##########################################
+    #          Build the capsnet:            #
+    ##########################################
+    # Create convolutional layers and their output:
+    conv_output = conv_layers(X, parameters, is_training)
+    
+    # Create primary caps and their output:
+    caps1_output = primary_caps_layer(conv_output, parameters)
+    
+    # Create secondary caps and their output and also divide vernier caps activation and shape caps activation:
+    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters)
+    vernier_caps_activation = caps2_output[:, :, 0, :, :]
+    vernier_caps_activation = tf.expand_dims(vernier_caps_activation, 2)
 
-
-    ###################################
-    #      Convolutional layers:      #
-    ###################################
-    # Set up the conv layers the same as before but initialize them with our restored values
-    with tf.name_scope('1_convolutional_layers'):
-        # Conv 1:
-        conv1 = tf.nn.conv2d(X, conv1_kernel_restored, [1, 1, 1, 1], 'VALID')
-        conv1 = tf.nn.bias_add(conv1, conv1_bias_restored)
-        if parameters.batch_norm_conv:
-            conv1 = tf.layers.batch_normalization(conv1, training=is_training, name='conv1_bn')
-        conv1 = tf.nn.elu(conv1)
-        tf.summary.histogram('conv1_output', conv1)
-
-        # Conv 2:
-        conv2 = tf.nn.conv2d(conv1, conv2_kernel_restored, [1, 2, 2, 1], 'VALID')
-        conv2 = tf.nn.bias_add(conv2, conv2_bias_restored)
-        if parameters.batch_norm_conv:
-            conv2 = tf.layers.batch_normalization(conv2, training=is_training, name='conv2_bn')
-        conv2 = tf.nn.elu(conv2)
-        tf.summary.histogram('conv2_output', conv2)
-
-        # Conv 3:
-        conv3 = tf.nn.conv2d(conv2, conv3_kernel_restored, [1, 2, 2, 1], 'VALID')
-        conv3 = tf.nn.bias_add(conv3, conv3_bias_restored)
-        conv_output = tf.nn.elu(conv3)
-        tf.summary.histogram('conv3_output', conv_output)
+    # Give me vernier acuity based on what the vernier capsule is doing:
+    with tf.name_scope('1_vernier_acuity'):
+        pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation,
+                                                                                                    vernierlabels, parameters,
+                                                                                                    is_training)
+        tf.summary.scalar('vernieroffset_loss', parameters.alpha_vernieroffset * vernieroffset_loss)
+        tf.summary.scalar('vernieroffset_accuracy', vernieroffset_accuracy)
     
     
     ###################################
@@ -83,7 +142,8 @@ def model_fn(features, labels, mode, params):
     caps1_output = primary_caps_layer(conv_output, parameters)
     
     # Set up the 2nd caps layer the same as before but initialize W with our restored values
-    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters, W_restored)
+    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters)
+
 
     ###################################
     #    Calculate vernier acuity:    #
@@ -145,9 +205,9 @@ def model_fn(features, labels, mode, params):
     ##########################################
         with tf.name_scope('4_Reconstruction_loss'):
             # Create decoder outputs for vernier and shape images batch
-            vernier_reconstructed_output, vernier_reconstructed_output_img, hidden_reconstruction_1, hidden_reconstruction_2 = compute_reconstruction(
+            vernier_reconstructed_output, vernier_reconstructed_output_img = compute_reconstruction(
                     vernier_decoder_input, parameters, is_training, '_vernier')
-            shape_reconstructed_output, shape_reconstructed_output_img, hidden_reconstruction_1, hidden_reconstruction_2 = compute_reconstruction(
+            shape_reconstructed_output, shape_reconstructed_output_img = compute_reconstruction(
                     shape_decoder_input, parameters, is_training, '_shape')
 
             decoder_output_img = vernier_reconstructed_output_img + shape_reconstructed_output_img
@@ -164,29 +224,76 @@ def model_fn(features, labels, mode, params):
             tf.summary.scalar('vernier_reconstruction_loss', parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss)
             tf.summary.scalar('shape_reconstruction_loss', parameters.alpha_shape_reconstruction * shape_reconstruction_loss)
             tf.summary.scalar('reconstruction_loss', reconstruction_loss)
-    
-    
-    ##########################################
-    #              Final loss                #
-    ##########################################
-        final_loss = tf.add_n([parameters.alpha_margin * margin_loss,
-                               parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss,
-                               parameters.alpha_shape_reconstruction * shape_reconstruction_loss,
-                               parameters.alpha_vernieroffset * vernieroffset_loss],
-                              name='final_loss')
         
+        
+    ##########################################
+    #            Decode nshapes              #
+    ##########################################
+        with tf.name_scope('5_Nshapes_loss'):
+            if parameters.decode_nshapes:
+                nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters, is_training)
+            else:
+                nshapes_loss = 0
+                nshapes_accuracy = 0
+                
+            tf.summary.scalar('nshapes_loss', parameters.alpha_nshapes * nshapes_loss)
+            tf.summary.scalar('nshapes_accuracy', nshapes_accuracy)
+
+
+    ##########################################
+    #       Decode x and y coordinates       #
+    ##########################################
+        with tf.name_scope('6_Location_loss'):
+            if parameters.decode_location:
+                x_shapeloss, y_shapeloss = compute_location_loss(shape_decoder_input, x_shape, y_shape, parameters, 'shape', is_training)
+                x_vernierloss, y_vernierloss = compute_location_loss(vernier_decoder_input, x_vernier, y_vernier, parameters, 'vernier', is_training)
+
+                location_loss = parameters.alpha_x_shapeloss * x_shapeloss + \
+                    parameters.alpha_y_shapeloss * y_shapeloss + \
+                    parameters.alpha_x_vernierloss * x_vernierloss + \
+                    parameters.alpha_y_vernierloss * y_vernierloss
+
+            else:
+                x_shapeloss = 0
+                y_shapeloss = 0
+                x_vernierloss = 0
+                y_vernierloss = 0
+                location_loss = 0
+            
+            tf.summary.scalar('x_shapeloss', parameters.alpha_x_shapeloss * x_shapeloss)
+            tf.summary.scalar('y_shapeloss', parameters.alpha_y_shapeloss * y_shapeloss)
+            tf.summary.scalar('x_vernierloss', parameters.alpha_x_vernierloss * x_vernierloss)
+            tf.summary.scalar('y_vernierloss', parameters.alpha_y_vernierloss * y_vernierloss)
+            tf.summary.scalar('location_loss', location_loss)
         
     ##########################################
     #        Training operations             #
     ##########################################
         if parameters.only_train_decoder:
-            var_list = [hidden_reconstruction_1, hidden_reconstruction_2, vernier_reconstructed_output, shape_reconstructed_output]
+            all_train_vars = tf.trainable_variables()
+            train_vars = [var for var in all_train_vars if 'reconstruct' in var.name]
+            final_loss = tf.add_n([parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss,
+                                   parameters.alpha_shape_reconstruction * shape_reconstruction_loss],
+                                  name='final_loss')
+
+        else:
+            train_vars = tf.trainable_variables()
+            final_loss = tf.add_n([parameters.alpha_margin * margin_loss,
+                                   parameters.alpha_vernier_reconstruction * vernier_reconstruction_loss,
+                                   parameters.alpha_shape_reconstruction * shape_reconstruction_loss,
+                                   parameters.alpha_vernieroffset * vernieroffset_loss,
+                                   parameters.alpha_nshapes * nshapes_loss,
+                                   parameters.alpha_x_shapeloss * x_shapeloss,
+                                   parameters.alpha_y_shapeloss * y_shapeloss, 
+                                   parameters.alpha_x_vernierloss * x_vernierloss,
+                                   parameters.alpha_y_vernierloss * y_vernierloss],
+                                  name='final_loss')
     
         # The following is needed due to how tf.layers.batch_normalzation works:
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
-            train_op = optimizer.minimize(loss=final_loss, var_list=var_list,
+            train_op = optimizer.minimize(loss=final_loss, var_list=train_vars,
                                           global_step=tf.train.get_global_step(), name='train_op')
         
         # write summaries during evaluation
@@ -200,11 +307,7 @@ def model_fn(features, labels, mode, params):
             loss=final_loss,
             train_op=train_op,
             eval_metric_ops={},
-            evaluation_hooks=[eval_summary_hook])
+            evaluation_hooks=[eval_summary_hook],
+            training_hooks=[RestoreHook(init_fn)])
     
     return spec
-
-
-print('--------------------------------------')
-print('Finished...')
-print('--------------------------------------')

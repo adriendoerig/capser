@@ -9,7 +9,7 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 12.12.2018
+Last update on 14.12.2018
 -> added nshapes and location loss
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
@@ -18,19 +18,26 @@ Last update on 12.12.2018
 -> added distance to tensorboard for nshapes and location loss
 -> changes for the reconstruction decoder, now using reuse=True
 -> change in secondary_caps_layer()
+-> parameters.txt cant be overwritten easily anymore
+-> in every layer parameters get reused
 """
 
 import tensorflow as tf
+import os.path
 
 ################################
 #    Small helper function:    #
 ################################
 def save_params(save_path, parameters):
-    with open(save_path + '/parameters.txt', 'w') as f_txt:
-        f_py = open('./my_parameters.py')
-        variables = f_py.read()
-        f_txt.write(variables)
-        print('Parameter values saved.')
+    txt_file = save_path + '/parameters.txt'
+    if os.path.exists(txt_file):
+        raise SystemExit('\nPROBLEM: %s already exists!' % txt_file)
+    else:
+        with open(save_path + '/parameters.txt', 'w') as f_txt:
+            f_py = open('./my_parameters.py')
+            variables = f_py.read()
+            f_txt.write(variables)
+            print('Parameter values saved.')
 
 
 ################################
@@ -98,34 +105,68 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 ###################################
 def conv_layers(X, parameters, phase=True):
     with tf.name_scope('1_convolutional_layers'):
-        if parameters.n_conv_layers==2:
-            conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
-            if parameters.batch_norm_conv:
-                conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
-            conv1 = tf.nn.elu(conv1)
-            tf.summary.histogram('conv1_output', conv1)
+        
+        # if existent, reuse the given parameters:
+        try:
+            if parameters.n_conv_layers==2:
+                conv1 = tf.layers.conv2d(X, name='conv1', activation=None, reuse=True, **parameters.conv_params[0])
+                if parameters.batch_norm_conv:
+                    conv1 = tf.layers.batch_normalization(conv1, training=phase, reuse=True, name='conv1_bn')
+                conv1 = tf.nn.elu(conv1)
+        
+                conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, reuse=True, **parameters.conv_params[1])
+                conv2 = tf.nn.elu(conv2)
+                conv_output = conv2
+                
+                conv3 = 0
     
-            conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
-            conv_output = tf.nn.elu(conv2)
-            tf.summary.histogram('conv2_output', conv_output)
-            tf.summary.histogram('conv3_output', 0)
-
-        elif parameters.n_conv_layers==3:
-            conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
-            if parameters.batch_norm_conv:
-                conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
-            conv1 = tf.nn.elu(conv1)
-            tf.summary.histogram('conv1_output', conv1)
+            elif parameters.n_conv_layers==3:
+                conv1 = tf.layers.conv2d(X, name='conv1', activation=None, reuse=True, **parameters.conv_params[0])
+                if parameters.batch_norm_conv:
+                    conv1 = tf.layers.batch_normalization(conv1, training=phase, reuse=True, name='conv1_bn')
+                conv1 = tf.nn.elu(conv1)
+        
+                conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, reuse=True, **parameters.conv_params[1])
+                if parameters.batch_norm_conv:
+                    conv2 = tf.layers.batch_normalization(conv2, training=phase, reuse=True, name='conv2_bn')
+                conv2 = tf.nn.elu(conv2)
+        
+                conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, reuse=True, **parameters.conv_params[2])
+                conv_output = tf.nn.elu(conv3)
+        
+        # otherwise create conv layers from scratch:
+        except:
+            print('Building conv layers from scratch! \n')
+            if parameters.n_conv_layers==2:
+                conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
+                if parameters.batch_norm_conv:
+                    conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+                conv1 = tf.nn.elu(conv1)
+        
+                conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
+                conv2 = tf.nn.elu(conv2)
+                conv_output = conv2
+                
+                conv3 = 0
     
-            conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
-            if parameters.batch_norm_conv:
-                conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
-            conv2 = tf.nn.elu(conv2)
-            tf.summary.histogram('conv2_output', conv2)
-    
-            conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **parameters.conv_params[2])
-            conv_output = tf.nn.elu(conv3)
-            tf.summary.histogram('conv3_output', conv_output)
+            elif parameters.n_conv_layers==3:
+                conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
+                if parameters.batch_norm_conv:
+                    conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+                conv1 = tf.nn.elu(conv1)
+        
+                conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
+                if parameters.batch_norm_conv:
+                    conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
+                conv2 = tf.nn.elu(conv2)
+        
+                conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **parameters.conv_params[2])
+                conv_output = tf.nn.elu(conv3)
+                
+        tf.summary.histogram('conv1_output', conv1)
+        tf.summary.histogram('conv2_output', conv2)
+        tf.summary.histogram('conv3_output', conv3)
+        
         return conv_output
 
 
@@ -233,26 +274,48 @@ def create_masked_decoder_input(mask_with_labels, labels, labels_pred, caps2_out
 def compute_reconstruction(decoder_input,  parameters, phase=True, name_extra=None):
     # Finally comes the decoder (two dense fully connected ELU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder_reconstruction'):
-        hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False, reuse=True,
-                                                  activation=None, name='hidden_reconstruction_1')
-        if parameters.batch_norm_reconstruction:
-            hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase, name='hidden_reconstruction_1_bn' + name_extra)
-        hidden_reconstruction_1 = tf.nn.elu(hidden_reconstruction_1, name='hidden_reconstruction_1_activation')
-        tf.summary.histogram('_hidden_reconstruction_1_bn' + name_extra, hidden_reconstruction_1)
+        
+        # if existent, reuse the given parameters:
+        try:
+            hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False, reuse=True,
+                                                      activation=None, name='hidden_reconstruction_1')
+            if parameters.batch_norm_reconstruction:
+                hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase, name='hidden_reconstruction_1_bn' + name_extra)
+            hidden_reconstruction_1 = tf.nn.elu(hidden_reconstruction_1, name='hidden_reconstruction_1_activation')
 
-        hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False, reuse=True,
-                                                  activation=None, name='hidden_reconstruction_2')
-        if parameters.batch_norm_reconstruction:
-            hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase, name='hidden_reconstruction_2_bn' + name_extra)
-        hidden_reconstruction_2 = tf.nn.elu(hidden_reconstruction_2, name='hidden_reconstruction_2_activation')
-        tf.summary.histogram('_hidden_reconstruction_2_bn' + name_extra, hidden_reconstruction_2)
+            hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False, reuse=True,
+                                                      activation=None, name='hidden_reconstruction_2')
+            if parameters.batch_norm_reconstruction:
+                hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase, name='hidden_reconstruction_2_bn' + name_extra)
+            hidden_reconstruction_2 = tf.nn.elu(hidden_reconstruction_2, name='hidden_reconstruction_2_activation')
 
-        reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output, reuse=True,
-                                               activation=tf.nn.sigmoid, name='reconstructed_output')
+            reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output, reuse=True, activation=tf.nn.sigmoid, name='reconstructed_output')
+        
+        # otherwise create layers from scratch:
+        except:
+            hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False,
+                                                      activation=None, name='hidden_reconstruction_1')
+            if parameters.batch_norm_reconstruction:
+                hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase, name='hidden_reconstruction_1_bn' + name_extra)
+            hidden_reconstruction_1 = tf.nn.elu(hidden_reconstruction_1, name='hidden_reconstruction_1_activation')
+            
+            hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False,
+                                                      activation=None, name='hidden_reconstruction_2')
+            if parameters.batch_norm_reconstruction:
+                hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase, name='hidden_reconstruction_2_bn' + name_extra)
+            hidden_reconstruction_2 = tf.nn.elu(hidden_reconstruction_2, name='hidden_reconstruction_2_activation')
+            
+            reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output,
+                                                   activation=tf.nn.sigmoid, name='reconstructed_output')
+        
         reconstructed_output_img = tf.reshape(
                 reconstructed_output,[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                 name='reconstructed_output_img')
-        return reconstructed_output, reconstructed_output_img, hidden_reconstruction_1, hidden_reconstruction_1
+        
+        tf.summary.histogram('_hidden_reconstruction_1_bn' + name_extra, hidden_reconstruction_1)
+        tf.summary.histogram('_hidden_reconstruction_2_bn' + name_extra, hidden_reconstruction_2)
+        
+        return reconstructed_output, reconstructed_output_img
 
 
 ################################
@@ -277,12 +340,19 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, parameter
         vernierlabels = tf.squeeze(vernierlabels)
         T_vernierlabels = tf.one_hot(tf.cast(vernierlabels, tf.int64), depth, name='T_vernierlabels')
         
-        # Layer to reproduce the vernieroffset:
-        hidden_vernieroffset = tf.layers.dense(vernier_caps_activation, depth, use_bias=False, activation=None, name='hidden_vernieroffset')
-        if parameters.batch_norm_vernieroffset:
-            hidden_vernieroffset = tf.layers.batch_normalization(hidden_vernieroffset, training=phase, name='hidden_vernieroffset_bn')
+        # if existent, reuse the given parameters:
+        try:
+            hidden_vernieroffset = tf.layers.dense(vernier_caps_activation, depth, use_bias=False, reuse=True, activation=None, name='hidden_vernieroffset')
+            if parameters.batch_norm_vernieroffset:
+                hidden_vernieroffset = tf.layers.batch_normalization(hidden_vernieroffset, training=phase, reuse=True, name='hidden_vernieroffset_bn')
+
+        # othweise create from scratch:
+        except:
+            hidden_vernieroffset = tf.layers.dense(vernier_caps_activation, depth, use_bias=False, activation=None, name='hidden_vernieroffset')
+            if parameters.batch_norm_vernieroffset:
+                hidden_vernieroffset = tf.layers.batch_normalization(hidden_vernieroffset, training=phase, name='hidden_vernieroffset_bn')
+            
         logits_vernierlabels = tf.nn.elu(hidden_vernieroffset, name='logits_vernierlabels')
-        
         xent_vernierlabels = tf.losses.softmax_cross_entropy(T_vernierlabels, logits_vernierlabels)
         
         pred_vernierlabels = tf.argmax(logits_vernierlabels, axis=1, name='pred_vernierlabels', output_type=tf.int64)
@@ -302,12 +372,19 @@ def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters, phase=T
         depth = len(parameters.n_shapes)  # or rather len/max?
         T_nshapes = tf.one_hot(tf.cast(nshapeslabels, tf.int64), depth, name='T_nshapes')
         
-        # Layer to reproduce the number of shapes:
-        hidden_nshapes = tf.layers.dense(shape_caps_activation, depth, use_bias=False, activation=None, name='hidden_nshapes')
-        if parameters.batch_norm_nshapes:
-            hidden_nshapes = tf.layers.batch_normalization(hidden_nshapes, training=phase, name='hidden_nshapes_bn')
-        logits_nshapes = tf.nn.elu(hidden_nshapes, name='logits_nshapes')
+        # if existent, reuse the given parameters:
+        try:
+            hidden_nshapes = tf.layers.dense(shape_caps_activation, depth, use_bias=False, reuse=True, activation=None, name='hidden_nshapes')
+            if parameters.batch_norm_nshapes:
+                hidden_nshapes = tf.layers.batch_normalization(hidden_nshapes, training=phase, reuse=True, name='hidden_nshapes_bn')
         
+        # otherwise create from scratch:
+        except:
+            hidden_nshapes = tf.layers.dense(shape_caps_activation, depth, use_bias=False, activation=None, name='hidden_nshapes')
+            if parameters.batch_norm_nshapes:
+                hidden_nshapes = tf.layers.batch_normalization(hidden_nshapes, training=phase, name='hidden_nshapes_bn')
+
+        logits_nshapes = tf.nn.elu(hidden_nshapes, name='logits_nshapes')
         pred_nshapes = tf.argmax(logits_nshapes, axis=1, name='predicted_nshapes', output_type=tf.int64)
         squared_diff_nshapes = tf.square(tf.cast(nshapeslabels, tf.float32) - tf.cast(pred_nshapes, tf.float32), name='squared_diff_nshapes')
         tf.summary.histogram('nshapes_real', nshapeslabels)
@@ -335,12 +412,19 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         x_depth = parameters.im_size[1]-parameters.shape_size
         T_x = tf.one_hot(tf.cast(x_label, tf.int64), x_depth, dtype=tf.float32, name='T_x_'+name_extra)
         
-        # Layer to reproduce the precise x_coord of the first shape:
-        hidden_x = tf.layers.dense(caps_activation, x_depth, use_bias=False, activation=None, name='hidden_x'+name_extra)
-        if parameters.batch_norm_location:
-            hidden_x = tf.layers.batch_normalization(hidden_x, training=phase, name='hidden_x_bn'+name_extra)
-        x_logits = tf.nn.elu(hidden_x, name='x_logits'+name_extra)
+        # if existent, reuse the given parameters:
+        try:
+            hidden_x = tf.layers.dense(caps_activation, x_depth, use_bias=False, reuse=True, activation=None, name='hidden_x'+name_extra)
+            if parameters.batch_norm_location:
+                hidden_x = tf.layers.batch_normalization(hidden_x, training=phase, reuse=True, name='hidden_x_bn'+name_extra)
         
+        # othweise create from scratch:
+        except:
+            hidden_x = tf.layers.dense(caps_activation, x_depth, use_bias=False, activation=None, name='hidden_x'+name_extra)
+            if parameters.batch_norm_location:
+                hidden_x = tf.layers.batch_normalization(hidden_x, training=phase, name='hidden_x_bn'+name_extra)
+        
+        x_logits = tf.nn.elu(hidden_x, name='x_logits'+name_extra)
         pred_x = tf.argmax(x_logits, axis=1, name='pred_x'+name_extra, output_type=tf.int64)
         x_squared_diff = tf.square(tf.cast(x_label, tf.float32) - tf.cast(pred_x, tf.float32), name='x_squared_difference_'+name_extra)
         tf.summary.histogram('x_real_'+name_extra, x_label)
@@ -351,17 +435,26 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
             x_loss = tf.losses.softmax_cross_entropy(T_x, x_logits)
         elif parameters.location_loss == 'squared_diff':
             x_loss = tf.reduce_sum(x_squared_diff, name='x_squared_difference_loss_'+name_extra)
-        
+
+
         # Loss for y-coordinates:
         y_label = tf.squeeze(y_label)
         y_depth = parameters.im_size[0]-parameters.shape_size
         T_y = tf.one_hot(tf.cast(y_label, tf.int64), y_depth, dtype=tf.float32, name='T_y_'+name_extra)
         
-        hidden_y = tf.layers.dense(caps_activation, y_depth, use_bias=False, activation=None, name='hidden_y'+name_extra)
-        if parameters.batch_norm_location:
-            hidden_y = tf.layers.batch_normalization(hidden_y, training=phase, name='hidden_y_bn'+name_extra)
-        y_logits = tf.nn.elu(hidden_y, name='y_logits'+name_extra)
+        # if existent, reuse the given parameters:
+        try:
+            hidden_y = tf.layers.dense(caps_activation, y_depth, use_bias=False, reuse=True, activation=None, name='hidden_y'+name_extra)
+            if parameters.batch_norm_location:
+                hidden_y = tf.layers.batch_normalization(hidden_y, training=phase, reuse=True, name='hidden_y_bn'+name_extra)
         
+        # othweise create from scratch:
+        except:
+            hidden_y = tf.layers.dense(caps_activation, y_depth, use_bias=False, activation=None, name='hidden_y'+name_extra)
+            if parameters.batch_norm_location:
+                hidden_y = tf.layers.batch_normalization(hidden_y, training=phase, name='hidden_y_bn'+name_extra)
+        
+        y_logits = tf.nn.elu(hidden_y, name='y_logits'+name_extra)
         pred_y = tf.argmax(y_logits, axis=1, name='pred_y_'+name_extra, output_type=tf.int64)
         y_squared_diff = tf.square(tf.cast(y_label, tf.float32) - tf.cast(pred_y, tf.float32), name='y_squared_difference_'+name_extra)
         tf.summary.histogram('y_real_'+name_extra, y_label)
