@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 12.12.2018
+Last update on 18.12.2018
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -14,6 +14,7 @@ Last update on 12.12.2018
 -> added some parameters for the reconstruction script
 -> train and test noise is randomly changed now between a lower and upper border
 -> change for random_seed with regards to change in secondary_caps_layer()
+-> small changes due to finally working reconstruction script
 """
 
 import tensorflow as tf
@@ -24,7 +25,6 @@ flags = tf.app.flags
 ###########################
 #          Paths          #
 ###########################
-# In general
 data_path = './data'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 flags.DEFINE_string('train_data_path', data_path+'/train.tfrecords', 'path for the tfrecords file involving the training set')
@@ -36,11 +36,7 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
 MODEL_NAME = '_log7'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
-
-# For reconstruction
 flags.DEFINE_string('logdir_reconstruction', data_path + '/' + MODEL_NAME + '_rec/', 'save results with reconstructed weights here')
-flags.DEFINE_string('restoration_file', 'model.ckpt-9276', 'name of restored meta file')
-flags.DEFINE_boolean('only_train_decoder', True, 'decide whether to train the whole model again or only the reconstruction decoder')
 
 
 ###########################

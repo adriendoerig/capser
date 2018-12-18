@@ -5,7 +5,7 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 05.12.2018
+Last update on 18.12.2018
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
@@ -13,10 +13,10 @@ Last update on 05.12.2018
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
+-> small change for reconstruction decoder
 """
 
 import tensorflow as tf
-#import numpy as np
 
 from my_parameters import parameters
 from my_capser_functions import \
@@ -84,9 +84,7 @@ def model_fn(features, labels, mode, params):
         # If in prediction-mode use (one of) the following for predictions:
         # Since accuracy is calculated over whole batch, we have to repeat it
         # batch_size times (coz all prediction vectors must be same length)
-        predictions = {'vernier_offsets': pred_vernierlabels,
-                       'vernier_labels': tf.squeeze(vernierlabels),
-                       'vernier_accuracy': tf.ones(shape=parameters.batch_size) * vernieroffset_accuracy}
+        predictions = {'vernier_accuracy': tf.ones(shape=parameters.batch_size) * vernieroffset_accuracy}
         spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
 
@@ -125,9 +123,9 @@ def model_fn(features, labels, mode, params):
             if parameters.decode_reconstruction:
                 # Create decoder outputs for vernier and shape images batch
                 vernier_reconstructed_output, vernier_reconstructed_output_img = compute_reconstruction(
-                        vernier_decoder_input, parameters, is_training, '_vernier')
+                        vernier_decoder_input, parameters, is_training)
                 shape_reconstructed_output, shape_reconstructed_output_img = compute_reconstruction(
-                        shape_decoder_input, parameters, is_training, '_shape')
+                        shape_decoder_input, parameters, is_training)
 
                 decoder_output_img = vernier_reconstructed_output_img + shape_reconstructed_output_img
     
