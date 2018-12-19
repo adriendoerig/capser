@@ -15,6 +15,7 @@ Last update on 18.12.2018
 -> train and test noise is randomly changed now between a lower and upper border
 -> change for random_seed with regards to change in secondary_caps_layer()
 -> small changes due to finally working reconstruction script
+-> some changes in parameter names
 """
 
 import tensorflow as tf
@@ -25,6 +26,7 @@ flags = tf.app.flags
 ###########################
 #          Paths          #
 ###########################
+# In general
 data_path = './data'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 flags.DEFINE_string('train_data_path', data_path+'/train.tfrecords', 'path for the tfrecords file involving the training set')
@@ -34,10 +36,9 @@ flags.DEFINE_list('test_data_paths', [data_path+'/test_squares',
                                       data_path+'/test_4stars',
                                       data_path+'/test_stars',
                                       data_path+'/test_squares_stars'], 'path for the tfrecords file involving the test set')
-MODEL_NAME = '_log7'
+MODEL_NAME = '_log2'
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 flags.DEFINE_string('logdir_reconstruction', data_path + '/' + MODEL_NAME + '_rec/', 'save results with reconstructed weights here')
-
 
 ###########################
 #     Reproducibility     #
@@ -69,9 +70,9 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 flags.DEFINE_list('train_noise', [0.05, 0.10], 'amount of added random Gaussian noise')
 flags.DEFINE_list('test_noise', [0.1, 0.2], 'amount of added random Gaussian noise')
-flags.DEFINE_float('max_delta_brightness', 0.1, 'max factor to adjust brightness (+/-), must be non-negative')
-flags.DEFINE_float('min_delta_contrast', 0.8, 'min factor to adjust contrast, must be non-negative')
-flags.DEFINE_float('max_delta_contrast', 1.2, 'max factor to adjust contrast, must be non-negative')
+flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
+flags.DEFINE_float('delta_brightness', 0.2, 'factor to adjust brightness (+/-), must be non-negative')
+flags.DEFINE_list('delta_contrast', [0.6, 1.4], 'min and max factor to adjust contrast, must be non-negative')
 
 
 ###########################
@@ -82,7 +83,7 @@ flags.DEFINE_integer('n_conv_layers', n_conv_layers, 'number of conv layers used
 
 # Conv and primary caps:
 caps1_nmaps = 6
-caps1_ndims = 6
+caps1_ndims = 3
 
 if n_conv_layers==2:
     # Case of 2 conv layers:
@@ -101,14 +102,14 @@ if n_conv_layers==2:
     
 elif n_conv_layers==3:
     # Case of 3 conv layers:
-    kernel1 = 5
+    kernel1 = 6
     kernel2 = 6
     kernel3 = 6
     stride1 = 1
     stride2 = 2
     stride3 = 2
     # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-    dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
+    dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
     dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
     conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1,
                     'padding': 'valid'}
@@ -126,7 +127,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 8, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 4, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -148,14 +149,14 @@ flags.DEFINE_integer('eval_steps', 50,
                      'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 30000, 'number of steps')
+flags.DEFINE_integer('n_steps', 50000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
 ###########################
 #         Losses          #
 ###########################
-flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
+flags.DEFINE_boolean('decode_reconstruction', True, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
 nshapes_loss = 'xentropy'

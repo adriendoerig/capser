@@ -11,10 +11,10 @@ Last update on 18.12.18
 -> loss is in the if clause now
 -> finally working (thanks to Adrien)
 -> combined reconstruction_main and reconstruction_model_fn
+-> clip values of added images too!
 """
 
 import logging
-import numpy as np
 import tensorflow as tf
 from tensorboard.plugins.beholder import Beholder
 from tensorboard.plugins.beholder import BeholderHook
@@ -50,8 +50,10 @@ def model_fn(features, labels, mode, params):
     tf.summary.histogram('input_vernier_images', vernier_images)
     tf.summary.histogram('input_shape_images', shape_images)
 
-    X = tf.add(vernier_images, shape_images)
+    X = tf.add(vernier_images, shape_images, name='X')
+    X = tf.clip_by_value(X, parameters.clip_values[0], parameters.clip_values[1], name='X_clipped')
     tf.summary.image('input_images', X, 6)
+
 
     ##########################################
     #          Build the capsnet:            #
@@ -169,7 +171,6 @@ def model_fn(features, labels, mode, params):
 ##################################
 # For reproducibility:
 tf.reset_default_graph()
-np.random.seed(42)
 tf.set_random_seed(42)
 
 # Output the loss in the terminal every few steps:

@@ -14,6 +14,7 @@ Last update on 18.12.2018
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 -> small change for reconstruction decoder
+-> clip values of added images too!
 """
 
 import tensorflow as tf
@@ -50,7 +51,8 @@ def model_fn(features, labels, mode, params):
     tf.summary.histogram('input_vernier_images', vernier_images)
     tf.summary.histogram('input_shape_images', shape_images)
     
-    X = tf.add(vernier_images, shape_images)
+    X = tf.add(vernier_images, shape_images, name='X')
+    X = tf.clip_by_value(X, parameters.clip_values[0], parameters.clip_values[1], name='X_clipped')
     tf.summary.image('input_images', X, 6)
 
 
@@ -123,9 +125,9 @@ def model_fn(features, labels, mode, params):
             if parameters.decode_reconstruction:
                 # Create decoder outputs for vernier and shape images batch
                 vernier_reconstructed_output, vernier_reconstructed_output_img = compute_reconstruction(
-                        vernier_decoder_input, parameters, is_training)
+                        vernier_decoder_input, parameters, is_training, '_vernier')
                 shape_reconstructed_output, shape_reconstructed_output_img = compute_reconstruction(
-                        shape_decoder_input, parameters, is_training)
+                        shape_decoder_input, parameters, is_training, '_shape')
 
                 decoder_output_img = vernier_reconstructed_output_img + shape_reconstructed_output_img
     

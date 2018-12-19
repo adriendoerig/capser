@@ -239,29 +239,37 @@ def create_masked_decoder_input(mask_with_labels, labels, labels_pred, caps2_out
 ################################
 #     Create reconstruction:   #
 ################################
-def compute_reconstruction(decoder_input,  parameters, phase=True):
+def compute_reconstruction(decoder_input,  parameters, phase=True, name_extra=None):
     # Finally comes the decoder (two dense fully connected ELU layers followed by a dense output sigmoid layer):
     with tf.name_scope('decoder_reconstruction'):
-        hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False, reuse=tf.AUTO_REUSE,
-                                                  activation=None, name='hidden_reconstruction_1')
+        hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False, 
+#                                                  reuse=tf.AUTO_REUSE,
+                                                  activation=None, name='hidden_reconstruction_1' + name_extra)
         if parameters.batch_norm_reconstruction:
-            hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase, name='hidden_reconstruction_1_bn')
-        hidden_reconstruction_1 = tf.nn.elu(hidden_reconstruction_1, name='hidden_reconstruction_1_activation')
+            hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase,
+#                                                                    reuse=tf.AUTO_REUSE, 
+                                                                    name='hidden_reconstruction_1_bn' + name_extra)
+        hidden_reconstruction_1 = tf.nn.elu(hidden_reconstruction_1, name='hidden_reconstruction_1_activation' + name_extra)
 
-        hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False, reuse=tf.AUTO_REUSE,
-                                                  activation=None, name='hidden_reconstruction_2')
+        hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False, 
+#                                                  reuse=tf.AUTO_REUSE,
+                                                  activation=None, name='hidden_reconstruction_2' + name_extra)
         if parameters.batch_norm_reconstruction:
-            hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase, name='hidden_reconstruction_2_bn')
-        hidden_reconstruction_2 = tf.nn.elu(hidden_reconstruction_2, name='hidden_reconstruction_2_activation')
+            hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase, 
+#                                                                    reuse=tf.AUTO_REUSE, 
+                                                                    name='hidden_reconstruction_2_bn' + name_extra)
+        hidden_reconstruction_2 = tf.nn.elu(hidden_reconstruction_2, name='hidden_reconstruction_2_activation' + name_extra)
 
-        reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output, reuse=tf.AUTO_REUSE, activation=tf.nn.sigmoid, name='reconstructed_output')
+        reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output, 
+#                                               reuse=tf.AUTO_REUSE, 
+                                               activation=tf.nn.sigmoid, name='reconstructed_output' + name_extra)
         
         reconstructed_output_img = tf.reshape(
                 reconstructed_output,[parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
-                name='reconstructed_output_img')
+                name='reconstructed_output_img' + name_extra)
         
-        tf.summary.histogram('_hidden_reconstruction_1_bn', hidden_reconstruction_1)
-        tf.summary.histogram('_hidden_reconstruction_2_bn', hidden_reconstruction_2)
+        tf.summary.histogram('_hidden_reconstruction_1_bn' + name_extra, hidden_reconstruction_1)
+        tf.summary.histogram('_hidden_reconstruction_2_bn' + name_extra, hidden_reconstruction_2)
         
         return reconstructed_output, reconstructed_output_img
 
@@ -333,7 +341,7 @@ def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters, phase=T
 
 
 ################################
-#       location loss:         #
+#       Location loss:         #
 ################################
 def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extra=None, phase=True):
     with tf.name_scope('compute_' + name_extra + '_location_loss'):

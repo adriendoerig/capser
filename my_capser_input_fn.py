@@ -3,12 +3,13 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 12.12.2018
+Last update on 18.12.2018
 -> added requirements for nshapes and location loss
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
 -> train and test noise is randomly changed now between a lower and upper border
 -> clip the pixel values, so that adding venier and shape images leads to pixel intensities of maximally 1
+-> some changes in parameter names
 """
 
 import tensorflow as tf
@@ -100,17 +101,17 @@ def parse_tfrecords_train(serialized_data):
 
     # Adjust brightness and contrast by a random factor
     def bright_contrast():
-        vernier_images_augmented = tf.image.random_brightness(vernier_images, parameters.max_delta_brightness)
-        shape_images_augmented = tf.image.random_brightness(shape_images, parameters.max_delta_brightness)
-        vernier_images_augmented = tf.image.random_contrast(vernier_images_augmented,parameters.min_delta_contrast, parameters.max_delta_contrast)
-        shape_images_augmented = tf.image.random_contrast(shape_images_augmented, parameters.min_delta_contrast, parameters.max_delta_contrast)
+        vernier_images_augmented = tf.image.random_brightness(vernier_images, parameters.delta_brightness)
+        shape_images_augmented = tf.image.random_brightness(shape_images, parameters.delta_brightness)
+        vernier_images_augmented = tf.image.random_contrast(vernier_images_augmented, parameters.delta_contrast[0], parameters.delta_contrast[1])
+        shape_images_augmented = tf.image.random_contrast(shape_images_augmented, parameters.delta_contrast[0], parameters.delta_contrast[1])
         return vernier_images_augmented, shape_images_augmented
     
     def contrast_bright():
-        vernier_images_augmented = tf.image.random_contrast(vernier_images, parameters.min_delta_contrast, parameters.max_delta_contrast)
-        shape_images_augmented = tf.image.random_contrast(shape_images, parameters.min_delta_contrast, parameters.max_delta_contrast)
-        vernier_images_augmented = tf.image.random_brightness(vernier_images_augmented, parameters.max_delta_brightness)
-        shape_images_augmented = tf.image.random_brightness(shape_images_augmented, parameters.max_delta_brightness)
+        vernier_images_augmented = tf.image.random_contrast(vernier_images, parameters.delta_contrast[0], parameters.delta_contrast[1])
+        shape_images_augmented = tf.image.random_contrast(shape_images, parameters.delta_contrast[0], parameters.delta_contrast[1])
+        vernier_images_augmented = tf.image.random_brightness(vernier_images_augmented, parameters.delta_brightness)
+        shape_images_augmented = tf.image.random_brightness(shape_images_augmented, parameters.delta_brightness)
         return vernier_images_augmented, shape_images_augmented
 
     # Maybe change contrast and brightness:
@@ -176,9 +177,9 @@ def parse_tfrecords_train(serialized_data):
     vernier_images = tf.squeeze(vernier_images, axis=0)
     shape_images = tf.squeeze(shape_images, axis=0)
     
-    # Lets clip the pixel values, so that if we add them the maximum pixel intensity will be 1:
-    vernier_images = tf.clip_by_value(vernier_images, 0, 0.5)
-    shape_images = tf.clip_by_value(shape_images, 0, 0.5)
+    # Lets clip the pixel values
+    vernier_images = tf.clip_by_value(vernier_images, parameters.clip_values[0], parameters.clip_values[1])
+    shape_images = tf.clip_by_value(shape_images, parameters.clip_values[0], parameters.clip_values[1])
 
     return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
 
@@ -262,8 +263,8 @@ def parse_tfrecords_test(serialized_data):
         stddev=noise2))
     
     # Lets clip the pixel values, so that if we add them the maximum pixel intensity will be 1:
-    vernier_images = tf.clip_by_value(vernier_images, 0, 0.5)
-    shape_images = tf.clip_by_value(shape_images, 0, 0.5)
+    vernier_images = tf.clip_by_value(vernier_images, parameters.clip_values[0], parameters.clip_values[1])
+    shape_images = tf.clip_by_value(shape_images, parameters.clip_values[0], parameters.clip_values[1])
     
     return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
 
