@@ -4,9 +4,10 @@ My capsnet: Main script
 Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-Last update on 06.12.2018
+Last update on 28.12.2018
 -> insertion of eval_throttle_secs parameter
 -> small change for save_params
+-> new validation and testing procedures
 """
 
 import logging
@@ -54,7 +55,7 @@ beholder_hook = BeholderHook(parameters.logdir)
 # Create the estimator:
 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
 train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
-eval_spec = tf.estimator.EvalSpec(eval_input_fn, steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
+eval_spec = tf.estimator.EvalSpec(lambda: eval_input_fn(parameters.val_data_path), steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
 
 # Save parameters from parameter file for reproducability
 save_params(parameters.logdir, parameters)
@@ -69,6 +70,30 @@ tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
 # Lets have less annoying logs:
 logging.getLogger().setLevel(logging.CRITICAL)
 
+
+# Testing with training stimuli:
+for n_category in range(len(parameters.test_data_paths)):
+    test_filename = parameters.test_data_paths[n_category]
+    print('-------------------------------------------------------')
+    print('Compute vernier offset for ' + test_filename)
+    
+    # Determine vernier_accuracy for each shape type
+    capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
+    vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
+    results = np.mean(vernier_accuracy)
+    print('Result: ' + str(results) + '; test_samples used: ' + str(len(vernier_accuracy)))
+    
+    txt_file_name = parameters.logdir + '/testing_results_step_' + str(parameters.n_steps) + \
+    '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
+    if not os.path.exists(txt_file_name):
+        with open(txt_file_name, 'w') as f:
+            f.write(test_filename + ' : \t' + str(results) + '\n')
+    else:
+        with open(txt_file_name, 'a') as f:
+            f.write(test_filename + ' : \t' + str(results) + '\n')
+
+
+# Testing with crowding/uncrowding:
 for n_category in range(len(parameters.test_data_paths)):
     category = parameters.test_data_paths[n_category]
     print('-------------------------------------------------------')
@@ -86,7 +111,7 @@ for n_category in range(len(parameters.test_data_paths)):
         print('Finished calculations for stimulus type ' + str(stim_idx))
         print('Result: ' + str(results[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
     
-    txt_file_name = parameters.logdir + '/uncrowding_exp_results_step_' + str(parameters.n_steps) + \
+    txt_file_name = parameters.logdir + '/uncrowding_results_step_' + str(parameters.n_steps) + \
     '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
     if not os.path.exists(txt_file_name):
         with open(txt_file_name, 'w') as f:

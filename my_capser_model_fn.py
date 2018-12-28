@@ -5,7 +5,7 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 18.12.2018
+Last update on 19.12.2018
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
@@ -15,6 +15,7 @@ Last update on 18.12.2018
 -> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
 -> small change for reconstruction decoder
 -> clip values of added images too!
+-> small change for reconstruction decoder with conv layers
 """
 
 import tensorflow as tf
@@ -60,7 +61,7 @@ def model_fn(features, labels, mode, params):
     #          Build the capsnet:            #
     ##########################################
     # Create convolutional layers and their output:
-    conv_output = conv_layers(X, parameters, is_training)
+    conv_output, conv_output_sizes = conv_layers(X, parameters, is_training)
     
     # Create primary caps and their output:
     caps1_output = primary_caps_layer(conv_output, parameters)
@@ -125,9 +126,9 @@ def model_fn(features, labels, mode, params):
             if parameters.decode_reconstruction:
                 # Create decoder outputs for vernier and shape images batch
                 vernier_reconstructed_output, vernier_reconstructed_output_img = compute_reconstruction(
-                        vernier_decoder_input, parameters, is_training, '_vernier')
+                        vernier_decoder_input, parameters, is_training, conv_output_sizes)
                 shape_reconstructed_output, shape_reconstructed_output_img = compute_reconstruction(
-                        shape_decoder_input, parameters, is_training, '_shape')
+                        shape_decoder_input, parameters, is_training, conv_output_sizes)
 
                 decoder_output_img = vernier_reconstructed_output_img + shape_reconstructed_output_img
     

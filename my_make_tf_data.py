@@ -7,14 +7,16 @@ This code is inspired by this youtube-vid and code:
 https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 
-Last update on 15.11.2018
+Last update on 28.12.2018
 -> added requirements for nshapes and location loss
 -> added overlapping_shapes parameter
+-> new validation and testing procedures
 """
 
 import sys
 import os
 import tensorflow as tf
+import numpy as np
 from my_parameters import parameters
 from my_batchmaker import stim_maker_fn
 
@@ -24,6 +26,7 @@ from my_batchmaker import stim_maker_fn
 ##################################
 training = 0
 testing = 1
+testing_crowding = 1
 
 
 ##################################
@@ -74,7 +77,10 @@ def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, o
                 [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
                  x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap)
             elif state=='testing':
-                chosen_shape = shape_types
+                try:
+                    chosen_shape = np.random.randint(1, len(shape_types))
+                except:
+                    chosen_shape = shape_types
                 [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
                  x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, noise)
 
@@ -123,34 +129,54 @@ if not os.path.exists(parameters.data_path):
     os.mkdir(parameters.data_path)
 
 
+# Create the training set:
 if training:
     mode = 'training'
     shape_types_train = parameters.shape_types
     make_tfrecords(stim_maker, mode, shape_types_train, parameters.n_shapes,
-                   parameters.n_train_samples, parameters.train_noise, parameters.overlapping_shapes, parameters.train_data_path)
+                   parameters.n_train_samples, 0, parameters.overlapping_shapes, parameters.train_data_path)
     print('\n-------------------------------------------------------')
     print('Finished creation of training set')
     print('-------------------------------------------------------')
 
 
+# Create the validation and the test set that uses the stimuli of the training set:
 if testing:
+    mode = 'training'
+    shape_types_train = parameters.shape_types
+    # Validation set with all possible training stimuli:
+    make_tfrecords(stim_maker, mode, shape_types_train, parameters.n_shapes,
+                   parameters.n_test_samples, 0, parameters.overlapping_shapes, parameters.val_data_path)
+    # Individual test sets:
+    for i in range(len(shape_types_train)-1):
+        chosen_shape = shape_types_train[i+1]
+        test_file = parameters.test_data_paths[i]
+        make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
+                       parameters.n_test_samples, 0, parameters.overlapping_shapes, test_file)
+    print('\n-------------------------------------------------------')
+    print('Finished creation of test sets')
+    print('-------------------------------------------------------')
+
+
+# Create the validation and the test set that uses crowding/uncrowding stimuli:
+if testing_crowding:
     mode = 'testing'
     shape_types_test = parameters.test_shape_types
+    # Validation set with all possible stimuli:
+    make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
+                   parameters.n_test_samples, 0, parameters.overlapping_shapes, parameters.val_crowding_data_path)
+    # Individual test sets:
     for i in range(len(shape_types_test)-1):
         chosen_shape = shape_types_test[i+1]
-        test_data_path = parameters.test_data_paths[i]
-        eval_file = test_data_path + '.tfrecords'
-        make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                       parameters.n_test_samples, parameters.test_noise, parameters.overlapping_shapes, eval_file)
-        
+        test_data_path = parameters.test_crowding_data_paths[i]
         if not os.path.exists(test_data_path):
             os.mkdir(test_data_path)
         for stim_idx in range(3):
             test_file = test_data_path + '/' + str(stim_idx) + '.tfrecords'
             make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                           parameters.n_test_samples, parameters.test_noise, parameters.overlapping_shapes, test_file, stim_idx)
+                           parameters.n_test_samples, 0, parameters.overlapping_shapes, test_file, stim_idx)
     print('\n-------------------------------------------------------')
-    print('Finished creation of test sets')
+    print('Finished creation of test crowding sets')
     print('-------------------------------------------------------')
 
 

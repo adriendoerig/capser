@@ -3,17 +3,17 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 18.12.2018
+Last update on 28.12.2018
 -> added requirements for nshapes and location loss
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
 -> train and test noise is randomly changed now between a lower and upper border
 -> clip the pixel values, so that adding venier and shape images leads to pixel intensities of maximally 1
 -> some changes in parameter names
+-> new validation and testing procedures
 """
 
 import tensorflow as tf
-import numpy as np
 from my_parameters import parameters
 
 
@@ -342,12 +342,8 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
 def train_input_fn():
     return input_fn(filenames=parameters.train_data_path, train=True, parameters=parameters)
 
-
-def eval_input_fn():
-    rnd_idx = np.random.randint(0, len(parameters.test_data_paths))
-    eval_file = parameters.test_data_paths[rnd_idx] + '.tfrecords'
-    return input_fn(filenames=eval_file, train=False, parameters=parameters)
-
+def eval_input_fn(filename):
+    return input_fn(filenames=filename, train=False, parameters=parameters)
 
 def predict_input_fn(filenames):
     return input_fn(filenames=filenames, train=False, parameters=parameters)

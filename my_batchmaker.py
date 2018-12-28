@@ -4,10 +4,12 @@ My capsnet: my_batchmaker!
 Involving all basic shapes (verniers, squares, circles, polygons, stars)
 @author: Lynn
 
-Last update on 15.11.2018
+Last update on 28.12.2018
 -> added requirements for nshape and location loss
 -> nshapeslabels now with index labels [0, len(n_shapes)]
 -> added overlapping_shapes parameter
+-> lets rather use a rotated square instead of stars, so we can decrease imSize
+-> new validation and testing procedures
 """
 
 import numpy as np
@@ -151,11 +153,13 @@ class stim_maker_fn:
         if shapeID == 3:
             patch = self.drawPolygon(6, 0)
         if shapeID == 4:
-            patch = self.drawStar(4, np.pi/4, np.pi/2, 2.8, 6)
+            patch = self.drawStar(4, np.pi/4, np.pi/2, 2.5, 5)
         if shapeID == 5:
-            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
+            patch = self.drawPolygon(4, 0)
         if shapeID == 6:
             patch = self.drawStuff(5)
+#        if shapeID == 7:
+#            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
         return patch
 
     
@@ -313,8 +317,12 @@ class stim_maker_fn:
             shape_image = np.zeros(self.imSize, dtype=np.float32)
 
             # randomly choose one of the selected shape_types and the number of shape repetitions
-            idx_shape_type = np.random.randint(1, len(shape_types))
-            selected_shape = shape_types[idx_shape_type]
+            # if len(shape_types)=1, then just use this shape_type
+            try:
+                idx_shape_type = np.random.randint(1, len(shape_types))
+                selected_shape = shape_types[idx_shape_type]
+            except:
+                selected_shape = shape_types
             idx_n_shapes = np.random.randint(0, len(n_shapes))
             selected_repetitions = n_shapes[idx_n_shapes]
             
@@ -368,10 +376,13 @@ class stim_maker_fn:
 #############################################################
 
 #from my_parameters import parameters
-#imSize = parameters.im_size
-#shapeSize = parameters.shape_size
+##imSize = parameters.im_size
+#imSize = [45, 90]
+##shapeSize = parameters.shape_size
+#shapeSize = 16
 #barWidth = parameters.bar_width
-#n_shapes = parameters.n_shapes
+##n_shapes = parameters.n_shapes
+#n_shapes = [0, 1, 2, 3, 4, 5]
 #train_noise = parameters.train_noise[0]
 #test_noise = parameters.test_noise[0]
 #batch_size = parameters.batch_size
@@ -379,8 +390,8 @@ class stim_maker_fn:
 #overlap = parameters.overlapping_shapes
 #test = stim_maker_fn(imSize, shapeSize, barWidth)
 
-#plt.imshow(test.drawShape(6))
-#test.plotStim([1, 2, 3, 4, 5, 6], 0.05)
+#plt.imshow(test.drawShape(5))
+#test.plotStim([0, 1, 2, 3, 4, 5, 6], 0.05)
 
 #[train_vernier_images, train_shape_images, train_shapelabels, train_nshapeslabels, 
 #train_vernierlabels, train_x_shape, train_y_shape, train_x_vernier, train_y_vernier] = test.makeTrainBatch(

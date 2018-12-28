@@ -3,7 +3,7 @@
 My capsnet: let's decode the reconstructions seperately
 @author: Lynn
 
-Last update on 18.12.18
+Last update on 19.12.18
 -> first draft of the reconstruction code
 -> unfortunately, the code is not as flexible as I would like it to be
 -> decide whether to train whole model or only the reconstruction decoder
@@ -12,6 +12,7 @@ Last update on 18.12.18
 -> finally working (thanks to Adrien)
 -> combined reconstruction_main and reconstruction_model_fn
 -> clip values of added images too!
+-> small change for reconstruction decoder with conv layers
 """
 
 import logging
@@ -23,8 +24,7 @@ from my_parameters import parameters
 from my_capser_functions import \
 conv_layers, primary_caps_layer, secondary_caps_layer, \
 predict_shapelabels, create_masked_decoder_input, compute_margin_loss, \
-compute_accuracy, compute_reconstruction, compute_reconstruction_loss, \
-compute_vernieroffset_loss
+compute_accuracy, compute_reconstruction, compute_reconstruction_loss
 from my_capser_input_fn import train_input_fn, eval_input_fn
 from my_capser_functions import save_params
 
@@ -42,7 +42,6 @@ def model_fn(features, labels, mode, params):
     vernier_images = features['vernier_images']
     shape_images = features['shape_images']
     shapelabels = labels
-    vernierlabels = features['vernier_offsets']
 
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
@@ -59,7 +58,7 @@ def model_fn(features, labels, mode, params):
     #          Build the capsnet:            #
     ##########################################
     # Create convolutional layers and their output:
-    conv_output = conv_layers(X, parameters, is_training)
+    conv_output, conv_output_sizes = conv_layers(X, parameters, is_training)
     
     # Create primary caps and their output:
     caps1_output = primary_caps_layer(conv_output, parameters)
@@ -69,19 +68,8 @@ def model_fn(features, labels, mode, params):
     vernier_caps_activation = caps2_output[:, :, 0, :, :]
     vernier_caps_activation = tf.expand_dims(vernier_caps_activation, 2)
 
-    # Give me vernier acuity based on what the vernier capsule is doing:
-    with tf.name_scope('1_vernier_acuity'):
-        pred_vernierlabels, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(vernier_caps_activation,
-                                                                                                    vernierlabels, parameters,
-                                                                                                    is_training)
-        tf.summary.scalar('vernieroffset_loss', parameters.alpha_vernieroffset * vernieroffset_loss)
-        tf.summary.scalar('vernieroffset_accuracy', vernieroffset_accuracy)
-
-
-    ##########################################
-    #       Train or Evaluation mode:        #
-    ##########################################
-    # How many shapes have to be predicted? Predict them:
+    
+    # Just to have a little check whether it reproduced correctly:
     with tf.name_scope('2_margin'):
         n_shapes = shapelabels.shape[1]
         shapelabels_pred = predict_shapelabels(caps2_output, n_shapes)
@@ -114,8 +102,10 @@ def model_fn(features, labels, mode, params):
     
     with tf.name_scope('4_Reconstruction_loss'):
         # Create decoder outputs for vernier and shape images batch
-        vernier_reconstructed_output, vernier_reconstructed_output_img = compute_reconstruction(vernier_decoder_input, parameters, is_training)
-        shape_reconstructed_output, shape_reconstructed_output_img = compute_reconstruction(shape_decoder_input, parameters, is_training)
+        vernier_reconstructed_output, vernier_reconstructed_output_img = compute_reconstruction(
+                vernier_decoder_input, parameters, is_training, conv_output_sizes)
+        shape_reconstructed_output, shape_reconstructed_output_img = compute_reconstruction(
+                shape_decoder_input, parameters, is_training, conv_output_sizes)
 
         decoder_output_img = vernier_reconstructed_output_img + shape_reconstructed_output_img
 
