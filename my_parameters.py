@@ -173,7 +173,7 @@ flags.DEFINE_integer('eval_steps', 50,
                      'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 20000, 'number of steps')
+flags.DEFINE_integer('n_steps', 30000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 

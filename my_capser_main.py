@@ -94,8 +94,8 @@ for n_category in range(len(parameters.test_data_paths)):
 
 
 # Testing with crowding/uncrowding:
-for n_category in range(len(parameters.test_data_paths)):
-    category = parameters.test_data_paths[n_category]
+for n_category in range(len(parameters.test_crowding_data_paths)):
+    category = parameters.test_crowding_data_paths[n_category]
     print('-------------------------------------------------------')
     print('Compute vernier offset for ' + category)
     
