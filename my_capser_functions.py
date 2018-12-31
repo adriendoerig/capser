@@ -323,7 +323,25 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
             
             # Flatten the output to make it equal to the output of the fc
             reconstructed_output = tf.reshape(reconstructed_output, [parameters.batch_size, parameters.n_output], name='reconstructed_output_flat')
-        
+
+        elif parameters.rec_decoder_type == 'conv_adrien':
+            # dense layer to size after conv 2
+            upsample_size1 = [conv_output_size[1][1], conv_output_size[1][2]]
+            upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * parameters.conv_params[1]['filters'], reuse=tf.AUTO_REUSE, name='upsample1')
+
+            # invert conv 2
+            upsample1 = tf.reshape(upsample1, [parameters.batch_size, upsample_size1[0], upsample_size1[1], parameters.conv_params[1]['filters']], name='reshaped_upsample')
+            conv2inv = tf.layers.conv2d(inputs=upsample1, filters=parameters.conv_params[1]['filters'], kernel_size=parameters.conv_params[1]['kernel_size'], reuse=tf.AUTO_REUSE, padding='same', name='conv2inv')
+
+            upsample_size2 = [parameters.im_size[0], parameters.im_size[1]]
+            upsample2 = tf.image.resize_images(conv2inv, size=upsample_size2, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+            conv1inv = tf.layers.conv2d(inputs=upsample2, filters=parameters.conv_params[0]['filters'], kernel_size=parameters.conv_params[0]['kernel_size'], reuse=tf.AUTO_REUSE, padding='same', name='conv1inv')
+
+            # Get back to greyscale
+            reconstructed_output = tf.layers.conv2d(inputs=conv1inv, filters=parameters.im_depth, kernel_size=1, padding='same', reuse=tf.AUTO_REUSE, name='grayscale')
+
+            # Flatten the output to make it equal to the output of the fc
+            reconstructed_output = tf.reshape(reconstructed_output, [parameters.batch_size, parameters.n_output], name='reconstructed_output_flat')
         else:
             raise SystemExit('\nPROBLEM: Your reconstruction decoder does not know what to do!\nCheck rec_decoder_type')
         
@@ -332,6 +350,7 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
                 name='reconstructed_output_img')
         
         return reconstructed_output, reconstructed_output_img
+
 
 
 ################################

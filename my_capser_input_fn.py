@@ -343,7 +343,7 @@ def train_input_fn():
     return input_fn(filenames=parameters.train_data_path, train=True, parameters=parameters)
 
 def eval_input_fn(filename):
-    return input_fn(filenames=filename, train=False, parameters=parameters)
+    return input_fn(filenames=filename, train=True, parameters=parameters)
 
 def predict_input_fn(filenames):
     return input_fn(filenames=filenames, train=False, parameters=parameters)

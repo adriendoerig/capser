@@ -213,8 +213,17 @@ def model_fn(features, labels, mode, params):
         # The following is needed due to how tf.layers.batch_normalzation works:
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            optimizer = tf.train.AdamOptimizer(learning_rate=parameters.learning_rate)
-            train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+            if parameters.find_lr:
+                global_step = tf.train.get_global_step()
+                lr = parameters.learning_rate / 100 * tf.exp(global_step / 500)
+                optimizer = tf.train.AdamOptimizer(learning_rate=lr)
+                train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+            else:
+                lr = tf.train.cosine_decay_restarts(parameters.learning_rate, tf.train.get_global_step(), parameters.learning_rate_decay_steps)
+                optimizer = tf.train.AdamOptimizer(learning_rate=lr)
+                train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+
+        tf.summary.scalar('learning_rate', lr)
         
         # write summaries during evaluation
         eval_summary_hook = tf.train.SummarySaverHook(save_steps=100,
@@ -230,5 +239,3 @@ def model_fn(features, labels, mode, params):
             evaluation_hooks=[eval_summary_hook])
     
     return spec
-
-

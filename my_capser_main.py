@@ -49,16 +49,16 @@ tf.set_random_seed(42)
 logging.getLogger().setLevel(logging.INFO)
 
 # Beholder to check on weights during training in tensorboard:
-beholder = Beholder(parameters.logdir)
-beholder_hook = BeholderHook(parameters.logdir)
+# beholder = Beholder(parameters.logdir)
+# beholder_hook = BeholderHook(parameters.logdir)
 
 # Create the estimator:
 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
-train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps, hooks=[beholder_hook])
+train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps) #, hooks=[beholder_hook])
 eval_spec = tf.estimator.EvalSpec(lambda: eval_input_fn(parameters.val_data_path), steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
 
 # Save parameters from parameter file for reproducability
-save_params(parameters.logdir, parameters)
+# save_params(parameters.logdir, parameters)
 
 # Lets go!
 tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
@@ -95,7 +95,7 @@ for n_category in range(len(parameters.test_data_paths)):
 
 # Testing with crowding/uncrowding:
 for n_category in range(len(parameters.test_data_paths)):
-    category = parameters.test_data_paths[n_category]
+    category = parameters.test_crowding_data_paths[n_category]
     print('-------------------------------------------------------')
     print('Compute vernier offset for ' + category)
     
