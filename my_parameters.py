@@ -32,7 +32,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log1'
+MODEL_NAME = '_log10'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -91,11 +91,11 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.04, 0.06], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.1, 0.15], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.1, 0.12], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.15, 0.2], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
-flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
-flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust contrast, must be non-negative')
+flags.DEFINE_float('delta_brightness', 0.3, 'factor to adjust brightness (+/-), must be non-negative')
+flags.DEFINE_list('delta_contrast', [0.8, 1.2], 'min and max factor to adjust contrast, must be non-negative')
 
 
 ###########################
@@ -173,7 +173,7 @@ flags.DEFINE_integer('eval_steps', 50,
                      'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 30000, 'number of steps')
+flags.DEFINE_integer('n_steps', 20000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
