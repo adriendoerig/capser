@@ -50,13 +50,14 @@ def model_fn(features, labels, mode, params):
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
 
-
     if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
+        n_shapes = shapelabels.shape[1]
         input_images = tf.add(shape_1_images, shape_2_images, name='input_images')
         input_images = tf.clip_by_value(input_images, parameters.clip_values[0], parameters.clip_values[1], name='input_images_clipped')
         tf.summary.image('full_input_images', input_images, 6)
 
     elif parameters.train_procedure=='random':
+        n_shapes = 1
         shapelabels = shapelabels[:, 0]
         nshapeslabels = nshapeslabels[:, 0]
         input_images = shape_1_images
@@ -83,13 +84,15 @@ def model_fn(features, labels, mode, params):
 
     # Give me vernier acuity based on what the vernier capsule is doing:
     with tf.name_scope('1_vernier_acuity'):
-        vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(shape_1_caps_activation,
-                                                                                vernierlabels, parameters,
-                                                                                is_training)
+        vernierlabels_pred, vernieroffset_loss, vernieroffset_accuracy = compute_vernieroffset_loss(shape_1_caps_activation,
+                                                                                                    vernierlabels, parameters,
+                                                                                                    is_training)
         
         vernieroffset_loss = parameters.alpha_vernieroffset * vernieroffset_loss
         tf.summary.scalar('vernieroffset_loss', vernieroffset_loss)
         tf.summary.scalar('vernieroffset_accuracy', vernieroffset_accuracy)
+        tf.summary.histogram('vernierlabels_pred', vernierlabels_pred)
+        tf.summary.histogram('vernierlabels_real', vernierlabels)
     
     
     ##########################################
@@ -109,8 +112,6 @@ def model_fn(features, labels, mode, params):
     else:
         # How many shapes have to be predicted? Predict them:
         with tf.name_scope('2_margin'):
-            n_shapes = shapelabels.shape[1]
-            print(n_shapes)
             shapelabels_pred = predict_shapelabels(caps2_output, n_shapes)
 
             # Compute accuracy:
@@ -166,6 +167,7 @@ def model_fn(features, labels, mode, params):
                     # Calculate reconstruction loss for shape_1 and shape_2 images batch
                     shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
                     shape_2_reconstruction_loss = compute_reconstruction_loss(shape_2_images, shape_2_output_reconstructed, parameters)
+                    print(shape_1_reconstruction_loss)
                     
                     shape_1_reconstruction_loss = parameters.alpha_shape_1_reconstruction * shape_1_reconstruction_loss
                     shape_2_reconstruction_loss = parameters.alpha_shape_2_reconstruction * shape_2_reconstruction_loss
@@ -187,13 +189,13 @@ def model_fn(features, labels, mode, params):
                     shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
                     
                     shape_1_reconstruction_loss = parameters.alpha_shape_1_reconstruction * shape_1_reconstruction_loss
-                    shape_2_reconstruction_loss = 0
+                    shape_2_reconstruction_loss = 0.
                     reconstruction_loss = shape_1_reconstruction_loss + shape_2_reconstruction_loss
 
             else:
-                shape_1_reconstruction_loss = 0
-                shape_2_reconstruction_loss = 0
-                reconstruction_loss = 0
+                shape_1_reconstruction_loss = 0.
+                shape_2_reconstruction_loss = 0.
+                reconstruction_loss = 0.
     
             tf.summary.scalar('shape_1_reconstruction_loss', shape_1_reconstruction_loss)
             tf.summary.scalar('shape_2_reconstruction_loss', shape_2_reconstruction_loss)
@@ -206,19 +208,19 @@ def model_fn(features, labels, mode, params):
         with tf.name_scope('5_Nshapes_loss'):
             if parameters.decode_nshapes:
                 if n_shapes==2:
-                    nshapes_1_loss, nshapes_1_accuracy = compute_nshapes_loss(shape_1_decoder_input, nshapeslabels, parameters, is_training)
-                    nshapes_2_loss, nshapes_2_accuracy = compute_nshapes_loss(shape_2_decoder_input, nshapeslabels, parameters, is_training)
+                    nshapes_1_loss, nshapes_1_accuracy = compute_nshapes_loss(shape_1_decoder_input, nshapeslabels[:, 0], parameters, is_training)
+                    nshapes_2_loss, nshapes_2_accuracy = compute_nshapes_loss(shape_2_decoder_input, nshapeslabels[:, 1], parameters, is_training)
                     
-                    nshapes_loss = parameters.alpha_nshapes*nshapes_1_loss + parameters.alpha_nshapes*nshapes_2_loss
+                    nshapes_loss = parameters.alpha_nshapes * (nshapes_1_loss + nshapes_2_loss)
                     nshapes_accuracy = (nshapes_1_accuracy + nshapes_2_accuracy) / 2
                     
                 elif n_shapes==1:
                     nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_1_decoder_input, nshapeslabels, parameters, is_training)
-                    nshapes_loss = parameters.alpha_nshapes*nshapes_1_loss
+                    nshapes_loss = parameters.alpha_nshapes*nshapes_loss
                     
             else:
-                nshapes_loss = 0
-                nshapes_accuracy = 0
+                nshapes_loss = 0.
+                nshapes_accuracy = 0.
                 
             tf.summary.scalar('nshapes_loss', nshapes_loss)
             tf.summary.scalar('nshapes_accuracy', nshapes_accuracy)
@@ -248,17 +250,17 @@ def model_fn(features, labels, mode, params):
     
                     x_shape_1_loss = parameters.alpha_x_shape_1_loss * x_shape_1_loss
                     y_shape_1_loss = parameters.alpha_y_shape_1_loss * y_shape_1_loss
-                    x_shape_2_loss = 0
-                    y_shape_2_loss = 0
+                    x_shape_2_loss = 0.
+                    y_shape_2_loss = 0.
                     
                     location_loss = x_shape_1_loss + y_shape_1_loss + x_shape_2_loss + y_shape_2_loss
 
             else:
-                x_shape_1_loss = 0
-                y_shape_1_loss = 0
-                x_shape_2_loss = 0
-                y_shape_2_loss = 0
-                location_loss = 0
+                x_shape_1_loss = 0.
+                y_shape_1_loss = 0.
+                x_shape_2_loss = 0.
+                y_shape_2_loss = 0.
+                location_loss = 0.
             
             tf.summary.scalar('x_shape_1_loss', x_shape_1_loss)
             tf.summary.scalar('y_shape_1_loss', y_shape_1_loss)

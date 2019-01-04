@@ -70,7 +70,10 @@ flags.DEFINE_integer('random_seed', None, 'if not None, set seed for weights ini
 ###########################
 #   Stimulus parameters   #
 ###########################
-flags.DEFINE_string('train_procedure', 'vernier_shape', 'choose between having vernier_shape, random_random and random')
+# if u set the training procedure, keep in mind that u need a different training set for
+# 'vernier_shape'.
+# 'random_random and 'random' can be used with the same training set
+flags.DEFINE_string('train_procedure', 'random', 'choose between having vernier_shape, random_random and random')
 
 flags.DEFINE_integer('n_train_samples', 200000, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 3200, 'number of samples in the test set')
@@ -94,10 +97,10 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.1, 0.12], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.04, 0.06], 'amount of added random Gaussian noise')
 flags.DEFINE_list('test_noise', [0.15, 0.2], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
-flags.DEFINE_float('delta_brightness', 0.3, 'factor to adjust brightness (+/-), must be non-negative')
+flags.DEFINE_float('delta_brightness', 0.2, 'factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_list('delta_contrast', [0.8, 1.2], 'min and max factor to adjust contrast, must be non-negative')
 
 
@@ -183,9 +186,9 @@ flags.DEFINE_float('alpha_shape_1_reconstruction', 0.0005, 'alpha for reconstruc
 flags.DEFINE_float('alpha_shape_2_reconstruction', 0.0001, 'alpha for reconstruction loss for shape image (reduce_sum)')
 
 if nshapes_loss=='xentropy':
-    flags.DEFINE_float('alpha_nshapes', 0.4, 'alpha for nshapes loss')
+    flags.DEFINE_float('alpha_nshapes', 0.2, 'alpha for nshapes loss')
 elif nshapes_loss=='squared_diff':
-    flags.DEFINE_float('alpha_nshapes', 0.002, 'alpha for nshapes loss')
+    flags.DEFINE_float('alpha_nshapes', 0.001, 'alpha for nshapes loss')
 
 if location_loss=='xentropy':
     flags.DEFINE_float('alpha_x_shape_1_loss', 0.1, 'alpha for loss of x coordinate of shape')

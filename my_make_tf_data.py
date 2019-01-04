@@ -25,9 +25,9 @@ from my_batchmaker import stim_maker_fn
 ##################################
 #       Extra parameters:        #
 ##################################
-training = 0
-testing = 0
-testing_crowding = 0
+training = 1
+testing = 1
+testing_crowding = 1
 
 
 ##################################
@@ -126,6 +126,8 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
 ###################################
 #     Create tfrecords files:     #
 ###################################
+print('Creating tfrecords files of type:', parameters.train_procedure)
+
 stim_maker = stim_maker_fn(parameters.im_size, parameters.shape_size, parameters.bar_width)
 
 if not os.path.exists(parameters.data_path):
@@ -160,7 +162,7 @@ if testing:
         make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
                        parameters.n_test_samples, train_procedure, parameters.overlapping_shapes)
     print('\n-------------------------------------------------------')
-    print('Finished creation of test sets')
+    print('Finished creation of validation sets')
     print('-------------------------------------------------------')
 
 

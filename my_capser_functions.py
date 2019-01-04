@@ -107,34 +107,20 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 ###################################
 def conv_layers(X, parameters, phase=True):
     with tf.name_scope('1_convolutional_layers'):
-        if parameters.n_conv_layers==2:
-            conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
-            if parameters.batch_norm_conv:
-                conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
-            conv1 = tf.nn.elu(conv1)
-    
-            conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
-            conv2 = tf.nn.elu(conv2)
-            conv_output = conv2
-            
-            conv3 = 0
-            conv_output_sizes = [conv1.get_shape().as_list(), conv2.get_shape().as_list()]
+        conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
+        if parameters.batch_norm_conv:
+            conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+        conv1 = tf.nn.elu(conv1)
 
-        elif parameters.n_conv_layers==3:
-            conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
-            if parameters.batch_norm_conv:
-                conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
-            conv1 = tf.nn.elu(conv1)
-    
-            conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
-            if parameters.batch_norm_conv:
-                conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
-            conv2 = tf.nn.elu(conv2)
-    
-            conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **parameters.conv_params[2])
-            conv_output = tf.nn.elu(conv3)
-            
-            conv_output_sizes = [conv1.get_shape().as_list(), conv2.get_shape().as_list(), conv3.get_shape().as_list()]
+        conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
+        if parameters.batch_norm_conv:
+            conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
+        conv2 = tf.nn.elu(conv2)
+
+        conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **parameters.conv_params[2])
+        conv_output = tf.nn.elu(conv3)
+        
+        conv_output_sizes = [conv1.get_shape().as_list(), conv2.get_shape().as_list(), conv3.get_shape().as_list()]
                 
         tf.summary.histogram('conv1_output', conv1)
         tf.summary.histogram('conv2_output', conv2)
@@ -199,7 +185,11 @@ def compute_margin_loss(caps2_output_norm, labels, parameters):
         # Compute the loss for each instance and shape:
         # trick to get a vector for each image in the batch. Labels [0,2] -> [[1, 0, 1]] and [1,1] -> [[0, 1, 0]]
         T_shapelabels_raw = tf.one_hot(labels, depth=parameters.caps2_ncaps, name='T_shapelabels_raw')
-        T_shapelabels = tf.reduce_sum(T_shapelabels_raw, axis=1)
+        try:
+            labels.shape[1]
+            T_shapelabels = tf.reduce_sum(T_shapelabels_raw, axis=1)
+        except:
+            T_shapelabels = T_shapelabels_raw
         T_shapelabels = tf.minimum(T_shapelabels, 1)
         present_error_raw = tf.square(tf.maximum(0., parameters.m_plus - caps2_output_norm), name='present_error_raw')
         present_error = tf.reshape(present_error_raw, shape=(parameters.batch_size, parameters.caps2_ncaps), name='present_error')
@@ -347,8 +337,13 @@ def compute_reconstruction_loss(X, reconstructed_output, parameters):
 ################################
 #     Vernieroffset loss:      #
 ################################
-def compute_vernieroffset_loss(shape_1_caps_activation, vernierlabels, parameters, phase=True, depth=3):
+def compute_vernieroffset_loss(shape_1_caps_activation, vernierlabels, parameters, phase=True):
     with tf.name_scope('compute_vernieroffset_loss'):
+        if parameters.train_procedure=='vernier_shape':
+            depth = 2
+        else:
+            depth = 3
+        
         shape_1_caps_activation = tf.squeeze(shape_1_caps_activation)
         vernierlabels = tf.squeeze(vernierlabels)
         T_vernierlabels = tf.one_hot(tf.cast(vernierlabels, tf.int64), depth, name='T_vernierlabels')
@@ -363,23 +358,23 @@ def compute_vernieroffset_loss(shape_1_caps_activation, vernierlabels, parameter
         pred_vernierlabels = tf.argmax(logits_vernierlabels, axis=1, name='pred_vernierlabels', output_type=tf.int64)
         correct_vernierlabels = tf.equal(vernierlabels, pred_vernierlabels, name='correct_vernierlabels')
         accuracy_vernierlabels = tf.reduce_mean(tf.cast(correct_vernierlabels, tf.float32), name='accuracy_vernierlabels')
-        return xent_vernierlabels, accuracy_vernierlabels
+        return pred_vernierlabels, xent_vernierlabels, accuracy_vernierlabels
 
 
 ################################
 #     nshapeslabels loss:      #
 ################################
-def compute_nshapes_loss(shape_decoder_input, nshapeslabels, parameters, phase=True):
+def compute_nshapes_loss(decoder_input, nshapeslabels, parameters, phase=True):
     with tf.name_scope('compute_nshapes_loss'):
-        shape_caps_activation = tf.squeeze(shape_decoder_input)
+        caps_activation = tf.squeeze(decoder_input)
         nshapeslabels = tf.squeeze(tf.cast(nshapeslabels, tf.int64))
         
         depth = len(parameters.n_shapes)  # or rather len/max?
         T_nshapes = tf.one_hot(tf.cast(nshapeslabels, tf.int64), depth, name='T_nshapes')
         
-        hidden_nshapes = tf.layers.dense(shape_caps_activation, depth, use_bias=False, activation=None, name='hidden_nshapes')
+        hidden_nshapes = tf.layers.dense(caps_activation, depth, use_bias=False, activation=None, reuse=tf.AUTO_REUSE, name='hidden_nshapes')
         if parameters.batch_norm_nshapes:
-            hidden_nshapes = tf.layers.batch_normalization(hidden_nshapes, training=phase, name='hidden_nshapes_bn')
+            hidden_nshapes = tf.layers.batch_normalization(hidden_nshapes, training=phase, reuse=tf.AUTO_REUSE, name='hidden_nshapes_bn')
 
         logits_nshapes = tf.nn.relu(hidden_nshapes, name='logits_nshapes')
         pred_nshapes = tf.argmax(logits_nshapes, axis=1, name='predicted_nshapes', output_type=tf.int64)

@@ -31,6 +31,7 @@ from my_capser_functions import save_params
 print('-------------------------------------------------------')
 print('TF version:', tf.__version__)
 print('Starting capsnet script...')
+print('Chosen training procedure:', parameters.train_procedure)
 print('-------------------------------------------------------')
 
 ###########################

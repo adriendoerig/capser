@@ -52,27 +52,21 @@ def parse_tfrecords_train(serialized_data):
     
     nshapeslabels = parsed_data['nshapeslabels']
     nshapeslabels = tf.decode_raw(nshapeslabels, tf.float32)
-    nshapeslabels = tf.cast(nshapeslabels, tf.int64)
     
     vernierlabels = parsed_data['vernierlabels']
     vernierlabels = tf.decode_raw(vernierlabels, tf.float32)
-    vernierlabels = tf.cast(vernierlabels, tf.int64)
     
     x_shape_1 = parsed_data['x_shape_1']
     x_shape_1 = tf.decode_raw(x_shape_1, tf.float32)
-    x_shape_1 = tf.cast(x_shape_1, tf.int64)
     
     y_shape_1 = parsed_data['y_shape_1']
     y_shape_1 = tf.decode_raw(y_shape_1, tf.float32)
-    y_shape_1 = tf.cast(y_shape_1, tf.int64)
     
     x_shape_2 = parsed_data['x_shape_2']
     x_shape_2 = tf.decode_raw(x_shape_2, tf.float32)
-    x_shape_2 = tf.cast(x_shape_2, tf.int64)
     
     y_shape_2 = parsed_data['y_shape_2']
     y_shape_2 = tf.decode_raw(y_shape_2, tf.float32)
-    y_shape_2 = tf.cast(y_shape_2, tf.int64)
 
     # Reshaping:
     shape_1_images = tf.reshape(shape_1_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
@@ -143,12 +137,14 @@ def parse_tfrecords_train(serialized_data):
     def flip1():
         shape_1_images_flipped = tf.image.flip_left_right(shape_1_images)
         shape_2_images_flipped = tf.image.flip_left_right(shape_2_images)      
-        vernierlabels_flipped = tf.ceil(tf.abs(tf.subtract(tf.multiply(vernierlabels, tf.divide(vernierlabels, 2)), 0.5)))
-        x_shape_1_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32), tf.add(x_shape_1, 
-                                        tf.multiply(nshapeslabels[:, 0], tf.constant(parameters.shape_size, tf.float32))))
+        vernierlabels_flipped = tf.ceil(tf.abs(tf.subtract(tf.multiply(vernierlabels, tf.divide(vernierlabels, 2.)), 0.5)))
+        x_shape_1_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32),
+                                        tf.add(x_shape_1, 
+                                        tf.multiply(nshapeslabels[0], tf.constant(parameters.shape_size, tf.float32))))
         y_shape_1_flipped = y_shape_1
-        x_shape_2_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32), tf.add(x_shape_2,
-                                        tf.multiply(nshapeslabels[:, 1], tf.constant(parameters.shape_size, tf.float32))))
+        x_shape_2_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32), 
+                                        tf.add(x_shape_2,
+                                        tf.multiply(nshapeslabels[1], tf.constant(parameters.shape_size, tf.float32))))
         y_shape_2_flipped = y_shape_2
         return [shape_1_images_flipped, shape_2_images_flipped, vernierlabels_flipped,
                 x_shape_1_flipped, y_shape_1_flipped, x_shape_2_flipped, y_shape_2_flipped]
@@ -184,6 +180,14 @@ def parse_tfrecords_train(serialized_data):
     # Lets clip the pixel values
     shape_1_images = tf.clip_by_value(shape_1_images, parameters.clip_values[0], parameters.clip_values[1])
     shape_2_images = tf.clip_by_value(shape_2_images, parameters.clip_values[0], parameters.clip_values[1])
+    
+    # Flipping calculations require these labels as float32, but we need int64
+    vernierlabels = tf.cast(vernierlabels, tf.int64)
+    nshapeslabels = tf.cast(nshapeslabels, tf.int64)
+    x_shape_1 = tf.cast(x_shape_1, tf.int64)
+    y_shape_1 = tf.cast(y_shape_1, tf.int64)
+    x_shape_2 = tf.cast(x_shape_2, tf.int64)
+    y_shape_2 = tf.cast(y_shape_2, tf.int64)
 
     return shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2
 
