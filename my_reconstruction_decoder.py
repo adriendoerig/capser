@@ -13,7 +13,7 @@ Last update on 04.01.19
 -> combined reconstruction_main and reconstruction_model_fn
 -> clip values of added images too!
 -> small change for reconstruction decoder with conv layers
--> use train_procedures 'vernier_shape', 'random_random' or 'random'
+-> use train_procedures 'vernier_shape', 'random_random' or 'random' (not tested yet!)
 """
 
 import logging
