@@ -167,7 +167,6 @@ def model_fn(features, labels, mode, params):
                     # Calculate reconstruction loss for shape_1 and shape_2 images batch
                     shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
                     shape_2_reconstruction_loss = compute_reconstruction_loss(shape_2_images, shape_2_output_reconstructed, parameters)
-                    print(shape_1_reconstruction_loss)
                     
                     shape_1_reconstruction_loss = parameters.alpha_shape_1_reconstruction * shape_1_reconstruction_loss
                     shape_2_reconstruction_loss = parameters.alpha_shape_2_reconstruction * shape_2_reconstruction_loss
