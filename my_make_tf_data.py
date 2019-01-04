@@ -7,10 +7,11 @@ This code is inspired by this youtube-vid and code:
 https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 
-Last update on 28.12.2018
+Last update on 04.01.2019
 -> added requirements for nshapes and location loss
 -> added overlapping_shapes parameter
 -> new validation and testing procedures
+-> use train_procedures 'vernier_shape', 'random_random' or 'random'
 """
 
 import sys
@@ -51,7 +52,8 @@ def print_progress(count, total):
 ##################################
 #      tfrecords function:       #
 ##################################
-def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, overlap, out_path, stim_idx=None):
+def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples,
+                   train_procedure='vernier_shape', overlap=True, stim_idx=None):
     '''Function to create tfrecord files based on stim_maker class'''
     # Inputs:
     # stim_maker instance
@@ -74,37 +76,38 @@ def make_tfrecords(stim_maker, state, shape_types, n_shapes, n_samples, noise, o
             
             # Either create training or testing dataset
             if state=='training':
-                [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
-                 x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, noise, overlap)
+                [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels, x_shape_1, y_shape_1, 
+                 x_shape_2, y_shape_2] = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, train_procedure, overlap)
+
             elif state=='testing':
                 try:
                     chosen_shape = np.random.randint(1, len(shape_types))
                 except:
                     chosen_shape = shape_types
-                [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels,
-                 x_shape, y_shape, x_vernier, y_vernier] = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, noise)
+                [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels, x_shape_1, y_shape_1,
+                 x_shape_2, y_shape_2] = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx)
 
             # Convert the image to raw bytes.
-            vernier_images_bytes = vernier_images.tostring()
-            shape_images_bytes = shape_images.tostring()
+            shape_1_images_bytes = shape_1_images.tostring()
+            shape_2_images_bytes = shape_2_images.tostring()
             shapelabels_bytes = shapelabels.tostring()
             nshapeslabels_bytes = nshapeslabels.tostring()
             vernierlabels_bytes = vernierlabels.tostring()
-            x_shape_bytes = x_shape.tostring()
-            y_shape_bytes = y_shape.tostring()
-            x_vernier_bytes = x_vernier.tostring()
-            y_vernier_bytes = y_vernier.tostring()
+            x_shape_1_bytes = x_shape_1.tostring()
+            y_shape_1_bytes = y_shape_1.tostring()
+            x_shape_2_bytes = x_shape_2.tostring()
+            y_shape_2_bytes = y_shape_2.tostring()
 
             # Create a dict with the data to save in the TFRecords file
-            data = {'vernier_images': wrap_bytes(vernier_images_bytes),
-                    'shape_images': wrap_bytes(shape_images_bytes),
+            data = {'shape_1_images': wrap_bytes(shape_1_images_bytes),
+                    'shape_2_images': wrap_bytes(shape_2_images_bytes),
                     'shapelabels': wrap_bytes(shapelabels_bytes),
                     'nshapeslabels': wrap_bytes(nshapeslabels_bytes),
                     'vernierlabels': wrap_bytes(vernierlabels_bytes),
-                    'x_shape': wrap_bytes(x_shape_bytes),
-                    'y_shape': wrap_bytes(y_shape_bytes),
-                    'x_vernier': wrap_bytes(x_vernier_bytes),
-                    'y_vernier': wrap_bytes(y_vernier_bytes)}
+                    'x_shape_1': wrap_bytes(x_shape_1_bytes),
+                    'y_shape_1': wrap_bytes(y_shape_1_bytes),
+                    'x_shape_2': wrap_bytes(x_shape_2_bytes),
+                    'y_shape_2': wrap_bytes(y_shape_2_bytes)}
 
             # Wrap the data as TensorFlow Features.
             feature = tf.train.Features(feature=data)
@@ -133,8 +136,8 @@ if not os.path.exists(parameters.data_path):
 if training:
     mode = 'training'
     shape_types_train = parameters.shape_types
-    make_tfrecords(stim_maker, mode, shape_types_train, parameters.n_shapes,
-                   parameters.n_train_samples, 0, parameters.overlapping_shapes, parameters.train_data_path)
+    make_tfrecords(parameters.train_data_path, stim_maker, mode, shape_types_train, parameters.n_shapes,
+                   parameters.n_train_samples, parameters.train_procedure, parameters.overlapping_shapes)
     print('\n-------------------------------------------------------')
     print('Finished creation of training set')
     print('-------------------------------------------------------')
@@ -144,15 +147,18 @@ if training:
 if testing:
     mode = 'training'
     shape_types_train = parameters.shape_types
+    train_procedure = 'vernier_shape'
+
     # Validation set with all possible training stimuli:
-    make_tfrecords(stim_maker, mode, shape_types_train, parameters.n_shapes,
-                   parameters.n_test_samples, 0, parameters.overlapping_shapes, parameters.val_data_path)
+    make_tfrecords(parameters.val_data_path, stim_maker, mode, shape_types_train, parameters.n_shapes, 
+                   parameters.n_test_samples, train_procedure, parameters.overlapping_shapes)
+
     # Individual test sets:
     for i in range(len(shape_types_train)-1):
         chosen_shape = shape_types_train[i+1]
-        test_file = parameters.test_data_paths[i]
-        make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                       parameters.n_test_samples, 0, parameters.overlapping_shapes, test_file)
+        test_file_path = parameters.test_data_paths[i]
+        make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
+                       parameters.n_test_samples, train_procedure, parameters.overlapping_shapes)
     print('\n-------------------------------------------------------')
     print('Finished creation of test sets')
     print('-------------------------------------------------------')
@@ -162,9 +168,11 @@ if testing:
 if testing_crowding:
     mode = 'testing'
     shape_types_test = parameters.test_shape_types
+    
     # Validation set with all possible stimuli:
-    make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                   parameters.n_test_samples, 0, parameters.overlapping_shapes, parameters.val_crowding_data_path)
+    make_tfrecords(parameters.val_crowding_data_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
+                   parameters.n_test_samples)
+
     # Individual test sets:
     for i in range(len(shape_types_test)-1):
         chosen_shape = shape_types_test[i+1]
@@ -172,9 +180,9 @@ if testing_crowding:
         if not os.path.exists(test_data_path):
             os.mkdir(test_data_path)
         for stim_idx in range(3):
-            test_file = test_data_path + '/' + str(stim_idx) + '.tfrecords'
-            make_tfrecords(stim_maker, mode, chosen_shape, parameters.n_shapes,
-                           parameters.n_test_samples, 0, parameters.overlapping_shapes, test_file, stim_idx)
+            test_file_path = test_data_path + '/' + str(stim_idx) + '.tfrecords'
+            make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
+                           parameters.n_test_samples, stim_idx=stim_idx)
     print('\n-------------------------------------------------------')
     print('Finished creation of test crowding sets')
     print('-------------------------------------------------------')

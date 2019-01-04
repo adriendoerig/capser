@@ -3,7 +3,7 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 28.12.2018
+Last update on 04.01.2019
 -> added requirements for nshapes and location loss
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
@@ -11,6 +11,7 @@ Last update on 28.12.2018
 -> clip the pixel values, so that adding venier and shape images leads to pixel intensities of maximally 1
 -> some changes in parameter names
 -> new validation and testing procedures
+-> use train_procedures 'vernier_shape', 'random_random' or 'random'
 """
 
 import tensorflow as tf
@@ -22,27 +23,27 @@ from my_parameters import parameters
 ########################################
 def parse_tfrecords_train(serialized_data):
     # Define a dict with the data-names and types we expect to find in the TFRecords file.
-    features = {'vernier_images': tf.FixedLenFeature([], tf.string),
-                'shape_images': tf.FixedLenFeature([], tf.string),
+    features = {'shape_1_images': tf.FixedLenFeature([], tf.string),
+                'shape_2_images': tf.FixedLenFeature([], tf.string),
                 'shapelabels': tf.FixedLenFeature([], tf.string),
                 'nshapeslabels': tf.FixedLenFeature([], tf.string),
                 'vernierlabels': tf.FixedLenFeature([], tf.string),
-                'x_shape': tf.FixedLenFeature([], tf.string),
-                'y_shape': tf.FixedLenFeature([], tf.string),
-                'x_vernier': tf.FixedLenFeature([], tf.string),
-                'y_vernier': tf.FixedLenFeature([], tf.string)}
+                'x_shape_1': tf.FixedLenFeature([], tf.string),
+                'y_shape_1': tf.FixedLenFeature([], tf.string),
+                'x_shape_2': tf.FixedLenFeature([], tf.string),
+                'y_shape_2': tf.FixedLenFeature([], tf.string)}
 
     # Parse the serialized data so we get a dict with our data.
     parsed_data = tf.parse_single_example(serialized=serialized_data, features=features)
 
     # Get the images as raw bytes and decode afterwards.
-    vernier_images = parsed_data['vernier_images']
-    vernier_images = tf.decode_raw(vernier_images, tf.float32)
-    vernier_images = tf.cast(vernier_images, tf.float32)
+    shape_1_images = parsed_data['shape_1_images']
+    shape_1_images = tf.decode_raw(shape_1_images, tf.float32)
+    shape_1_images = tf.cast(shape_1_images, tf.float32)
 
-    shape_images = parsed_data['shape_images']
-    shape_images = tf.decode_raw(shape_images, tf.float32)
-    shape_images = tf.cast(shape_images, tf.float32)
+    shape_2_images = parsed_data['shape_2_images']
+    shape_2_images = tf.decode_raw(shape_2_images, tf.float32)
+    shape_2_images = tf.cast(shape_2_images, tf.float32)
     
     # Get the labels associated with the image and decode.
     shapelabels = parsed_data['shapelabels']
@@ -57,32 +58,32 @@ def parse_tfrecords_train(serialized_data):
     vernierlabels = tf.decode_raw(vernierlabels, tf.float32)
     vernierlabels = tf.cast(vernierlabels, tf.int64)
     
-    x_shape = parsed_data['x_shape']
-    x_shape = tf.decode_raw(x_shape, tf.float32)
-    x_shape = tf.cast(x_shape, tf.int64)
+    x_shape_1 = parsed_data['x_shape_1']
+    x_shape_1 = tf.decode_raw(x_shape_1, tf.float32)
+    x_shape_1 = tf.cast(x_shape_1, tf.int64)
     
-    y_shape = parsed_data['y_shape']
-    y_shape = tf.decode_raw(y_shape, tf.float32)
-    y_shape = tf.cast(y_shape, tf.int64)
+    y_shape_1 = parsed_data['y_shape_1']
+    y_shape_1 = tf.decode_raw(y_shape_1, tf.float32)
+    y_shape_1 = tf.cast(y_shape_1, tf.int64)
     
-    x_vernier = parsed_data['x_vernier']
-    x_vernier = tf.decode_raw(x_vernier, tf.float32)
-    x_vernier = tf.cast(x_vernier, tf.int64)
+    x_shape_2 = parsed_data['x_shape_2']
+    x_shape_2 = tf.decode_raw(x_shape_2, tf.float32)
+    x_shape_2 = tf.cast(x_shape_2, tf.int64)
     
-    y_vernier = parsed_data['y_vernier']
-    y_vernier = tf.decode_raw(y_vernier, tf.float32)
-    y_vernier = tf.cast(y_vernier, tf.int64)
+    y_shape_2 = parsed_data['y_shape_2']
+    y_shape_2 = tf.decode_raw(y_shape_2, tf.float32)
+    y_shape_2 = tf.cast(y_shape_2, tf.int64)
 
     # Reshaping:
-    vernier_images = tf.reshape(vernier_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
-    shape_images = tf.reshape(shape_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+    shape_1_images = tf.reshape(shape_1_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+    shape_2_images = tf.reshape(shape_2_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
     shapelabels = tf.reshape(shapelabels, [2])
-    nshapeslabels = tf.reshape(nshapeslabels, [1])
+    nshapeslabels = tf.reshape(nshapeslabels, [2])
     vernierlabels = tf.reshape(vernierlabels, [1])
-    x_shape = tf.reshape(x_shape, [1])
-    y_shape = tf.reshape(y_shape, [1])
-    x_vernier = tf.reshape(x_vernier, [1])
-    y_vernier = tf.reshape(y_vernier, [1])
+    x_shape_1 = tf.reshape(x_shape_1, [1])
+    y_shape_1 = tf.reshape(y_shape_1, [1])
+    x_shape_2 = tf.reshape(x_shape_2, [1])
+    y_shape_2 = tf.reshape(y_shape_2, [1])
 
 
     ##################################
@@ -91,97 +92,100 @@ def parse_tfrecords_train(serialized_data):
     # Add some random gaussian TRAINING noise (always):
     noise1 = tf.random_uniform([1], parameters.train_noise[0], parameters.train_noise[1], tf.float32)
     noise2 = tf.random_uniform([1], parameters.train_noise[0], parameters.train_noise[1], tf.float32)
-    vernier_images = tf.add(vernier_images, tf.random_normal(
-        shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=noise1))
-    shape_images = tf.add(shape_images, tf.random_normal(
-        shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=noise2))
+    shape_1_images = tf.add(shape_1_images, tf.random_normal(
+            shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0, stddev=noise1))
+    shape_2_images = tf.add(shape_2_images, tf.random_normal(
+            shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0, stddev=noise2))
 
 
     # Adjust brightness and contrast by a random factor
     def bright_contrast():
-        vernier_images_augmented = tf.image.random_brightness(vernier_images, parameters.delta_brightness)
-        shape_images_augmented = tf.image.random_brightness(shape_images, parameters.delta_brightness)
-        vernier_images_augmented = tf.image.random_contrast(vernier_images_augmented, parameters.delta_contrast[0], parameters.delta_contrast[1])
-        shape_images_augmented = tf.image.random_contrast(shape_images_augmented, parameters.delta_contrast[0], parameters.delta_contrast[1])
-        return vernier_images_augmented, shape_images_augmented
+        shape_1_images_augmented = tf.image.random_brightness(shape_1_images, parameters.delta_brightness)
+        shape_2_images_augmented = tf.image.random_brightness(shape_2_images, parameters.delta_brightness)
+        shape_1_images_augmented = tf.image.random_contrast(
+                shape_1_images_augmented,parameters.delta_contrast[0], parameters.delta_contrast[1])
+        shape_2_images_augmented = tf.image.random_contrast(
+                shape_2_images_augmented, parameters.delta_contrast[0], parameters.delta_contrast[1])
+        return shape_1_images_augmented, shape_2_images_augmented
     
     def contrast_bright():
-        vernier_images_augmented = tf.image.random_contrast(vernier_images, parameters.delta_contrast[0], parameters.delta_contrast[1])
-        shape_images_augmented = tf.image.random_contrast(shape_images, parameters.delta_contrast[0], parameters.delta_contrast[1])
-        vernier_images_augmented = tf.image.random_brightness(vernier_images_augmented, parameters.delta_brightness)
-        shape_images_augmented = tf.image.random_brightness(shape_images_augmented, parameters.delta_brightness)
-        return vernier_images_augmented, shape_images_augmented
+        shape_1_images_augmented = tf.image.random_contrast(
+                shape_1_images, parameters.delta_contrast[0], parameters.delta_contrast[1])
+        shape_2_images_augmented = tf.image.random_contrast(
+                shape_2_images, parameters.delta_contrast[0], parameters.delta_contrast[1])
+        shape_1_images_augmented = tf.image.random_brightness(shape_1_images_augmented, parameters.delta_brightness)
+        shape_2_images_augmented = tf.image.random_brightness(shape_2_images_augmented, parameters.delta_brightness)
+        return shape_1_images_augmented, shape_2_images_augmented
 
     # Maybe change contrast and brightness:
     pred = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
-    vernier_images, shape_images = tf.cond(pred, bright_contrast, contrast_bright)
+    shape_1_images, shape_2_images = tf.cond(pred, bright_contrast, contrast_bright)
 
     # Flipping (code is messy since we r using tf cond atm, but this is the idea):
-    # - change vernierlabels: abs(vernierlabels - 1)
+    # - change vernierlabels: ceil(abs( (vernierlabels * vernierlabels/2) - 0.5) )
     # - change shape coordinates / vernier coordinates:
     #       - x: im_size[1] - (x + nshapes*shapesize)
     #       - y: im_size[0] - (y + shapesize)
 
     # no flipping function:
     def flip0():
-        vernier_images_flipped = vernier_images
-        shape_images_flipped = shape_images
+        shape_1_images_flipped = shape_1_images
+        shape_2_images_flipped = shape_2_images
         vernierlabels_flipped = vernierlabels
-        x_shape_flipped = x_shape
-        y_shape_flipped = y_shape
-        x_vernier_flipped = x_vernier
-        y_vernier_flipped = y_vernier
-        return [vernier_images_flipped, shape_images_flipped, vernierlabels_flipped,
-                x_shape_flipped, y_shape_flipped, x_vernier_flipped, y_vernier_flipped]
-    
+        x_shape_1_flipped = x_shape_1
+        y_shape_1_flipped = y_shape_1
+        x_shape_2_flipped = x_shape_2
+        y_shape_2_flipped = y_shape_2
+        return [shape_1_images_flipped, shape_2_images_flipped, vernierlabels_flipped,
+                x_shape_1_flipped, y_shape_1_flipped, x_shape_2_flipped, y_shape_2_flipped]
+
     # flip left-right function:
     def flip1():
-        vernier_images_flipped = tf.image.flip_left_right(vernier_images)
-        shape_images_flipped = tf.image.flip_left_right(shape_images)
-        vernierlabels_flipped = tf.abs(tf.subtract(vernierlabels, 1))
-        x_shape_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.int64), tf.add(x_shape,
-                              tf.multiply(nshapeslabels, parameters.shape_size)))
-        y_shape_flipped = y_shape
-        x_vernier_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.int64), tf.add(x_vernier, parameters.shape_size))
-        y_vernier_flipped = y_vernier
-        return [vernier_images_flipped, shape_images_flipped, vernierlabels_flipped,
-                x_shape_flipped, y_shape_flipped, x_vernier_flipped, y_vernier_flipped]
-    
+        shape_1_images_flipped = tf.image.flip_left_right(shape_1_images)
+        shape_2_images_flipped = tf.image.flip_left_right(shape_2_images)      
+        vernierlabels_flipped = tf.ceil(tf.abs(tf.subtract(tf.multiply(vernierlabels, tf.divide(vernierlabels, 2)), 0.5)))
+        x_shape_1_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32), tf.add(x_shape_1, 
+                                        tf.multiply(nshapeslabels[:, 0], tf.constant(parameters.shape_size, tf.float32))))
+        y_shape_1_flipped = y_shape_1
+        x_shape_2_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32), tf.add(x_shape_2,
+                                        tf.multiply(nshapeslabels[:, 1], tf.constant(parameters.shape_size, tf.float32))))
+        y_shape_2_flipped = y_shape_2
+        return [shape_1_images_flipped, shape_2_images_flipped, vernierlabels_flipped,
+                x_shape_1_flipped, y_shape_1_flipped, x_shape_2_flipped, y_shape_2_flipped]
+
     # flip up-down function:
     def flip2():
-        vernier_images_flipped = tf.image.flip_up_down(vernier_images)
-        shape_images_flipped = tf.image.flip_up_down(shape_images)
-        vernierlabels_flipped = tf.abs(tf.subtract(vernierlabels, 1))
-        x_shape_flipped = x_shape
-        y_shape_flipped = tf.subtract(tf.constant(parameters.im_size[0], tf.int64), tf.add(y_shape, parameters.shape_size))
-        x_vernier_flipped = x_vernier
-        y_vernier_flipped = tf.subtract(tf.constant(parameters.im_size[0], tf.int64), tf.add(y_vernier, parameters.shape_size))
-        return [vernier_images_flipped, shape_images_flipped, vernierlabels_flipped,
-                x_shape_flipped, y_shape_flipped, x_vernier_flipped, y_vernier_flipped]
+        shape_1_images_flipped = tf.image.flip_up_down(shape_1_images)
+        shape_2_images_flipped = tf.image.flip_up_down(shape_2_images)
+        vernierlabels_flipped = tf.ceil(tf.abs(tf.subtract(tf.multiply(vernierlabels, tf.divide(vernierlabels, 2)), 0.5)))
+        x_shape_1_flipped = x_shape_1
+        y_shape_1_flipped = tf.subtract(tf.constant(parameters.im_size[0], tf.float32), tf.add(y_shape_1, parameters.shape_size))
+        x_shape_2_flipped = x_shape_2
+        y_shape_2_flipped = tf.subtract(tf.constant(parameters.im_size[0], tf.float32), tf.add(y_shape_2, parameters.shape_size))
+        return [shape_1_images_flipped, shape_2_images_flipped, vernierlabels_flipped,
+                x_shape_1_flipped, y_shape_1_flipped, x_shape_2_flipped, y_shape_2_flipped]
     
     # tf flip functions need 4D inputs:
-    vernier_images = tf.expand_dims(vernier_images, 0)
-    shape_images = tf.expand_dims(shape_images, 0)
+    shape_1_images = tf.expand_dims(shape_1_images, 0)
+    shape_2_images = tf.expand_dims(shape_2_images, 0)
 
     # Maybe flip left-right:
     pred_flip1 = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
-    vernier_images, shape_images, vernierlabels, x_shape, y_shape, x_vernier, y_vernier = tf.cond(pred_flip1, flip0, flip1)
+    shape_1_images, shape_2_images, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2 = tf.cond(pred_flip1, flip0, flip1)
     
     # Maybe flip up-down:
     pred_flip2 = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
-    vernier_images, shape_images, vernierlabels, x_shape, y_shape, x_vernier, y_vernier = tf.cond(pred_flip2, flip0, flip2)
+    shape_1_images, shape_2_images, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2 = tf.cond(pred_flip2, flip0, flip2)
     
     # Get rid of extra-dimension:
-    vernier_images = tf.squeeze(vernier_images, axis=0)
-    shape_images = tf.squeeze(shape_images, axis=0)
+    shape_1_images = tf.squeeze(shape_1_images, axis=0)
+    shape_2_images = tf.squeeze(shape_2_images, axis=0)
     
     # Lets clip the pixel values
-    vernier_images = tf.clip_by_value(vernier_images, parameters.clip_values[0], parameters.clip_values[1])
-    shape_images = tf.clip_by_value(shape_images, parameters.clip_values[0], parameters.clip_values[1])
+    shape_1_images = tf.clip_by_value(shape_1_images, parameters.clip_values[0], parameters.clip_values[1])
+    shape_2_images = tf.clip_by_value(shape_2_images, parameters.clip_values[0], parameters.clip_values[1])
 
-    return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
+    return shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2
 
 
 ########################################
@@ -189,27 +193,27 @@ def parse_tfrecords_train(serialized_data):
 ########################################
 def parse_tfrecords_test(serialized_data):
     # Define a dict with the data-names and types we expect to find in the TFRecords file.
-    features = {'vernier_images': tf.FixedLenFeature([], tf.string),
-                'shape_images': tf.FixedLenFeature([], tf.string),
+    features = {'shape_1_images': tf.FixedLenFeature([], tf.string),
+                'shape_2_images': tf.FixedLenFeature([], tf.string),
                 'shapelabels': tf.FixedLenFeature([], tf.string),
                 'nshapeslabels': tf.FixedLenFeature([], tf.string),
                 'vernierlabels': tf.FixedLenFeature([], tf.string),
-                'x_shape': tf.FixedLenFeature([], tf.string),
-                'y_shape': tf.FixedLenFeature([], tf.string),
-                'x_vernier': tf.FixedLenFeature([], tf.string),
-                'y_vernier': tf.FixedLenFeature([], tf.string)}
+                'x_shape_1': tf.FixedLenFeature([], tf.string),
+                'y_shape_1': tf.FixedLenFeature([], tf.string),
+                'x_shape_2': tf.FixedLenFeature([], tf.string),
+                'y_shape_2': tf.FixedLenFeature([], tf.string)}
 
     # Parse the serialized data so we get a dict with our data.
     parsed_data = tf.parse_single_example(serialized=serialized_data, features=features)
 
     # Get the images as raw bytes and decode afterwards.
-    vernier_images = parsed_data['vernier_images']
-    vernier_images = tf.decode_raw(vernier_images, tf.float32)
-    vernier_images = tf.cast(vernier_images, tf.float32)
+    shape_1_images = parsed_data['shape_1_images']
+    shape_1_images = tf.decode_raw(shape_1_images, tf.float32)
+    shape_1_images = tf.cast(shape_1_images, tf.float32)
 
-    shape_images = parsed_data['shape_images']
-    shape_images = tf.decode_raw(shape_images, tf.float32)
-    shape_images = tf.cast(shape_images, tf.float32)
+    shape_2_images = parsed_data['shape_2_images']
+    shape_2_images = tf.decode_raw(shape_2_images, tf.float32)
+    shape_2_images = tf.cast(shape_2_images, tf.float32)
     
     # Get the labels associated with the image and decode.
     shapelabels = parsed_data['shapelabels']
@@ -224,49 +228,49 @@ def parse_tfrecords_test(serialized_data):
     vernierlabels = tf.decode_raw(vernierlabels, tf.float32)
     vernierlabels = tf.cast(vernierlabels, tf.int64)
     
-    x_shape = parsed_data['x_shape']
-    x_shape = tf.decode_raw(x_shape, tf.float32)
-    x_shape = tf.cast(x_shape, tf.int64)
+    x_shape_1 = parsed_data['x_shape_1']
+    x_shape_1 = tf.decode_raw(x_shape_1, tf.float32)
+    x_shape_1 = tf.cast(x_shape_1, tf.int64)
     
-    y_shape = parsed_data['y_shape']
-    y_shape = tf.decode_raw(y_shape, tf.float32)
-    y_shape = tf.cast(y_shape, tf.int64)
+    y_shape_1 = parsed_data['y_shape_1']
+    y_shape_1 = tf.decode_raw(y_shape_1, tf.float32)
+    y_shape_1 = tf.cast(y_shape_1, tf.int64)
     
-    x_vernier = parsed_data['x_vernier']
-    x_vernier = tf.decode_raw(x_vernier, tf.float32)
-    x_vernier = tf.cast(x_vernier, tf.int64)
+    x_shape_2 = parsed_data['x_shape_2']
+    x_shape_2 = tf.decode_raw(x_shape_2, tf.float32)
+    x_shape_2 = tf.cast(x_shape_2, tf.int64)
     
-    y_vernier = parsed_data['y_vernier']
-    y_vernier = tf.decode_raw(y_vernier, tf.float32)
-    y_vernier = tf.cast(y_vernier, tf.int64)
-    
+    y_shape_2 = parsed_data['y_shape_2']
+    y_shape_2 = tf.decode_raw(y_shape_2, tf.float32)
+    y_shape_2 = tf.cast(y_shape_2, tf.int64)
+
     # Reshaping:
-    vernier_images = tf.reshape(vernier_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
-    shape_images = tf.reshape(shape_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+    shape_1_images = tf.reshape(shape_1_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+    shape_2_images = tf.reshape(shape_2_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
     shapelabels = tf.reshape(shapelabels, [2])
-    nshapeslabels = tf.reshape(nshapeslabels, [1])
+    nshapeslabels = tf.reshape(nshapeslabels, [2])
     vernierlabels = tf.reshape(vernierlabels, [1])
-    x_shape = tf.reshape(x_shape, [1])
-    y_shape = tf.reshape(y_shape, [1])
-    x_vernier = tf.reshape(x_vernier, [1])
-    y_vernier = tf.reshape(y_vernier, [1])
+    x_shape_1 = tf.reshape(x_shape_1, [1])
+    y_shape_1 = tf.reshape(y_shape_1, [1])
+    x_shape_2 = tf.reshape(x_shape_2, [1])
+    y_shape_2 = tf.reshape(y_shape_2, [1])
     
     # For the test and validation set, we dont really need data augmentation,
     # but we'd still like some TEST noise
     noise1 = tf.random_uniform([1], parameters.test_noise[0], parameters.test_noise[1], tf.float32)
     noise2 = tf.random_uniform([1], parameters.test_noise[0], parameters.test_noise[1], tf.float32)
-    vernier_images = tf.add(vernier_images, tf.random_normal(
-        shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=noise1))
-    shape_images = tf.add(shape_images, tf.random_normal(
-        shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
-        stddev=noise2))
+    shape_1_images = tf.add(shape_1_images, tf.random_normal(
+            shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
+            stddev=noise1))
+    shape_2_images = tf.add(shape_2_images, tf.random_normal(
+            shape=[parameters.im_size[0], parameters.im_size[1], parameters.im_depth], mean=0.0,
+            stddev=noise2))
     
     # Lets clip the pixel values, so that if we add them the maximum pixel intensity will be 1:
-    vernier_images = tf.clip_by_value(vernier_images, parameters.clip_values[0], parameters.clip_values[1])
-    shape_images = tf.clip_by_value(shape_images, parameters.clip_values[0], parameters.clip_values[1])
+    shape_1_images = tf.clip_by_value(shape_1_images, parameters.clip_values[0], parameters.clip_values[1])
+    shape_2_images = tf.clip_by_value(shape_2_images, parameters.clip_values[0], parameters.clip_values[1])
     
-    return vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, x_shape, y_shape, x_vernier, y_vernier
+    return shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2
 
 
 ###########################
@@ -277,7 +281,7 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
     dataset = tf.data.TFRecordDataset(filenames=filenames, num_parallel_reads=32)
     
     # Currently, I am using two different functions for parsing the train and 
-    # test/eval set due to data augmentation:
+    # test/eval set due to different data augmentation:
     if train:
         dataset = dataset.map(parse_tfrecords_train, num_parallel_calls=64)
         
@@ -304,32 +308,32 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
     iterator = dataset.make_one_shot_iterator()
     
     # Get the next batch of images and labels.
-    [vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels, 
-     x_shape, y_shape, x_vernier, y_vernier] = iterator.get_next()
+    [shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels, x_shape_1, y_shape_1, 
+     x_shape_2, y_shape_2] = iterator.get_next()
 
     if train:
-        feed_dict = {'vernier_images': vernier_images,
-                     'shape_images': shape_images,
+        feed_dict = {'shape_1_images': shape_1_images,
+                     'shape_2_images': shape_2_images,
                      'shapelabels': shapelabels,
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
-                     'x_shape': x_shape,
-                     'y_shape': y_shape,
-                     'x_vernier': x_vernier,
-                     'y_vernier': y_vernier,
+                     'x_shape_1': x_shape_1,
+                     'y_shape_1': y_shape_1,
+                     'x_shape_2': x_shape_2,
+                     'y_shape_2': y_shape_2,
                      'mask_with_labels': True,
                      'is_training': True}
 
     else:
-        feed_dict = {'vernier_images': vernier_images,
-                     'shape_images': shape_images,
+        feed_dict = {'shape_1_images': shape_1_images,
+                     'shape_2_images': shape_2_images,
                      'shapelabels': shapelabels,
                      'nshapeslabels': nshapeslabels,
                      'vernier_offsets': vernierlabels,
-                     'x_shape': x_shape,
-                     'y_shape': y_shape,
-                     'x_vernier': x_vernier,
-                     'y_vernier': y_vernier,
+                     'x_shape_1': x_shape_1,
+                     'y_shape_1': y_shape_1,
+                     'x_shape_2': x_shape_2,
+                     'y_shape_2': y_shape_2,
                      'mask_with_labels': False,
                      'is_training': False}
     return feed_dict, shapelabels

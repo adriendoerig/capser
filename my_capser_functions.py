@@ -9,7 +9,7 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 20.12.2018
+Last update on 04.01.2019
 -> added nshapes and location loss
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
@@ -21,6 +21,7 @@ Last update on 20.12.2018
 -> parameters.txt cant be overwritten easily anymore
 -> reconstruction layers get reused nicer now
 -> you can choose between a reconstruction decoder with fc or conv layers (currently only with 3 conv layers)
+-> use train_procedures 'vernier_shape', 'random_random' or 'random'
 """
 
 import tensorflow as tf
@@ -327,11 +328,7 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
         else:
             raise SystemExit('\nPROBLEM: Your reconstruction decoder does not know what to do!\nCheck rec_decoder_type')
         
-        reconstructed_output_img = tf.reshape(
-                reconstructed_output, [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
-                name='reconstructed_output_img')
-        
-        return reconstructed_output, reconstructed_output_img
+        return reconstructed_output
 
 
 ################################
@@ -350,13 +347,13 @@ def compute_reconstruction_loss(X, reconstructed_output, parameters):
 ################################
 #     Vernieroffset loss:      #
 ################################
-def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, parameters, phase=True, depth=2):
+def compute_vernieroffset_loss(shape_1_caps_activation, vernierlabels, parameters, phase=True, depth=3):
     with tf.name_scope('compute_vernieroffset_loss'):
-        vernier_caps_activation = tf.squeeze(vernier_caps_activation)
+        shape_1_caps_activation = tf.squeeze(shape_1_caps_activation)
         vernierlabels = tf.squeeze(vernierlabels)
         T_vernierlabels = tf.one_hot(tf.cast(vernierlabels, tf.int64), depth, name='T_vernierlabels')
         
-        hidden_vernieroffset = tf.layers.dense(vernier_caps_activation, depth, use_bias=False, activation=None, name='hidden_vernieroffset')
+        hidden_vernieroffset = tf.layers.dense(shape_1_caps_activation, depth, use_bias=False, activation=None, name='hidden_vernieroffset')
         if parameters.batch_norm_vernieroffset:
             hidden_vernieroffset = tf.layers.batch_normalization(hidden_vernieroffset, training=phase, name='hidden_vernieroffset_bn')
             
@@ -366,7 +363,7 @@ def compute_vernieroffset_loss(vernier_caps_activation, vernierlabels, parameter
         pred_vernierlabels = tf.argmax(logits_vernierlabels, axis=1, name='pred_vernierlabels', output_type=tf.int64)
         correct_vernierlabels = tf.equal(vernierlabels, pred_vernierlabels, name='correct_vernierlabels')
         accuracy_vernierlabels = tf.reduce_mean(tf.cast(correct_vernierlabels, tf.float32), name='accuracy_vernierlabels')
-        return pred_vernierlabels, xent_vernierlabels, accuracy_vernierlabels
+        return xent_vernierlabels, accuracy_vernierlabels
 
 
 ################################
