@@ -12,6 +12,7 @@ Last update on 04.01.2019
 -> some changes in parameter names
 -> new validation and testing procedures
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
+-> some name_scope
 """
 
 import tensorflow as tf

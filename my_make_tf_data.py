@@ -126,6 +126,7 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
 ###################################
 #     Create tfrecords files:     #
 ###################################
+print('\n-------------------------------------------------------')
 print('Creating tfrecords files of type:', parameters.train_procedure)
 
 stim_maker = stim_maker_fn(parameters.im_size, parameters.shape_size, parameters.bar_width)

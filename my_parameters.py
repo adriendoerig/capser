@@ -33,7 +33,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log1'
+MODEL_NAME = '_log2'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -73,7 +73,7 @@ flags.DEFINE_integer('random_seed', None, 'if not None, set seed for weights ini
 # if u set the training procedure, keep in mind that u need a different training set for
 # 'vernier_shape'.
 # 'random_random and 'random' can be used with the same training set
-flags.DEFINE_string('train_procedure', 'random', 'choose between having vernier_shape, random_random and random')
+flags.DEFINE_string('train_procedure', 'vernier_shape', 'choose between having vernier_shape, random_random and random')
 
 flags.DEFINE_integer('n_train_samples', 200000, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 3200, 'number of samples in the test set')
@@ -98,7 +98,7 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 #    Data augmentation    #
 ###########################
 flags.DEFINE_list('train_noise', [0.04, 0.06], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.15, 0.2], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.2, 0.25], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_float('delta_brightness', 0.2, 'factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_list('delta_contrast', [0.8, 1.2], 'min and max factor to adjust contrast, must be non-negative')
@@ -161,7 +161,7 @@ flags.DEFINE_integer('eval_steps', 50,
                      'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 20000, 'number of steps')
+flags.DEFINE_integer('n_steps', 30000, 'number of steps')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
@@ -186,9 +186,9 @@ flags.DEFINE_float('alpha_shape_1_reconstruction', 0.0005, 'alpha for reconstruc
 flags.DEFINE_float('alpha_shape_2_reconstruction', 0.0001, 'alpha for reconstruction loss for shape image (reduce_sum)')
 
 if nshapes_loss=='xentropy':
-    flags.DEFINE_float('alpha_nshapes', 0.2, 'alpha for nshapes loss')
+    flags.DEFINE_float('alpha_nshapes', 0.4, 'alpha for nshapes loss')
 elif nshapes_loss=='squared_diff':
-    flags.DEFINE_float('alpha_nshapes', 0.001, 'alpha for nshapes loss')
+    flags.DEFINE_float('alpha_nshapes', 0.002, 'alpha for nshapes loss')
 
 if location_loss=='xentropy':
     flags.DEFINE_float('alpha_x_shape_1_loss', 0.1, 'alpha for loss of x coordinate of shape')
@@ -200,6 +200,7 @@ elif location_loss=='squared_diff':
     flags.DEFINE_float('alpha_y_shape_1_loss', 0.00005, 'alpha for loss of y coordinate of shape')
     flags.DEFINE_float('alpha_x_shape_2_loss', 0.000004, 'alpha for loss of x coordinate of vernier')
     flags.DEFINE_float('alpha_y_shape_2_loss', 0.00005, 'alpha for loss of y coordinate of vernier')
+
 
 # Margin loss extras
 flags.DEFINE_float('m_plus', 0.9, 'the parameter of m plus')

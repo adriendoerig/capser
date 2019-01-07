@@ -22,6 +22,7 @@ Last update on 04.01.2019
 -> reconstruction layers get reused nicer now
 -> you can choose between a reconstruction decoder with fc or conv layers (currently only with 3 conv layers)
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
+-> only if batch_norm set use_bias=False
 """
 
 import tensorflow as tf
@@ -107,19 +108,25 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
 ###################################
 def conv_layers(X, parameters, phase=True):
     with tf.name_scope('1_convolutional_layers'):
-        conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
+        # Conv1:
         if parameters.batch_norm_conv:
+            conv1 = tf.layers.conv2d(X, name='conv1', use_bias=False, activation=None, **parameters.conv_params[0])
             conv1 = tf.layers.batch_normalization(conv1, training=phase, name='conv1_bn')
+        else:
+            conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
         conv1 = tf.nn.elu(conv1)
 
-        conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
+        # Conv2:
         if parameters.batch_norm_conv:
+            conv2 = tf.layers.conv2d(conv1, name='conv2', use_bias=False, activation=None, **parameters.conv_params[1])
             conv2 = tf.layers.batch_normalization(conv2, training=phase, name='conv2_bn')
+        else:
+            conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
         conv2 = tf.nn.elu(conv2)
 
+        # Conv3:
         conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **parameters.conv_params[2])
         conv_output = tf.nn.elu(conv3)
-        
         conv_output_sizes = [conv1.get_shape().as_list(), conv2.get_shape().as_list(), conv3.get_shape().as_list()]
                 
         tf.summary.histogram('conv1_output', conv1)
@@ -237,16 +244,26 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
     with tf.name_scope('decoder_reconstruction'):
         # Lets do it as in the original paper:
         if parameters.rec_decoder_type=='fc':
-            hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False, reuse=tf.AUTO_REUSE,
-                                                      activation=None, name='hidden_reconstruction_1')
+            # Hidden 1:
             if parameters.batch_norm_reconstruction:
-                hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase, reuse=tf.AUTO_REUSE, name='hidden_reconstruction_1_bn')
+                hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, use_bias=False, 
+                                                          reuse=tf.AUTO_REUSE, activation=None, name='hidden_reconstruction_1')
+                hidden_reconstruction_1 = tf.layers.batch_normalization(hidden_reconstruction_1, training=phase,
+                                                                        reuse=tf.AUTO_REUSE, name='hidden_reconstruction_1_bn')
+            else:
+                hidden_reconstruction_1 = tf.layers.dense(decoder_input, parameters.n_hidden_reconstruction_1, reuse=tf.AUTO_REUSE,
+                                                          activation=None, name='hidden_reconstruction_1')
             hidden_reconstruction_1 = tf.nn.elu(hidden_reconstruction_1, name='hidden_reconstruction_1_activation')
-    
-            hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False, reuse=tf.AUTO_REUSE,
-                                                      activation=None, name='hidden_reconstruction_2')
+            
+            # Hidden 2:
             if parameters.batch_norm_reconstruction:
-                hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase, reuse=tf.AUTO_REUSE, name='hidden_reconstruction_2_bn')
+                hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, use_bias=False,
+                                                          reuse=tf.AUTO_REUSE, activation=None, name='hidden_reconstruction_2')
+                hidden_reconstruction_2 = tf.layers.batch_normalization(hidden_reconstruction_2, training=phase,
+                                                                        reuse=tf.AUTO_REUSE, name='hidden_reconstruction_2_bn')
+            else:
+                hidden_reconstruction_2 = tf.layers.dense(hidden_reconstruction_1, parameters.n_hidden_reconstruction_2, reuse=tf.AUTO_REUSE,
+                                                          activation=None, name='hidden_reconstruction_2')
             hidden_reconstruction_2 = tf.nn.elu(hidden_reconstruction_2, name='hidden_reconstruction_2_activation')
     
             reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output, reuse=tf.AUTO_REUSE, activation=tf.nn.sigmoid, name='reconstructed_output')
@@ -264,48 +281,59 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
 #                                   name='reshaped_upsample_reconstruction')
             
             # Redo step from primary caps (=conv3) to secondary caps using fewer parameters:
+#            bottleneck_units = parameters.caps2_ncaps*parameters.caps2_ndims
+            bottleneck_units = parameters.caps2_ncaps
             upsample_size1 = [conv_output_size[-1][1], conv_output_size[-1][2]]
-            upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * parameters.caps2_ncaps,
-                                        use_bias=False, activation=None, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction')
             if parameters.batch_norm_reconstruction:
+                upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * bottleneck_units, use_bias=False,
+                                            activation=None, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction')
                 upsample1 = tf.layers.batch_normalization(upsample1, training=phase, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction_bn')
-            upsample1 = tf.reshape(upsample1, [parameters.batch_size, upsample_size1[0], upsample_size1[1], parameters.caps2_ncaps],
+            else:
+                upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * bottleneck_units,
+                                            activation=None, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction')
+            upsample1 = tf.reshape(upsample1, [parameters.batch_size, upsample_size1[0], upsample_size1[1], bottleneck_units],
                                             name='reshaped_upsample_reconstruction')
 
             # Redo step from conv2 to primary caps (=conv3):
             upsample_size2 = [conv_output_size[-2][1], conv_output_size[-2][2]]
             upsample2 = tf.image.resize_images(upsample1, size=upsample_size2, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-            conv1_upsampled = tf.layers.conv2d(inputs=upsample2,
-                                               filters=parameters.conv_params[-1]['filters'],
-                                               kernel_size=parameters.conv_params[-1]['kernel_size'],
-                                               use_bias=False, reuse=tf.AUTO_REUSE,
-                                               padding='same', activation=None, name='conv1_upsampled_reconstruction')
             if parameters.batch_norm_reconstruction:
+                conv1_upsampled = tf.layers.conv2d(inputs=upsample2, filters=parameters.conv_params[-1]['filters'],
+                                               kernel_size=parameters.conv_params[-1]['kernel_size'],
+                                               use_bias=False, reuse=tf.AUTO_REUSE, padding='same', activation=None, name='conv1_upsampled_reconstruction')
                 conv1_upsampled = tf.layers.batch_normalization(conv1_upsampled, training=phase, reuse=tf.AUTO_REUSE, name='conv1_upsampled_reconstruction_bn')
+            else:
+                conv1_upsampled = tf.layers.conv2d(inputs=upsample2, filters=parameters.conv_params[-1]['filters'],
+                                               kernel_size=parameters.conv_params[-1]['kernel_size'],
+                                               reuse=tf.AUTO_REUSE, padding='same', activation=None, name='conv1_upsampled_reconstruction')
             conv1_upsampled = tf.nn.elu(conv1_upsampled, name='conv1_upsampled_reconstruction_activation')
 
             # Redo step from conv1 to conv2:
             upsample_size3 = [conv_output_size[-3][1], conv_output_size[-3][2]]
             upsample3 = tf.image.resize_images(conv1_upsampled, size=upsample_size3, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-            conv2_upsampled = tf.layers.conv2d(inputs=upsample3,
-                                               filters=parameters.conv_params[-2]['filters'],
-                                               kernel_size=parameters.conv_params[-2]['kernel_size'],
-                                               use_bias=False, reuse=tf.AUTO_REUSE,
-                                               padding='same', activation=None, name='conv2_upsampled_reconstruction')
             if parameters.batch_norm_reconstruction:
+                conv2_upsampled = tf.layers.conv2d(inputs=upsample3, filters=parameters.conv_params[-2]['filters'],
+                                               kernel_size=parameters.conv_params[-2]['kernel_size'],
+                                               use_bias=False, reuse=tf.AUTO_REUSE, padding='same', activation=None, name='conv2_upsampled_reconstruction')
                 conv2_upsampled = tf.layers.batch_normalization(conv2_upsampled, training=phase, reuse=tf.AUTO_REUSE, name='conv2_upsampled_reconstruction_bn')
+            else:
+                conv2_upsampled = tf.layers.conv2d(inputs=upsample3, filters=parameters.conv_params[-2]['filters'],
+                                               kernel_size=parameters.conv_params[-2]['kernel_size'],
+                                               reuse=tf.AUTO_REUSE, padding='same', activation=None, name='conv2_upsampled_reconstruction')
             conv2_upsampled = tf.nn.elu(conv2_upsampled, name='conv2_upsampled_reconstruction_activation')
 
             # Redo step from input image to conv1:
             upsample_size4 = parameters.im_size
             upsample4 = tf.image.resize_images(conv2_upsampled, size=(upsample_size4), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-            conv3_upsampled = tf.layers.conv2d(inputs=upsample4,
-                                               filters=parameters.conv_params[-3]['filters'],
-                                               kernel_size=parameters.conv_params[-3]['kernel_size'],
-                                               use_bias=False, reuse=tf.AUTO_REUSE,
-                                               padding='same', activation=None, name='conv3_upsampled_reconstruction')
             if parameters.batch_norm_reconstruction:
+                conv3_upsampled = tf.layers.conv2d(inputs=upsample4, filters=parameters.conv_params[-3]['filters'],
+                                               kernel_size=parameters.conv_params[-3]['kernel_size'],
+                                               use_bias=False, reuse=tf.AUTO_REUSE, padding='same', activation=None, name='conv3_upsampled_reconstruction')
                 conv3_upsampled = tf.layers.batch_normalization(conv3_upsampled, training=phase, reuse=tf.AUTO_REUSE, name='conv3_upsampled_reconstruction_bn')
+            else:
+                conv3_upsampled = tf.layers.conv2d(inputs=upsample4, filters=parameters.conv_params[-3]['filters'],
+                                               kernel_size=parameters.conv_params[-3]['kernel_size'],
+                                               reuse=tf.AUTO_REUSE, padding='same', activation=None, name='conv3_upsampled_reconstruction')
             conv3_upsampled = tf.nn.elu(conv3_upsampled, name='conv3_upsampled_reconstruction_activation')
 
             # Get back to greyscale
@@ -348,9 +376,11 @@ def compute_vernieroffset_loss(shape_1_caps_activation, vernierlabels, parameter
         vernierlabels = tf.squeeze(vernierlabels)
         T_vernierlabels = tf.one_hot(tf.cast(vernierlabels, tf.int64), depth, name='T_vernierlabels')
         
-        hidden_vernieroffset = tf.layers.dense(shape_1_caps_activation, depth, use_bias=False, activation=None, name='hidden_vernieroffset')
         if parameters.batch_norm_vernieroffset:
+            hidden_vernieroffset = tf.layers.dense(shape_1_caps_activation, depth, use_bias=False, activation=None, name='hidden_vernieroffset')
             hidden_vernieroffset = tf.layers.batch_normalization(hidden_vernieroffset, training=phase, name='hidden_vernieroffset_bn')
+        else:
+            hidden_vernieroffset = tf.layers.dense(shape_1_caps_activation, depth, activation=None, name='hidden_vernieroffset')
             
         logits_vernierlabels = tf.nn.relu(hidden_vernieroffset, name='logits_vernierlabels')
         xent_vernierlabels = tf.losses.softmax_cross_entropy(T_vernierlabels, logits_vernierlabels)
@@ -372,9 +402,11 @@ def compute_nshapes_loss(decoder_input, nshapeslabels, parameters, phase=True):
         depth = len(parameters.n_shapes)  # or rather len/max?
         T_nshapes = tf.one_hot(tf.cast(nshapeslabels, tf.int64), depth, name='T_nshapes')
         
-        hidden_nshapes = tf.layers.dense(caps_activation, depth, use_bias=False, activation=None, reuse=tf.AUTO_REUSE, name='hidden_nshapes')
         if parameters.batch_norm_nshapes:
+            hidden_nshapes = tf.layers.dense(caps_activation, depth, use_bias=False, activation=None, reuse=tf.AUTO_REUSE, name='hidden_nshapes')
             hidden_nshapes = tf.layers.batch_normalization(hidden_nshapes, training=phase, reuse=tf.AUTO_REUSE, name='hidden_nshapes_bn')
+        else:
+            hidden_nshapes = tf.layers.dense(caps_activation, depth, activation=None, reuse=tf.AUTO_REUSE, name='hidden_nshapes')
 
         logits_nshapes = tf.nn.relu(hidden_nshapes, name='logits_nshapes')
         pred_nshapes = tf.argmax(logits_nshapes, axis=1, name='predicted_nshapes', output_type=tf.int64)
@@ -404,9 +436,11 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         x_depth = parameters.im_size[1]-parameters.shape_size
         T_x = tf.one_hot(tf.cast(x_label, tf.int64), x_depth, dtype=tf.float32, name='T_x_'+name_extra)
         
-        hidden_x = tf.layers.dense(caps_activation, x_depth, use_bias=False, activation=None, name='hidden_x'+name_extra)
         if parameters.batch_norm_location:
+            hidden_x = tf.layers.dense(caps_activation, x_depth, use_bias=False, activation=None, name='hidden_x'+name_extra)
             hidden_x = tf.layers.batch_normalization(hidden_x, training=phase, name='hidden_x_bn'+name_extra)
+        else:
+            hidden_x = tf.layers.dense(caps_activation, x_depth, activation=None, name='hidden_x'+name_extra)
         
         x_logits = tf.nn.relu(hidden_x, name='x_logits'+name_extra)
         pred_x = tf.argmax(x_logits, axis=1, name='pred_x'+name_extra, output_type=tf.int64)
@@ -426,9 +460,11 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
         y_depth = parameters.im_size[0]-parameters.shape_size
         T_y = tf.one_hot(tf.cast(y_label, tf.int64), y_depth, dtype=tf.float32, name='T_y_'+name_extra)
         
-        hidden_y = tf.layers.dense(caps_activation, y_depth, use_bias=False, activation=None, name='hidden_y'+name_extra)
         if parameters.batch_norm_location:
+            hidden_y = tf.layers.dense(caps_activation, y_depth, use_bias=False, activation=None, name='hidden_y'+name_extra)
             hidden_y = tf.layers.batch_normalization(hidden_y, training=phase, name='hidden_y_bn'+name_extra)
+        else:
+            hidden_y = tf.layers.dense(caps_activation, y_depth, activation=None, name='hidden_y'+name_extra)
         
         y_logits = tf.nn.relu(hidden_y, name='y_logits'+name_extra)
         pred_y = tf.argmax(y_logits, axis=1, name='pred_y_'+name_extra, output_type=tf.int64)

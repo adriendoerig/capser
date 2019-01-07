@@ -49,15 +49,18 @@ def model_fn(features, labels, mode, params):
     y_shape_2 = features['y_shape_2']
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
+    
+    try:
+        n_shapes = shapelabels.shape[1]
+    except:
+        n_shapes = 1
 
     if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
-        n_shapes = shapelabels.shape[1]
         input_images = tf.add(shape_1_images, shape_2_images, name='input_images')
         input_images = tf.clip_by_value(input_images, parameters.clip_values[0], parameters.clip_values[1], name='input_images_clipped')
         tf.summary.image('full_input_images', input_images, 6)
 
     elif parameters.train_procedure=='random':
-        n_shapes = 1
         shapelabels = shapelabels[:, 0]
         nshapeslabels = nshapeslabels[:, 0]
         input_images = shape_1_images
