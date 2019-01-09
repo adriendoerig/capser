@@ -55,7 +55,9 @@ beholder = Beholder(parameters.logdir)
 beholder_hook = BeholderHook(parameters.logdir)
 
 # Create the estimator:
-capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir)
+my_checkpointing_config = tf.estimator.RunConfig(keep_checkpoint_max = 2)  # Retain the 2 most recent checkpoints.
+
+capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir, config=my_checkpointing_config)
 eval_spec = tf.estimator.EvalSpec(lambda: eval_input_fn(parameters.val_data_path), steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
 
 # Save parameters from parameter file for reproducability

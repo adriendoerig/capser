@@ -35,7 +35,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log1'
+MODEL_NAME = '_log_conv_caps1_3x_caps2_8_dim_noise_0911_dropout_training_vso'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -116,7 +116,7 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)
+caps1_nmaps = 3*len(shape_types)
 caps1_ndims = 8
 
 
@@ -168,8 +168,7 @@ flags.DEFINE_integer('n_steps', 49000, 'number of steps')
 flags.DEFINE_integer('n_rounds', 4, 'number of evaluations; full training steps is equal to n_steps times this number')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
-flags.DEFINE_integer('eval_steps', 50,
-                     'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
+flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('iter_routing', 2, 'number of iterations in routing algorithm')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
@@ -221,11 +220,13 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 ###########################
 #     Regularization       #
 ###########################
+
+flags.DEFINE_boolean('dropout', True, 'use dropout after conv layers 1&2')
 flags.DEFINE_boolean('batch_norm_conv', False, 'use batch normalization between every conv layer')
-flags.DEFINE_boolean('batch_norm_reconstruction', False, 'use batch normalization for the reconstruction decoder layers')
-flags.DEFINE_boolean('batch_norm_vernieroffset', False, 'use batch normalization for the vernieroffset loss layer')
-flags.DEFINE_boolean('batch_norm_nshapes', False, 'use batch normalization for the nshapes loss layer')
-flags.DEFINE_boolean('batch_norm_location', False, 'use batch normalization for the location loss layer')
+flags.DEFINE_boolean('batch_norm_reconstruction', True, 'use batch normalization for the reconstruction decoder layers')
+flags.DEFINE_boolean('batch_norm_vernieroffset', True, 'use batch normalization for the vernieroffset loss layer')
+flags.DEFINE_boolean('batch_norm_nshapes', True, 'use batch normalization for the nshapes loss layer')
+flags.DEFINE_boolean('batch_norm_location', True, 'use batch normalization for the location loss layer')
 
 
 parameters = tf.app.flags.FLAGS

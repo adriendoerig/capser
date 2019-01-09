@@ -289,13 +289,13 @@ def parse_tfrecords_test(serialized_data):
 ###########################
 #     Input function:     #
 ###########################
-def input_fn(filenames, train, parameters, buffer_size=1024):
+def input_fn(filenames, stage, parameters, buffer_size=1024):
     # Create a TensorFlow Dataset-object:
     dataset = tf.data.TFRecordDataset(filenames=filenames, num_parallel_reads=32)
     
     # Currently, I am using two different functions for parsing the train and 
     # test/eval set due to different data augmentation:
-    if train:
+    if stage is 'train' or stage is 'eval':
         dataset = dataset.map(parse_tfrecords_train, num_parallel_calls=64)
         
         # Read a buffer of the given size and randomly shuffle it:
@@ -324,7 +324,7 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
     [shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels, x_shape_1, y_shape_1, 
      x_shape_2, y_shape_2] = iterator.get_next()
 
-    if train:
+    if stage is 'train':
         feed_dict = {'shape_1_images': shape_1_images,
                      'shape_2_images': shape_2_images,
                      'shapelabels': shapelabels,
@@ -357,10 +357,10 @@ def input_fn(filenames, train, parameters, buffer_size=1024):
 #   Final input functions:   #
 ##############################
 def train_input_fn():
-    return input_fn(filenames=parameters.train_data_path, train=True, parameters=parameters)
+    return input_fn(filenames=parameters.train_data_path, stage='train', parameters=parameters)
 
 def eval_input_fn(filename):
-    return input_fn(filenames=filename, train=False, parameters=parameters)
+    return input_fn(filenames=filename, stage='eval', parameters=parameters)
 
 def predict_input_fn(filenames):
-    return input_fn(filenames=filenames, train=False, parameters=parameters)
+    return input_fn(filenames=filenames, stage='test', parameters=parameters)
