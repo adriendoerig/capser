@@ -4,13 +4,14 @@ My capsnet: my_batchmaker!
 Involving all basic shapes (verniers, squares, circles, polygons, stars)
 @author: Lynn
 
-Last update on 04.01.2019
+Last update on 09.01.2019
 -> added requirements for nshape and location loss
 -> nshapeslabels now with index labels [0, len(n_shapes)]
 -> added overlapping_shapes parameter
 -> lets rather use a rotated square instead of stars, so we can decrease imSize
 -> new validation and testing procedures
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
+-> implemented a variety of uncrowding stimuli (42+)
 """
 
 import numpy as np
@@ -24,9 +25,6 @@ from skimage import draw
 class stim_maker_fn:
 
     def __init__(self, imSize, shapeSize, barWidth):
-        print('-------------------------------------------------------')
-        print('Creation of the StimMaker class')
-        print('-------------------------------------------------------')
         self.imSize    = imSize
         self.shapeSize = shapeSize
         self.barWidth  = barWidth
@@ -217,7 +215,22 @@ class stim_maker_fn:
             # the 42-category is for creating squares_stars
             if selected_shape==42:
                 shape_patch = self.drawShape(shapeID=1)
-                star_patch = self.drawShape(shapeID=5)
+                uncrowding_patch = self.drawShape(shapeID=5)
+            elif selected_shape==43:
+                shape_patch = self.drawShape(shapeID=5)
+                uncrowding_patch = self.drawShape(shapeID=1)
+            elif selected_shape==44:
+                shape_patch = self.drawShape(shapeID=2)
+                uncrowding_patch = self.drawShape(shapeID=4)
+            elif selected_shape==45:
+                shape_patch = self.drawShape(shapeID=4)
+                uncrowding_patch = self.drawShape(shapeID=2)
+            elif selected_shape==46:
+                shape_patch = self.drawShape(shapeID=1)
+                uncrowding_patch = self.drawShape(shapeID=3)
+            elif selected_shape==47:
+                shape_patch = self.drawShape(shapeID=3)
+                uncrowding_patch = self.drawShape(shapeID=1)
             else:
                 shape_patch = self.drawShape(shapeID=selected_shape)
             
@@ -253,7 +266,7 @@ class stim_maker_fn:
                     trigger = 1
 
                 for n_repetitions in range(selected_repetitions):
-                    if selected_shape==42:
+                    if selected_shape>=42:
                         if n_repetitions == (selected_repetitions-1)/2:
                             vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
                             x_vernier_ind, y_vernier_ind = col, row
@@ -262,7 +275,7 @@ class stim_maker_fn:
                             col += self.shapeSize
                             trigger = 1
                         else:
-                            shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += star_patch
+                            shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += uncrowding_patch
                             col += self.shapeSize
                             trigger = 0
 
@@ -406,13 +419,10 @@ class stim_maker_fn:
 #############################################################
 
 #from my_parameters import parameters
-##imSize = parameters.im_size
-#imSize = [45, 85]
-##shapeSize = parameters.shape_size
-#shapeSize = 16
+#imSize = parameters.im_size
+#shapeSize = parameters.shape_size
 #barWidth = parameters.bar_width
-##n_shapes = parameters.n_shapes
-#n_shapes = [0, 1, 2, 3, 4, 5]
+#n_shapes = parameters.n_shapes
 ##batch_size = parameters.batch_size
 #batch_size = 10
 #shape_types = parameters.shape_types
@@ -432,7 +442,7 @@ class stim_maker_fn:
 #    plt.pause(0.5)
 
 #[vernier_images, shape_images, shapelabels, vernierlabels,
-# nshapeslabels, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(42, n_shapes, batch_size, None)
+# nshapeslabels, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(47, n_shapes, batch_size, None)
 #for i in range(batch_size):
 #    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
 #    plt.pause(0.5)

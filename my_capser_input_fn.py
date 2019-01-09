@@ -3,7 +3,7 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 04.01.2019
+Last update on 08.01.2019
 -> added requirements for nshapes and location loss
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
@@ -13,6 +13,7 @@ Last update on 04.01.2019
 -> new validation and testing procedures
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
 -> some name_scope
+-> for the random condition, shape_2_image is a pure noise image
 """
 
 import tensorflow as tf
@@ -80,6 +81,10 @@ def parse_tfrecords_train(serialized_data):
         y_shape_1 = tf.reshape(y_shape_1, [1])
         x_shape_2 = tf.reshape(x_shape_2, [1])
         y_shape_2 = tf.reshape(y_shape_2, [1])
+        
+        if parameters.train_procedure=='random':
+            # For the random condition, we want to only add a noise image
+            shape_2_images = tf.zeros([parameters.im_size[0], parameters.im_size[1], parameters.im_depth], tf.float32)
 
 
     ##################################

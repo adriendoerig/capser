@@ -128,6 +128,7 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
 ###################################
 print('\n-------------------------------------------------------')
 print('Creating tfrecords files of type:', parameters.train_procedure)
+print('Overlap:', parameters.overlapping_shapes)
 
 stim_maker = stim_maker_fn(parameters.im_size, parameters.shape_size, parameters.bar_width)
 
@@ -163,7 +164,7 @@ if testing:
         make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
                        parameters.n_test_samples, train_procedure, parameters.overlapping_shapes)
     print('\n-------------------------------------------------------')
-    print('Finished creation of validation sets')
+    print('Finished creation of regular validation and test sets')
     print('-------------------------------------------------------')
 
 
@@ -187,7 +188,7 @@ if testing_crowding:
             make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
                            parameters.n_test_samples, stim_idx=stim_idx)
     print('\n-------------------------------------------------------')
-    print('Finished creation of test crowding sets')
+    print('Finished creation of crowding validaton and test sets')
     print('-------------------------------------------------------')
 
 

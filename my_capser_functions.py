@@ -269,20 +269,10 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
             reconstructed_output = tf.layers.dense(hidden_reconstruction_2, parameters.n_output, reuse=tf.AUTO_REUSE, activation=tf.nn.sigmoid, name='reconstructed_output')
 
         # Lets deconvolute:
-        elif parameters.rec_decoder_type=='conv':
-#            # Redo step from primary caps (=conv3) to secondary caps:
-#            bottleneck_units = parameters.caps2_ncaps*parameters.caps2_ndims
-#            upsample_size1 = [conv_output_size[-1][1], conv_output_size[-1][2]]
-#            upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * bottleneck_units,
-#                                        use_bias=False, activation=None, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction')
-#            if parameters.batch_norm_reconstruction:
-#                upsample1 = tf.layers.batch_normalization(upsample1, training=phase, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction_bn')
-#            upsample1 = tf.reshape(upsample1, [parameters.batch_size, upsample_size1[0], upsample_size1[1], bottleneck_units],
-#                                   name='reshaped_upsample_reconstruction')
-            
-            # Redo step from primary caps (=conv3) to secondary caps using fewer parameters:
-#            bottleneck_units = parameters.caps2_ncaps*parameters.caps2_ndims
-            bottleneck_units = parameters.caps2_ncaps
+        elif parameters.rec_decoder_type=='conv':            
+            # Redo step from primary caps (=conv3) to secondary caps (using fewer parameters):
+            bottleneck_units = parameters.caps2_ncaps*parameters.caps2_ndims
+#            bottleneck_units = parameters.caps2_ncaps
             upsample_size1 = [conv_output_size[-1][1], conv_output_size[-1][2]]
             if parameters.batch_norm_reconstruction:
                 upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * bottleneck_units, use_bias=False,

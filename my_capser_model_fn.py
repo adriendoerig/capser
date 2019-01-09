@@ -5,7 +5,7 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 04.01.2019
+Last update on 08.01.2019
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
@@ -17,6 +17,8 @@ Last update on 04.01.2019
 -> clip values of added images too!
 -> small change for reconstruction decoder with conv layers
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
+-> for condition random, we now add up shape_1_image and shape_2_image again
+-> plot_n_images now controls, how many images are shown in tensorboard per command
 """
 
 import tensorflow as tf
@@ -35,6 +37,8 @@ def model_fn(features, labels, mode, params):
     # mode:     Either TRAIN, EVAL, or PREDICT
     # params:   Optional parameters; here not needed because of parameter-file
     
+    plot_n_images = 4
+    
     ##########################################
     #      Prepararing input variables:      #
     ##########################################
@@ -50,24 +54,23 @@ def model_fn(features, labels, mode, params):
     mask_with_labels = tf.placeholder_with_default(features['mask_with_labels'], shape=(), name='mask_with_labels')
     is_training = tf.placeholder_with_default(features['is_training'], shape=(), name='is_training')
     
+    input_images = tf.add(shape_1_images, shape_2_images, name='input_images')
+    input_images = tf.clip_by_value(input_images, parameters.clip_values[0], parameters.clip_values[1], name='input_images_clipped')
+    tf.summary.image('full_input_images', input_images, plot_n_images)
+
+
     try:
-        n_shapes = shapelabels.shape[1]
+        n_shapes  = shapelabels.shape[1]
     except:
         n_shapes = 1
 
-    if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
-        input_images = tf.add(shape_1_images, shape_2_images, name='input_images')
-        input_images = tf.clip_by_value(input_images, parameters.clip_values[0], parameters.clip_values[1], name='input_images_clipped')
-        tf.summary.image('full_input_images', input_images, 6)
 
-    elif parameters.train_procedure=='random':
+    if parameters.train_procedure=='random':
+        # For the random condition, we only have one shape
         shapelabels = shapelabels[:, 0]
         nshapeslabels = nshapeslabels[:, 0]
-        input_images = shape_1_images
-        input_images = tf.clip_by_value(input_images, parameters.clip_values[0], parameters.clip_values[1], name='input_images_clipped')
-        tf.summary.image('full_input_images', input_images, 6)
-    
-    else:
+
+    elif not (parameters.train_procedure=='random' or parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random'):
         raise SystemExit('\nThe chosen train_procedure is unknown!\n')
 
 
@@ -163,9 +166,9 @@ def model_fn(features, labels, mode, params):
     
                     decoder_output_img = shape_1_img_reconstructed + shape_2_img_reconstructed
         
-                    tf.summary.image('decoder_output_img', decoder_output_img, 6)
-                    tf.summary.image('shape_1_img_rec', shape_1_img_reconstructed, 6)
-                    tf.summary.image('shape_2_img_rec', shape_2_img_reconstructed, 6)
+#                    tf.summary.image('decoder_output_img', decoder_output_img, plot_n_images)
+                    tf.summary.image('shape_1_img_rec', shape_1_img_reconstructed, plot_n_images)
+                    tf.summary.image('shape_2_img_rec', shape_2_img_reconstructed, plot_n_images)
                     
                     # Calculate reconstruction loss for shape_1 and shape_2 images batch
                     shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
@@ -185,7 +188,7 @@ def model_fn(features, labels, mode, params):
                             [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                             name='shape_1_img_reconstructed')
         
-                    tf.summary.image('decoder_output_img', decoder_output_img, 6)
+                    tf.summary.image('decoder_output_img', decoder_output_img, plot_n_images)
                     
                     # Calculate reconstruction loss for shape_1 images batch
                     shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
@@ -293,6 +296,7 @@ def model_fn(features, labels, mode, params):
                                                            parameters.learning_rate_decay_steps, name='learning_rate')
             optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
             train_op = optimizer.minimize(loss=final_loss, global_step=tf.train.get_global_step(), name='train_op')
+            tf.summary.scalar('learning_rate', learning_rate)
         
         # write summaries during evaluation
         eval_summary_hook = tf.train.SummarySaverHook(save_steps=100,
