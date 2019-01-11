@@ -5,7 +5,7 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 08.01.2019
+Last update on 11.01.2019
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
@@ -59,20 +59,24 @@ def model_fn(features, labels, mode, params):
     tf.summary.image('full_input_images', input_images, plot_n_images)
 
 
-    try:
-        n_shapes  = shapelabels.shape[1]
-    except:
-        n_shapes = 1
+    if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
+        try:
+            n_shapes  = shapelabels.shape[1]
+        except:
+            n_shapes = 1
 
-
-    if parameters.train_procedure=='random':
+    elif parameters.train_procedure=='random':
         # For the random condition, we only have one shape
-        shapelabels = shapelabels[:, 0]
-        nshapeslabels = nshapeslabels[:, 0]
+        n_shapes = 1
+        try:
+            shapelabels = shapelabels[:, 0]
+            nshapeslabels = nshapeslabels[:, 0]
+        except:
+            shapelabels = shapelabels
+            nshapeslabels = nshapeslabels
 
-    elif not (parameters.train_procedure=='random' or parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random'):
+    else:
         raise SystemExit('\nThe chosen train_procedure is unknown!\n')
-
 
     ##########################################
     #          Build the capsnet:            #

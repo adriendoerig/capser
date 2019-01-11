@@ -409,7 +409,7 @@ class stim_maker_fn:
 
             # If vernier, do we allow for overlap between vernier and shape image?
             if selected_shape_1==0:
-                if overlap:
+                if overlap or centralize:
                         shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
                                       col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
                 else:
@@ -445,22 +445,23 @@ class stim_maker_fn:
 #          HAVE A LOOK AT WHAT THE CODE DOES                #
 #############################################################
 #from my_parameters import parameters
-##imSize = parameters.im_size
-#imSize = [20, 75]
-##shapeSize = parameters.shape_size
-#shapeSize = 14
+#imSize = parameters.im_size
+##imSize = [20, 75]
+#shapeSize = parameters.shape_size
+##shapeSize = 14
 #barWidth = parameters.bar_width
-##n_shapes = parameters.n_shapes
-#n_shapes = [1, 3, 5]
+#n_shapes = parameters.n_shapes
+##n_shapes = [1, 3, 5]
 ##batch_size = parameters.batch_size
 #batch_size = 10
-##shape_types = parameters.shape_types
-#shape_types = [0, 1, 2, 3]
-#train_procedure = 'random_random'
-##overlap = parameters.overlapping_shapes
-#overlap = True
-##centralize = parameters.centralized_shapes
-#centralize = True
+#shape_types = parameters.shape_types
+##shape_types = [0, 1, 2, 3]
+#train_procedure = parameters.train_procedure
+##train_procedure = 'random'
+#overlap = parameters.overlapping_shapes
+##overlap = True
+#centralize = parameters.centralized_shapes
+##centralize = True
 #test = stim_maker_fn(imSize, shapeSize, barWidth)
 
 #plt.imshow(test.drawShape(5))

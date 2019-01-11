@@ -22,6 +22,7 @@ import numpy as np
 from my_parameters import parameters
 from my_batchmaker import stim_maker_fn
 
+#import matplotlib.pyplot as plt
 
 ##################################
 #       Extra parameters:        #
@@ -82,7 +83,8 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
 
             elif state=='testing':
                 try:
-                    chosen_shape = np.random.randint(1, len(shape_types))
+                    chosen_shape_idx = np.random.randint(1, len(shape_types))
+                    chosen_shape = shape_types[chosen_shape_idx]
                 except:
                     chosen_shape = shape_types
                 [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels, x_shape_1, y_shape_1,
@@ -143,7 +145,7 @@ if training:
     shape_types_train = parameters.shape_types
     make_tfrecords(parameters.train_data_path, stim_maker, mode, shape_types_train, parameters.n_shapes,
                    parameters.n_train_samples, parameters.train_procedure, parameters.overlapping_shapes,
-                   parameters.centralized_shapes)
+                   centralize=parameters.centralized_shapes)
     print('\n-------------------------------------------------------')
     print('Finished creation of training set')
     print('-------------------------------------------------------')
@@ -158,7 +160,7 @@ if testing:
     # Validation set with all possible training stimuli:
     make_tfrecords(parameters.val_data_path, stim_maker, mode, shape_types_train, parameters.n_shapes, 
                    parameters.n_test_samples, train_procedure, parameters.overlapping_shapes,
-                   parameters.centralized_shapes)
+                   centralize=parameters.centralized_shapes)
 
     # Individual test sets:
     for i in range(len(shape_types_train)-1):
@@ -166,7 +168,7 @@ if testing:
         test_file_path = parameters.test_data_paths[i]
         make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
                        parameters.n_test_samples, train_procedure, parameters.overlapping_shapes,
-                       parameters.centralized_shapes)
+                       centralize=parameters.centralized_shapes)
     print('\n-------------------------------------------------------')
     print('Finished creation of regular validation and test sets')
     print('-------------------------------------------------------')
@@ -178,8 +180,8 @@ if testing_crowding:
     shape_types_test = parameters.test_shape_types
     
     # Validation set with all possible stimuli:
-    make_tfrecords(parameters.val_crowding_data_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
-                   parameters.n_test_samples, centralized=parameters.centralized_shapes)
+    make_tfrecords(parameters.val_crowding_data_path, stim_maker, mode, shape_types_test, parameters.n_shapes,
+                   parameters.n_test_samples, centralize=parameters.centralized_shapes)
 
     # Individual test sets:
     for i in range(len(shape_types_test)-1):
@@ -190,7 +192,7 @@ if testing_crowding:
         for stim_idx in range(3):
             test_file_path = test_data_path + '/' + str(stim_idx) + '.tfrecords'
             make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
-                           parameters.n_test_samples, stim_idx=stim_idx, centralized=parameters.centralized_shapes)
+                           parameters.n_test_samples, stim_idx=stim_idx, centralize=parameters.centralized_shapes)
     print('\n-------------------------------------------------------')
     print('Finished creation of crowding validaton and test sets')
     print('-------------------------------------------------------')

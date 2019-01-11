@@ -36,7 +36,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log1_central_shapes'
+MODEL_NAME = '_log3_central_shapes'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -82,10 +82,10 @@ flags.DEFINE_string('train_procedure', 'random', 'choose between having vernier_
 flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier might overlap')
 flags.DEFINE_boolean('centralized_shapes', True,  'if true, each shape is in the middle of the image')
 
-flags.DEFINE_integer('n_train_samples', 200000, 'number of samples in the training set')
-flags.DEFINE_integer('n_test_samples', 4800, 'number of samples in the test set')
+flags.DEFINE_integer('n_train_samples', 4800, 'number of samples in the training set')
+flags.DEFINE_integer('n_test_samples', 2400, 'number of samples in the test set')
 
-im_size = [20, 75]
+im_size = [30, 75]
 flags.DEFINE_list('im_size', im_size, 'image size of datasets')
 flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
 flags.DEFINE_integer('shape_size', 14, 'size of the shapes')
@@ -97,13 +97,13 @@ shape_types = [0, 1, 2, 3]
 test_shape_types = [0, 1, 2, 3, 412, 421, 413, 431, 423, 432]
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('test_shape_types', test_shape_types, 'pool of shapes (see batchmaker)')
-flags.DEFINE_list('n_shapes', [0, 1, 2, 3, 4, 5], 'pool of shape repetitions per stimulus')
+flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus')
 
 
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.09, 0.11], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.03, 0.07], 'amount of added random Gaussian noise')
 flags.DEFINE_list('test_noise', [0.14, 0.16], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
@@ -115,7 +115,7 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 ###########################
 # Conv and primary caps:
 caps1_nmaps = len(shape_types)
-caps1_ndims = 3
+caps1_ndims = 2
 
 
 # Case of 3 conv layers:
@@ -159,16 +159,16 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 7000, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 5000, 'number of steps')
+flags.DEFINE_integer('n_steps', 1500, 'number of steps')
 flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
-flags.DEFINE_integer('eval_throttle_secs', 900, 'minimal seconds between evaluation passes')
-flags.DEFINE_integer('iter_routing', 2, 'number of iterations in routing algorithm')
+flags.DEFINE_integer('eval_throttle_secs', 150, 'minimal seconds between evaluation passes')
+flags.DEFINE_integer('iter_routing', 3, 'number of iterations in routing algorithm')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 

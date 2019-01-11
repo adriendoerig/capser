@@ -66,8 +66,10 @@ save_params(parameters.logdir, parameters)
 # Lets go!
 n_rounds = parameters.n_rounds
 
+
 for idx_round in range(1, n_rounds+1):
-    train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps*idx_round, hooks=[beholder_hook])
+    train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps*idx_round)
+#    , hooks=[beholder_hook]
     tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
 
 
