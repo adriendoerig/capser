@@ -103,28 +103,17 @@ def model_fn(features, labels, mode, params):
         tf.summary.scalar('vernieroffset_accuracy', vernieroffset_accuracy)
         tf.summary.histogram('vernierlabels_pred', vernierlabels_pred)
         tf.summary.histogram('vernierlabels_real', vernierlabels)
-    
-    
-    ##########################################
-    #            Prediction mode:            #
-    ##########################################
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        # If in prediction-mode use (one of) the following for predictions:
-        # Since accuracy is calculated over whole batch, we have to repeat it
-        # batch_size times (coz all prediction vectors must be same length)
-        predictions = {'vernier_accuracy': tf.ones(shape=parameters.batch_size) * vernieroffset_accuracy}
-        spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
 
     ##########################################
     #       Train or Evaluation mode:        #
     ##########################################
-    else:
-        # How many shapes have to be predicted? Predict them:
-        with tf.name_scope('2_margin'):
-            shapelabels_pred = predict_shapelabels(caps2_output, n_shapes)
+    # How many shapes have to be predicted? Predict them:
+    with tf.name_scope('2_margin'):
+        shapelabels_pred = predict_shapelabels(caps2_output, n_shapes)
 
-            # Compute accuracy:
+        # Compute accuracy:
+        if not mode == tf.estimator.ModeKeys.PREDICT:
             accuracy = compute_accuracy(shapelabels, shapelabels_pred)
             tf.summary.scalar('margin_accuracy', accuracy)
 
@@ -137,162 +126,175 @@ def model_fn(features, labels, mode, params):
     ##########################################
     #     Create masked decoder input        #
     ##########################################
-        with tf.name_scope('3_Masked_decoder_input'):
-            if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
-                shape_1_decoder_input = create_masked_decoder_input(
-                        mask_with_labels, shapelabels[:, 0], shapelabels_pred[:, 0], caps2_output, parameters)
-                shape_2_decoder_input = create_masked_decoder_input(
-                        mask_with_labels, shapelabels[:, 1], shapelabels_pred[:, 1], caps2_output, parameters)
-                
-            elif parameters.train_procedure=='random':
-                shape_1_decoder_input = create_masked_decoder_input(
-                        mask_with_labels, shapelabels, shapelabels_pred, caps2_output, parameters)
+    with tf.name_scope('3_Masked_decoder_input'):
+        if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
+            shape_1_decoder_input = create_masked_decoder_input(
+                    mask_with_labels, shapelabels[:, 0], shapelabels_pred[:, 0], caps2_output, parameters)
+            shape_2_decoder_input = create_masked_decoder_input(
+                    mask_with_labels, shapelabels[:, 1], shapelabels_pred[:, 1], caps2_output, parameters)
+
+        elif parameters.train_procedure=='random':
+            shape_1_decoder_input = create_masked_decoder_input(
+                    mask_with_labels, shapelabels, shapelabels_pred, caps2_output, parameters)
 
 
     ##########################################
     #         Decode reconstruction          #
     ##########################################
-        with tf.name_scope('4_Reconstruction_loss'):
-            if parameters.decode_reconstruction:
-                if n_shapes==2:
-                    # Create decoder outputs for shape_1 and shape_2 images batch
-                    shape_1_output_reconstructed = compute_reconstruction(shape_1_decoder_input, parameters, is_training, conv_output_sizes)
-                    shape_2_output_reconstructed = compute_reconstruction(shape_2_decoder_input, parameters, is_training, conv_output_sizes)
-                    
-                    shape_1_img_reconstructed = tf.reshape(
-                            shape_1_output_reconstructed,
-                            [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
-                            name='shape_1_img_reconstructed')
-                    shape_2_img_reconstructed = tf.reshape(
-                            shape_2_output_reconstructed,
-                            [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
-                            name='shape_2_img_reconstructed')
-    
-                    decoder_output_img = shape_1_img_reconstructed + shape_2_img_reconstructed
-        
+    with tf.name_scope('4_Reconstruction_loss'):
+        if parameters.decode_reconstruction:
+            if n_shapes==2:
+                # Create decoder outputs for shape_1 and shape_2 images batch
+                shape_1_output_reconstructed = compute_reconstruction(shape_1_decoder_input, parameters, is_training, conv_output_sizes)
+                shape_2_output_reconstructed = compute_reconstruction(shape_2_decoder_input, parameters, is_training, conv_output_sizes)
+
+                shape_1_img_reconstructed = tf.reshape(
+                        shape_1_output_reconstructed,
+                        [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                        name='shape_1_img_reconstructed')
+                shape_2_img_reconstructed = tf.reshape(
+                        shape_2_output_reconstructed,
+                        [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                        name='shape_2_img_reconstructed')
+
+                decoder_output_img = shape_1_img_reconstructed + shape_2_img_reconstructed
+
 #                    tf.summary.image('decoder_output_img', decoder_output_img, plot_n_images)
-                    tf.summary.image('shape_1_img_rec', shape_1_img_reconstructed, plot_n_images)
-                    tf.summary.image('shape_2_img_rec', shape_2_img_reconstructed, plot_n_images)
-                    
-                    # Calculate reconstruction loss for shape_1 and shape_2 images batch
-                    shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
-                    shape_2_reconstruction_loss = compute_reconstruction_loss(shape_2_images, shape_2_output_reconstructed, parameters)
-                    
-                    shape_1_reconstruction_loss = parameters.alpha_shape_1_reconstruction * shape_1_reconstruction_loss
-                    shape_2_reconstruction_loss = parameters.alpha_shape_2_reconstruction * shape_2_reconstruction_loss
-                    reconstruction_loss = shape_1_reconstruction_loss + shape_2_reconstruction_loss
+                tf.summary.image('shape_1_img_rec', shape_1_img_reconstructed, plot_n_images)
+                tf.summary.image('shape_2_img_rec', shape_2_img_reconstructed, plot_n_images)
+
+                # Calculate reconstruction loss for shape_1 and shape_2 images batch
+                shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
+                shape_2_reconstruction_loss = compute_reconstruction_loss(shape_2_images, shape_2_output_reconstructed, parameters)
+
+                shape_1_reconstruction_loss = parameters.alpha_shape_1_reconstruction * shape_1_reconstruction_loss
+                shape_2_reconstruction_loss = parameters.alpha_shape_2_reconstruction * shape_2_reconstruction_loss
+                reconstruction_loss = shape_1_reconstruction_loss + shape_2_reconstruction_loss
 
 
-                elif n_shapes==1:
-                    # Create decoder outputs for shape_1 images batch
-                    shape_1_output_reconstructed = compute_reconstruction(shape_1_decoder_input, parameters, is_training, conv_output_sizes)
-                    
-                    decoder_output_img = tf.reshape(
-                            shape_1_output_reconstructed,
-                            [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
-                            name='shape_1_img_reconstructed')
-        
-                    tf.summary.image('decoder_output_img', decoder_output_img, plot_n_images)
-                    
-                    # Calculate reconstruction loss for shape_1 images batch
-                    shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
-                    
-                    shape_1_reconstruction_loss = parameters.alpha_shape_1_reconstruction * shape_1_reconstruction_loss
-                    shape_2_reconstruction_loss = 0.
-                    reconstruction_loss = shape_1_reconstruction_loss + shape_2_reconstruction_loss
+            elif n_shapes==1:
+                # Create decoder outputs for shape_1 images batch
+                shape_1_output_reconstructed = compute_reconstruction(shape_1_decoder_input, parameters, is_training, conv_output_sizes)
 
-            else:
-                shape_1_reconstruction_loss = 0.
+                decoder_output_img = tf.reshape(
+                        shape_1_output_reconstructed,
+                        [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                        name='shape_1_img_reconstructed')
+
+                tf.summary.image('decoder_output_img', decoder_output_img, plot_n_images)
+
+                # Calculate reconstruction loss for shape_1 images batch
+                shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
+
+                shape_1_reconstruction_loss = parameters.alpha_shape_1_reconstruction * shape_1_reconstruction_loss
                 shape_2_reconstruction_loss = 0.
-                reconstruction_loss = 0.
-    
-            tf.summary.scalar('shape_1_reconstruction_loss', shape_1_reconstruction_loss)
-            tf.summary.scalar('shape_2_reconstruction_loss', shape_2_reconstruction_loss)
-            tf.summary.scalar('reconstruction_loss', reconstruction_loss)
+                reconstruction_loss = shape_1_reconstruction_loss + shape_2_reconstruction_loss
+
+        else:
+            shape_1_reconstruction_loss = 0.
+            shape_2_reconstruction_loss = 0.
+            reconstruction_loss = 0.
+
+        tf.summary.scalar('shape_1_reconstruction_loss', shape_1_reconstruction_loss)
+        tf.summary.scalar('shape_2_reconstruction_loss', shape_2_reconstruction_loss)
+        tf.summary.scalar('reconstruction_loss', reconstruction_loss)
 
 
     ##########################################
     #            Decode nshapes              #
     ##########################################
-        with tf.name_scope('5_Nshapes_loss'):
-            if parameters.decode_nshapes:
-                if n_shapes==2:
-                    nshapes_1_loss, nshapes_1_accuracy = compute_nshapes_loss(shape_1_decoder_input, nshapeslabels[:, 0], parameters, is_training)
-                    nshapes_2_loss, nshapes_2_accuracy = compute_nshapes_loss(shape_2_decoder_input, nshapeslabels[:, 1], parameters, is_training)
-                    
-                    nshapes_loss = parameters.alpha_nshapes * (nshapes_1_loss + nshapes_2_loss)
-                    nshapes_accuracy = (nshapes_1_accuracy + nshapes_2_accuracy) / 2
-                    
-                elif n_shapes==1:
-                    nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_1_decoder_input, nshapeslabels, parameters, is_training)
-                    nshapes_loss = parameters.alpha_nshapes*nshapes_loss
-                    
-            else:
-                nshapes_loss = 0.
-                nshapes_accuracy = 0.
-                
-            tf.summary.scalar('nshapes_loss', nshapes_loss)
-            tf.summary.scalar('nshapes_accuracy', nshapes_accuracy)
+    with tf.name_scope('5_Nshapes_loss'):
+        if parameters.decode_nshapes:
+            if n_shapes==2:
+                nshapes_1_loss, nshapes_1_accuracy = compute_nshapes_loss(shape_1_decoder_input, nshapeslabels[:, 0], parameters, is_training)
+                nshapes_2_loss, nshapes_2_accuracy = compute_nshapes_loss(shape_2_decoder_input, nshapeslabels[:, 1], parameters, is_training)
+
+                nshapes_loss = parameters.alpha_nshapes * (nshapes_1_loss + nshapes_2_loss)
+                nshapes_accuracy = (nshapes_1_accuracy + nshapes_2_accuracy) / 2
+
+            elif n_shapes==1:
+                nshapes_loss, nshapes_accuracy = compute_nshapes_loss(shape_1_decoder_input, nshapeslabels, parameters, is_training)
+                nshapes_loss = parameters.alpha_nshapes*nshapes_loss
+
+        else:
+            nshapes_loss = 0.
+            nshapes_accuracy = 0.
+
+        tf.summary.scalar('nshapes_loss', nshapes_loss)
+        tf.summary.scalar('nshapes_accuracy', nshapes_accuracy)
 
 
     ##########################################
     #       Decode x and y coordinates       #
     ##########################################
-        with tf.name_scope('6_Location_loss'):
-            if parameters.decode_location:
-                if n_shapes==2:
-                    x_shape_1_loss, y_shape_1_loss = compute_location_loss(
-                            shape_1_decoder_input, x_shape_1, y_shape_1, parameters, 'shape_1', is_training)
-                    x_shape_2_loss, y_shape_2_loss = compute_location_loss(
-                            shape_2_decoder_input, x_shape_2, y_shape_2, parameters, 'shape_2', is_training)
-    
-                    x_shape_1_loss = parameters.alpha_x_shape_1_loss * x_shape_1_loss
-                    y_shape_1_loss = parameters.alpha_y_shape_1_loss * y_shape_1_loss
-                    x_shape_2_loss = parameters.alpha_x_shape_2_loss * x_shape_2_loss
-                    y_shape_2_loss = parameters.alpha_y_shape_2_loss * y_shape_2_loss
-                    
-                    location_loss = x_shape_1_loss + y_shape_1_loss + x_shape_2_loss + y_shape_2_loss
-                    
-                elif n_shapes==1:
-                    x_shape_1_loss, y_shape_1_loss = compute_location_loss(
-                            shape_1_decoder_input, x_shape_1, y_shape_1, parameters, 'shape_1', is_training)
-    
-                    x_shape_1_loss = parameters.alpha_x_shape_1_loss * x_shape_1_loss
-                    y_shape_1_loss = parameters.alpha_y_shape_1_loss * y_shape_1_loss
-                    x_shape_2_loss = 0.
-                    y_shape_2_loss = 0.
-                    
-                    location_loss = x_shape_1_loss + y_shape_1_loss + x_shape_2_loss + y_shape_2_loss
+    with tf.name_scope('6_Location_loss'):
+        if parameters.decode_location:
+            if n_shapes==2:
+                x_shape_1_loss, y_shape_1_loss = compute_location_loss(
+                        shape_1_decoder_input, x_shape_1, y_shape_1, parameters, 'shape_1', is_training)
+                x_shape_2_loss, y_shape_2_loss = compute_location_loss(
+                        shape_2_decoder_input, x_shape_2, y_shape_2, parameters, 'shape_2', is_training)
 
-            else:
-                x_shape_1_loss = 0.
-                y_shape_1_loss = 0.
+                x_shape_1_loss = parameters.alpha_x_shape_1_loss * x_shape_1_loss
+                y_shape_1_loss = parameters.alpha_y_shape_1_loss * y_shape_1_loss
+                x_shape_2_loss = parameters.alpha_x_shape_2_loss * x_shape_2_loss
+                y_shape_2_loss = parameters.alpha_y_shape_2_loss * y_shape_2_loss
+
+                location_loss = x_shape_1_loss + y_shape_1_loss + x_shape_2_loss + y_shape_2_loss
+
+            elif n_shapes==1:
+                x_shape_1_loss, y_shape_1_loss = compute_location_loss(
+                        shape_1_decoder_input, x_shape_1, y_shape_1, parameters, 'shape_1', is_training)
+
+                x_shape_1_loss = parameters.alpha_x_shape_1_loss * x_shape_1_loss
+                y_shape_1_loss = parameters.alpha_y_shape_1_loss * y_shape_1_loss
                 x_shape_2_loss = 0.
                 y_shape_2_loss = 0.
-                location_loss = 0.
-            
-            tf.summary.scalar('x_shape_1_loss', x_shape_1_loss)
-            tf.summary.scalar('y_shape_1_loss', y_shape_1_loss)
-            tf.summary.scalar('x_shape_2_loss', x_shape_2_loss)
-            tf.summary.scalar('y_shape_2_loss', y_shape_2_loss)
-            tf.summary.scalar('location_loss', location_loss)
+
+                location_loss = x_shape_1_loss + y_shape_1_loss + x_shape_2_loss + y_shape_2_loss
+
+        else:
+            x_shape_1_loss = 0.
+            y_shape_1_loss = 0.
+            x_shape_2_loss = 0.
+            y_shape_2_loss = 0.
+            location_loss = 0.
+
+        tf.summary.scalar('x_shape_1_loss', x_shape_1_loss)
+        tf.summary.scalar('y_shape_1_loss', y_shape_1_loss)
+        tf.summary.scalar('x_shape_2_loss', x_shape_2_loss)
+        tf.summary.scalar('y_shape_2_loss', y_shape_2_loss)
+        tf.summary.scalar('location_loss', location_loss)
 
 
     ##########################################
     #              Final loss                #
     ##########################################
-        final_loss = tf.add_n([margin_loss,
-                               shape_1_reconstruction_loss,
-                               shape_2_reconstruction_loss,
-                               vernieroffset_loss,
-                               nshapes_loss,
-                               location_loss],
-                              name='final_loss')
+    final_loss = tf.add_n([margin_loss,
+                           shape_1_reconstruction_loss,
+                           shape_2_reconstruction_loss,
+                           vernieroffset_loss,
+                           nshapes_loss,
+                           location_loss],
+                          name='final_loss')
 
 
     ##########################################
-    #        Training operations             #
+    #            Prediction mode:            #
     ##########################################
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        # If in prediction-mode use (one of) the following for predictions:
+        # Since accuracy is calculated over whole batch, we have to repeat it
+        # batch_size times (coz all prediction vectors must be same length)
+        predictions = {'vernier_accuracy': tf.ones(shape=parameters.batch_size) * vernieroffset_accuracy}
+        spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
+
+    ##########################################
+    #             Training mode:             #
+    ##########################################
+    else:
+
+
         # The following is needed due to how tf.layers.batch_normalzation works:
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
