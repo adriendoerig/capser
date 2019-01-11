@@ -59,7 +59,7 @@ def parse_tfrecords_train(serialized_data):
         nshapeslabels = tf.decode_raw(nshapeslabels, tf.float32)
         
         nshapeslabels_idx = parsed_data['nshapeslabels_idx']
-        nshapeslabels_idx = tf.decode_raw(nshapeslabels, tf.float32)
+        nshapeslabels_idx = tf.decode_raw(nshapeslabels_idx, tf.float32)
         nshapeslabels_idx = tf.cast(nshapeslabels_idx, tf.int64)
         
         vernierlabels = parsed_data['vernierlabels']
@@ -241,6 +241,10 @@ def parse_tfrecords_test(serialized_data):
         shapelabels = parsed_data['shapelabels']
         shapelabels = tf.decode_raw(shapelabels, tf.float32)
         shapelabels = tf.cast(shapelabels, tf.int64)
+        
+        nshapeslabels = parsed_data['nshapeslabels']
+        nshapeslabels = tf.decode_raw(nshapeslabels, tf.float32)
+        nshapeslabels = tf.cast(nshapeslabels, tf.int64)
         
         nshapeslabels_idx = parsed_data['nshapeslabels_idx']
         nshapeslabels_idx = tf.decode_raw(nshapeslabels_idx, tf.float32)

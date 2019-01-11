@@ -307,11 +307,11 @@ class stim_maker_fn:
 
             vernier_images[idx_batch, :, :] = vernier_image #+ np.random.normal(0, noise, size=self.imSize)
             shape_images[idx_batch, :, :] = shape_image #+ np.random.normal(0, noise, size=self.imSize)
-            shapelabels[idx_batch, 0] = 0
-            shapelabels[idx_batch, 1] = selected_shape 
+            shapelabels_idx[idx_batch, 0] = 0
+            shapelabels_idx[idx_batch, 1] = selected_shape 
             nshapeslabels[idx_batch] = selected_repetitions
             nshapeslabels_idx[idx_batch] = nshapes_label
-            vernierlabels[idx_batch] = offset_direction
+            vernierlabels_idx[idx_batch] = offset_direction
             x_vernier[idx_batch] = x_vernier_ind
             y_vernier[idx_batch] = y_vernier_ind
             x_shape[idx_batch] = x_shape_ind
