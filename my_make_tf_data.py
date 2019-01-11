@@ -13,6 +13,7 @@ Last update on 11.01.2019
 -> new validation and testing procedures
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
 -> implemented the possibility to have centralized shapes only
+-> for the data augmentation, we need the real nshapelabels and not just the idx
 """
 
 import sys
@@ -78,8 +79,9 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
             
             # Either create training or testing dataset
             if state=='training':
-                [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels, x_shape_1, y_shape_1, 
-                 x_shape_2, y_shape_2] = stim_maker.makeTrainBatch(shape_types, n_shapes, 1, train_procedure, overlap, centralize)
+                [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels,
+                 nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = stim_maker.makeTrainBatch(
+                 shape_types, n_shapes, 1, train_procedure, overlap, centralize)
 
             elif state=='testing':
                 try:
@@ -87,14 +89,16 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
                     chosen_shape = shape_types[chosen_shape_idx]
                 except:
                     chosen_shape = shape_types
-                [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels, x_shape_1, y_shape_1,
-                 x_shape_2, y_shape_2] = stim_maker.makeTestBatch(chosen_shape, n_shapes, 1, stim_idx, centralize)
+                [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels,
+                 nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = stim_maker.makeTestBatch(
+                 chosen_shape, n_shapes, 1, stim_idx, centralize)
 
             # Convert the image to raw bytes.
             shape_1_images_bytes = shape_1_images.tostring()
             shape_2_images_bytes = shape_2_images.tostring()
             shapelabels_bytes = shapelabels.tostring()
             nshapeslabels_bytes = nshapeslabels.tostring()
+            nshapeslabels_idx_bytes = nshapeslabels_idx.tostring()
             vernierlabels_bytes = vernierlabels.tostring()
             x_shape_1_bytes = x_shape_1.tostring()
             y_shape_1_bytes = y_shape_1.tostring()
@@ -106,6 +110,7 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
                     'shape_2_images': wrap_bytes(shape_2_images_bytes),
                     'shapelabels': wrap_bytes(shapelabels_bytes),
                     'nshapeslabels': wrap_bytes(nshapeslabels_bytes),
+                    'nshapeslabels_idx': wrap_bytes(nshapeslabels_idx_bytes),
                     'vernierlabels': wrap_bytes(vernierlabels_bytes),
                     'x_shape_1': wrap_bytes(x_shape_1_bytes),
                     'y_shape_1': wrap_bytes(y_shape_1_bytes),

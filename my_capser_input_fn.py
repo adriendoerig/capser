@@ -3,7 +3,7 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 08.01.2019
+Last update on 11.01.2019
 -> added requirements for nshapes and location loss
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
@@ -14,6 +14,7 @@ Last update on 08.01.2019
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
 -> some name_scope
 -> for the random condition, shape_2_image is a pure noise image
+-> for the data augmentation, we need the real nshapelabels and not just the idx
 """
 
 import tensorflow as tf
@@ -30,6 +31,7 @@ def parse_tfrecords_train(serialized_data):
                     'shape_2_images': tf.FixedLenFeature([], tf.string),
                     'shapelabels': tf.FixedLenFeature([], tf.string),
                     'nshapeslabels': tf.FixedLenFeature([], tf.string),
+                    'nshapeslabels_idx': tf.FixedLenFeature([], tf.string),
                     'vernierlabels': tf.FixedLenFeature([], tf.string),
                     'x_shape_1': tf.FixedLenFeature([], tf.string),
                     'y_shape_1': tf.FixedLenFeature([], tf.string),
@@ -56,6 +58,10 @@ def parse_tfrecords_train(serialized_data):
         nshapeslabels = parsed_data['nshapeslabels']
         nshapeslabels = tf.decode_raw(nshapeslabels, tf.float32)
         
+        nshapeslabels_idx = parsed_data['nshapeslabels_idx']
+        nshapeslabels_idx = tf.decode_raw(nshapeslabels, tf.float32)
+        nshapeslabels_idx = tf.cast(nshapeslabels_idx, tf.int64)
+        
         vernierlabels = parsed_data['vernierlabels']
         vernierlabels = tf.decode_raw(vernierlabels, tf.float32)
         
@@ -76,6 +82,7 @@ def parse_tfrecords_train(serialized_data):
         shape_2_images = tf.reshape(shape_2_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
         shapelabels = tf.reshape(shapelabels, [2])
         nshapeslabels = tf.reshape(nshapeslabels, [2])
+        nshapeslabels_idx = tf.reshape(nshapeslabels_idx, [2])
         vernierlabels = tf.reshape(vernierlabels, [1])
         x_shape_1 = tf.reshape(x_shape_1, [1])
         y_shape_1 = tf.reshape(y_shape_1, [1])
@@ -197,7 +204,8 @@ def parse_tfrecords_train(serialized_data):
         x_shape_2 = tf.cast(x_shape_2, tf.int64)
         y_shape_2 = tf.cast(y_shape_2, tf.int64)
 
-    return shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2
+    return [shape_1_images, shape_2_images, shapelabels, nshapeslabels_idx, vernierlabels,
+            x_shape_1, y_shape_1, x_shape_2, y_shape_2]
 
 
 ########################################
@@ -210,6 +218,7 @@ def parse_tfrecords_test(serialized_data):
                     'shape_2_images': tf.FixedLenFeature([], tf.string),
                     'shapelabels': tf.FixedLenFeature([], tf.string),
                     'nshapeslabels': tf.FixedLenFeature([], tf.string),
+                    'nshapeslabels_idx': tf.FixedLenFeature([], tf.string),
                     'vernierlabels': tf.FixedLenFeature([], tf.string),
                     'x_shape_1': tf.FixedLenFeature([], tf.string),
                     'y_shape_1': tf.FixedLenFeature([], tf.string),
@@ -233,9 +242,9 @@ def parse_tfrecords_test(serialized_data):
         shapelabels = tf.decode_raw(shapelabels, tf.float32)
         shapelabels = tf.cast(shapelabels, tf.int64)
         
-        nshapeslabels = parsed_data['nshapeslabels']
-        nshapeslabels = tf.decode_raw(nshapeslabels, tf.float32)
-        nshapeslabels = tf.cast(nshapeslabels, tf.int64)
+        nshapeslabels_idx = parsed_data['nshapeslabels_idx']
+        nshapeslabels_idx = tf.decode_raw(nshapeslabels_idx, tf.float32)
+        nshapeslabels_idx = tf.cast(nshapeslabels_idx, tf.int64)
         
         vernierlabels = parsed_data['vernierlabels']
         vernierlabels = tf.decode_raw(vernierlabels, tf.float32)
@@ -261,7 +270,7 @@ def parse_tfrecords_test(serialized_data):
         shape_1_images = tf.reshape(shape_1_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
         shape_2_images = tf.reshape(shape_2_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
         shapelabels = tf.reshape(shapelabels, [2])
-        nshapeslabels = tf.reshape(nshapeslabels, [2])
+        nshapeslabels_idx = tf.reshape(nshapeslabels_idx, [2])
         vernierlabels = tf.reshape(vernierlabels, [1])
         x_shape_1 = tf.reshape(x_shape_1, [1])
         y_shape_1 = tf.reshape(y_shape_1, [1])
@@ -283,7 +292,8 @@ def parse_tfrecords_test(serialized_data):
         shape_1_images = tf.clip_by_value(shape_1_images, parameters.clip_values[0], parameters.clip_values[1])
         shape_2_images = tf.clip_by_value(shape_2_images, parameters.clip_values[0], parameters.clip_values[1])
     
-    return shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2
+    return [shape_1_images, shape_2_images, shapelabels, nshapeslabels_idx, vernierlabels,
+            x_shape_1, y_shape_1, x_shape_2, y_shape_2]
 
 
 ###########################
