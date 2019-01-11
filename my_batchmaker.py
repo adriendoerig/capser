@@ -444,24 +444,24 @@ class stim_maker_fn:
 #############################################################
 #          HAVE A LOOK AT WHAT THE CODE DOES                #
 #############################################################
-from my_parameters import parameters
-#imSize = parameters.im_size
-imSize = [20, 75]
-#shapeSize = parameters.shape_size
-shapeSize = 14
-barWidth = parameters.bar_width
-#n_shapes = parameters.n_shapes
-n_shapes = [1, 3, 5]
-#batch_size = parameters.batch_size
-batch_size = 10
-#shape_types = parameters.shape_types
-shape_types = [0, 1, 2, 3]
-train_procedure = 'random_random'
-#overlap = parameters.overlapping_shapes
-overlap = True
-#centralize = parameters.centralized_shapes
-centralize = True
-test = stim_maker_fn(imSize, shapeSize, barWidth)
+#from my_parameters import parameters
+##imSize = parameters.im_size
+#imSize = [20, 75]
+##shapeSize = parameters.shape_size
+#shapeSize = 14
+#barWidth = parameters.bar_width
+##n_shapes = parameters.n_shapes
+#n_shapes = [1, 3, 5]
+##batch_size = parameters.batch_size
+#batch_size = 10
+##shape_types = parameters.shape_types
+#shape_types = [0, 1, 2, 3]
+#train_procedure = 'random_random'
+##overlap = parameters.overlapping_shapes
+#overlap = True
+##centralize = parameters.centralized_shapes
+#centralize = True
+#test = stim_maker_fn(imSize, shapeSize, barWidth)
 
 #plt.imshow(test.drawShape(5))
 #test.plotStim([1, 2, 4, 5], 0.01)
@@ -473,8 +473,8 @@ test = stim_maker_fn(imSize, shapeSize, barWidth)
 #    plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
 #    plt.pause(0.5)
 
-[vernier_images, shape_images, shapelabels, vernierlabels,
- nshapeslabels, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(3, n_shapes, batch_size, None, centralize)
-for i in range(batch_size):
-    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
-    plt.pause(0.5)
+#[vernier_images, shape_images, shapelabels, vernierlabels,
+# nshapeslabels, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(3, n_shapes, batch_size, None, centralize)
+#for i in range(batch_size):
+#    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
+#    plt.pause(0.5)

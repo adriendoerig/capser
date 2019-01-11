@@ -116,7 +116,7 @@ def conv_layers(X, parameters, phase=True):
             conv1 = tf.layers.conv2d(X, name='conv1', activation=None, **parameters.conv_params[0])
         conv1 = tf.nn.elu(conv1)
         if parameters.dropout:
-            conv1 = tf.layers.dropout(conv1, rate=.5, training=phase, name='dropout1')
+            conv1 = tf.layers.dropout(conv1, rate=.3, training=phase, name='dropout1')
 
         # Conv2:
         if parameters.batch_norm_conv:
@@ -126,7 +126,7 @@ def conv_layers(X, parameters, phase=True):
             conv2 = tf.layers.conv2d(conv1, name='conv2', activation=None, **parameters.conv_params[1])
         conv2 = tf.nn.elu(conv2)
         if parameters.dropout:
-            conv2 = tf.layers.dropout(conv2, rate=.5, training=phase, name='dropout2')
+            conv2 = tf.layers.dropout(conv2, rate=.3, training=phase, name='dropout2')
 
         # Conv3:
         conv3 = tf.layers.conv2d(conv2, name='conv3', activation=None, **parameters.conv_params[2])

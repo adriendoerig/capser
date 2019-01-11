@@ -78,7 +78,7 @@ flags.DEFINE_integer('random_seed', None, 'if not None, set seed for weights ini
     # 2. Combine centralized_shapes=True with train_procedure='random'!
 # EXCEPTIONS:
     # 1. You can use the same training set for the train_procedures 'random_random & 'random'
-flags.DEFINE_string('train_procedure', 'vernier_shape', 'choose between having vernier_shape, random_random and random')
+flags.DEFINE_string('train_procedure', 'random', 'choose between having vernier_shape, random_random and random')
 flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier might overlap')
 flags.DEFINE_boolean('centralized_shapes', True,  'if true, each shape is in the middle of the image')
 
@@ -114,8 +114,8 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = 3*len(shape_types)
-caps1_ndims = 8
+caps1_nmaps = len(shape_types)
+caps1_ndims = 3
 
 
 # Case of 3 conv layers:
@@ -143,7 +143,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 8, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 6, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -162,8 +162,8 @@ flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
 flags.DEFINE_float('learning_rate_decay_steps', 7000, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 49000, 'number of steps')
-flags.DEFINE_integer('n_rounds', 4, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_steps', 5000, 'number of steps')
+flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
