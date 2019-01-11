@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 09.01.2019
+Last update on 11.01.2019
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -22,7 +22,8 @@ Last update on 09.01.2019
 -> new validation and testing procedures
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
 -> implemented n_rounds to decide how often we evaluate the test sets
--> implemented a variety of uncrowding stimuli (42+)
+-> implemented a variety of uncrowding stimuli (412+)
+-> implemented the possibility to have centralized_shapes only (combine this with random procedure!)
 """
 
 import tensorflow as tf
@@ -35,7 +36,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log_conv_caps1_3x_caps2_8_dim_noise_0911_dropout_training_vso'
+MODEL_NAME = '_log1_central_shapes'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -44,25 +45,20 @@ flags.DEFINE_string('val_data_path', data_path+'/val.tfrecords', 'path for tfrec
 flags.DEFINE_list('test_data_paths',
                   [data_path+'/test_squares.tfrecords',
                    data_path+'/test_circles.tfrecords',
-                   data_path+'/test_hexagons.tfrecords',
-                   data_path+'/test_4stars.tfrecords',
-                   data_path+'/test_rhombus.tfrecords',
-                   data_path+'/test_stuff.tfrecords'], 'path for tfrecords with test set')
+                   data_path+'/test_rhombus.tfrecords'], 'path for tfrecords with test set')
 
 # For crowding/uncrowding stimuli:
 flags.DEFINE_string('val_crowding_data_path', data_path+'/val_crowding.tfrecords', 'path for tfrecords with validation crowding set')
 flags.DEFINE_list('test_crowding_data_paths',
                   [data_path+'/test_crowding_squares',
                    data_path+'/test_crowding_circles',
-                   data_path+'/test_crowding_hexagons',
-                   data_path+'/test_crowding_4stars',
                    data_path+'/test_crowding_rhombus',
+                   data_path+'/test_crowding_squares_circles',
+                   data_path+'/test_crowding_circles_squares',
                    data_path+'/test_crowding_squares_rhombus',
                    data_path+'/test_crowding_rhombus_squares',
-                   data_path+'/test_crowding_circles_4stars',
-                   data_path+'/test_crowding_4stars_circles',
-                   data_path+'/test_crowding_squares_hexagons',
-                   data_path+'/test_crowding_hexagons_squares'], 'path for tfrecords with test crowding set')
+                   data_path+'/test_crowding_circles_rhombus',
+                   data_path+'/test_crowding_rhombus_circles'], 'path for tfrecords with test crowding set')
 
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
 flags.DEFINE_string('logdir_reconstruction', data_path + '/' + MODEL_NAME + '_rec/', 'save results with reconstructed weights here')
@@ -77,26 +73,28 @@ flags.DEFINE_integer('random_seed', None, 'if not None, set seed for weights ini
 ###########################
 #   Stimulus parameters   #
 ###########################
-# IMPORTANT NOTE:
-# If u change any stimulus parameter, keep in mind that u need to create a new training set
-# ONLY EXCEPTION:
-# You can use the same training set for the train_procedures 'random_random & 'random'
+# IMPORTANT NOTES:
+    # 1. If u change any stimulus parameter, keep in mind that u need to create a new training set.
+    # 2. Combine centralized_shapes=True with train_procedure='random'!
+# EXCEPTIONS:
+    # 1. You can use the same training set for the train_procedures 'random_random & 'random'
 flags.DEFINE_string('train_procedure', 'vernier_shape', 'choose between having vernier_shape, random_random and random')
 flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier might overlap')
+flags.DEFINE_boolean('centralized_shapes', True,  'if true, each shape is in the middle of the image')
 
 flags.DEFINE_integer('n_train_samples', 200000, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 4800, 'number of samples in the test set')
 
-im_size = [45, 85]
+im_size = [20, 75]
 flags.DEFINE_list('im_size', im_size, 'image size of datasets')
 flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
-flags.DEFINE_integer('shape_size', 16, 'size of the shapes')
+flags.DEFINE_integer('shape_size', 14, 'size of the shapes')
 flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
 
 # shape_types for training have to have a range from 0 to max
 # the data_paths for the train and test have to match the chosen shape types 
-shape_types = [0, 1, 2, 3, 4, 5, 6]
-test_shape_types = [0, 1, 2, 3, 4, 5, 42, 43, 44, 45, 46, 47]
+shape_types = [0, 1, 2, 3]
+test_shape_types = [0, 1, 2, 3, 412, 421, 413, 431, 423, 432]
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('test_shape_types', test_shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('n_shapes', [0, 1, 2, 3, 4, 5], 'pool of shape repetitions per stimulus')
