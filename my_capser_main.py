@@ -87,6 +87,7 @@ for idx_round in range(1, n_rounds+1):
         print('Compute vernier offset for ' + test_filename)
         
         # Determine vernier_accuracy for each shape type
+        capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir, config=my_checkpointing_config, params={'save_path': '/testing/' + test_filename[12:-10]+'_step_'+str(parameters.n_steps*idx_round)})
         capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
         vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
         results = np.mean(vernier_accuracy)
@@ -114,6 +115,7 @@ for idx_round in range(1, n_rounds+1):
         results = np.zeros(shape=(n_idx,))
         for stim_idx in range(n_idx):
             test_filename = category + '/' + str(stim_idx) + '.tfrecords'
+            capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=parameters.logdir, config=my_checkpointing_config, params={'save_path': '/uncrowding/' + category[21:] + '_' + str(stim_idx) + '_step_' + str(parameters.n_steps * idx_round)})
             capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
             vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
             results[stim_idx] = np.mean(vernier_accuracy)
