@@ -376,7 +376,8 @@ class stim_maker_fn:
                 # if not, repeat shape random times but at least once and set offset_direction to 2=no vernier
                 idx_n_shapes_1 = np.random.randint(1, len(n_shapes))
                 selected_repetitions_1 = n_shapes[idx_n_shapes_1]
-                offset_direction = 2
+#                offset_direction = 2
+                offset_direction = np.random.randint(0, 2)
                 shape_1_patch = self.drawShape(shapeID=selected_shape_1)
 
             idx_n_shapes_2 = np.random.randint(0, len(n_shapes))

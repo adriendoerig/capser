@@ -36,7 +36,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log1_central_shapes'
+MODEL_NAME = '_log11_central_shapes'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -104,7 +104,7 @@ flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus
 #    Data augmentation    #
 ###########################
 flags.DEFINE_list('train_noise', [0.03, 0.07], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.14, 0.16], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.24, 0.26], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust contrast, must be non-negative')
@@ -114,8 +114,8 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)
-caps1_ndims = 2
+caps1_nmaps = len(shape_types)*2
+caps1_ndims = 1
 
 
 # Case of 3 conv layers:
@@ -143,7 +143,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 6, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 3, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -159,10 +159,10 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 1000, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 1500, 'number of steps')
+flags.DEFINE_integer('n_steps', 3500, 'number of steps')
 flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
@@ -221,10 +221,10 @@ flags.DEFINE_float('lambda_val', 0.5, 'down weight of the loss for absent digit 
 
 flags.DEFINE_boolean('dropout', True, 'use dropout after conv layers 1&2')
 flags.DEFINE_boolean('batch_norm_conv', False, 'use batch normalization between every conv layer')
-flags.DEFINE_boolean('batch_norm_reconstruction', True, 'use batch normalization for the reconstruction decoder layers')
-flags.DEFINE_boolean('batch_norm_vernieroffset', True, 'use batch normalization for the vernieroffset loss layer')
-flags.DEFINE_boolean('batch_norm_nshapes', True, 'use batch normalization for the nshapes loss layer')
-flags.DEFINE_boolean('batch_norm_location', True, 'use batch normalization for the location loss layer')
+flags.DEFINE_boolean('batch_norm_reconstruction', False, 'use batch normalization for the reconstruction decoder layers')
+flags.DEFINE_boolean('batch_norm_vernieroffset', False, 'use batch normalization for the vernieroffset loss layer')
+flags.DEFINE_boolean('batch_norm_nshapes', False, 'use batch normalization for the nshapes loss layer')
+flags.DEFINE_boolean('batch_norm_location', False, 'use batch normalization for the location loss layer')
 
 
 parameters = tf.app.flags.FLAGS
