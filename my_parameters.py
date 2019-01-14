@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 11.01.2019
+Last update on 14.01.2019
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -24,6 +24,7 @@ Last update on 11.01.2019
 -> implemented n_rounds to decide how often we evaluate the test sets
 -> implemented a variety of uncrowding stimuli (412+)
 -> implemented the possibility to have centralized_shapes only (combine this with random procedure!)
+-> decide whether to use data augment or not
 """
 
 import tensorflow as tf
@@ -106,6 +107,8 @@ flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus
 flags.DEFINE_list('train_noise', [0.03, 0.07], 'amount of added random Gaussian noise')
 flags.DEFINE_list('test_noise', [0.24, 0.26], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
+flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
+flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
 flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust contrast, must be non-negative')
 

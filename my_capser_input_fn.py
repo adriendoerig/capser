@@ -3,7 +3,7 @@
 My script for the input fn that is working with tfrecords files
 @author: Lynn
 
-Last update on 11.01.2019
+Last update on 14.01.2019
 -> added requirements for nshapes and location loss
 -> added num_repeat to None for training and drop_remainder=True (requires at least tf version 1.10.0)
 -> added data augmentation (noise, flipping, contrast, brightness)
@@ -15,6 +15,7 @@ Last update on 11.01.2019
 -> some name_scope
 -> for the random condition, shape_2_image is a pure noise image
 -> for the data augmentation, we need the real nshapelabels and not just the idx
+-> decide whether to use data augment or not
 """
 
 import tensorflow as tf
@@ -127,8 +128,9 @@ def parse_tfrecords_train(serialized_data):
             return shape_1_images_augmented, shape_2_images_augmented
     
         # Maybe change contrast and brightness:
-        pred = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
-        shape_1_images, shape_2_images = tf.cond(pred, bright_contrast, contrast_bright)
+        if parameters.allow_contrast_augmentation:
+            pred = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
+            shape_1_images, shape_2_images = tf.cond(pred, bright_contrast, contrast_bright)
     
         # Flipping (code is messy since we r using tf cond atm, but this is the idea):
         # - change vernierlabels: ceil(abs( (vernierlabels * vernierlabels/2) - 0.5) )
@@ -153,13 +155,21 @@ def parse_tfrecords_train(serialized_data):
             shape_1_images_flipped = tf.image.flip_left_right(shape_1_images)
             shape_2_images_flipped = tf.image.flip_left_right(shape_2_images)      
             vernierlabels_flipped = tf.ceil(tf.abs(tf.subtract(tf.multiply(vernierlabels, tf.divide(vernierlabels, 2.)), 0.5)))
-            x_shape_1_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32),
-                                            tf.add(x_shape_1, 
-                                            tf.multiply(nshapeslabels[0], tf.constant(parameters.shape_size, tf.float32))))
+            if parameters.im_size[1] % 2 == 0:
+                x_shape_1_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32),
+                                                tf.add(x_shape_1, 
+                                                tf.multiply(nshapeslabels[0], tf.constant(parameters.shape_size, tf.float32))))
+                x_shape_2_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32), 
+                                                tf.add(x_shape_2,
+                                                tf.multiply(nshapeslabels[1], tf.constant(parameters.shape_size, tf.float32))))
+            else:
+                x_shape_1_flipped = tf.subtract(tf.constant(parameters.im_size[1]-1, tf.float32),
+                                                tf.add(x_shape_1, 
+                                                tf.multiply(nshapeslabels[0], tf.constant(parameters.shape_size, tf.float32))))
+                x_shape_2_flipped = tf.subtract(tf.constant(parameters.im_size[1]-1, tf.float32), 
+                                                tf.add(x_shape_2,
+                                                tf.multiply(nshapeslabels[1], tf.constant(parameters.shape_size, tf.float32))))
             y_shape_1_flipped = y_shape_1
-            x_shape_2_flipped = tf.subtract(tf.constant(parameters.im_size[1], tf.float32), 
-                                            tf.add(x_shape_2,
-                                            tf.multiply(nshapeslabels[1], tf.constant(parameters.shape_size, tf.float32))))
             y_shape_2_flipped = y_shape_2
             return [shape_1_images_flipped, shape_2_images_flipped, vernierlabels_flipped,
                     x_shape_1_flipped, y_shape_1_flipped, x_shape_2_flipped, y_shape_2_flipped]
@@ -176,21 +186,22 @@ def parse_tfrecords_train(serialized_data):
             return [shape_1_images_flipped, shape_2_images_flipped, vernierlabels_flipped,
                     x_shape_1_flipped, y_shape_1_flipped, x_shape_2_flipped, y_shape_2_flipped]
         
-        # tf flip functions need 4D inputs:
-        shape_1_images = tf.expand_dims(shape_1_images, 0)
-        shape_2_images = tf.expand_dims(shape_2_images, 0)
-    
-        # Maybe flip left-right:
-        pred_flip1 = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
-        shape_1_images, shape_2_images, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2 = tf.cond(pred_flip1, flip0, flip1)
+        if parameters.allow_flip_augmentation:
+            # tf flip functions need 4D inputs:
+            shape_1_images = tf.expand_dims(shape_1_images, 0)
+            shape_2_images = tf.expand_dims(shape_2_images, 0)
         
-        # Maybe flip up-down:
-        pred_flip2 = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
-        shape_1_images, shape_2_images, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2 = tf.cond(pred_flip2, flip0, flip2)
-        
-        # Get rid of extra-dimension:
-        shape_1_images = tf.squeeze(shape_1_images, axis=0)
-        shape_2_images = tf.squeeze(shape_2_images, axis=0)
+            # Maybe flip left-right:
+            pred_flip1 = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
+            shape_1_images, shape_2_images, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2 = tf.cond(pred_flip1, flip0, flip1)
+            
+            # Maybe flip up-down:
+            pred_flip2 = tf.less(tf.random_uniform(shape=[], minval=0., maxval=1., dtype=tf.float32), 0.5)
+            shape_1_images, shape_2_images, vernierlabels, x_shape_1, y_shape_1, x_shape_2, y_shape_2 = tf.cond(pred_flip2, flip0, flip2)
+            
+            # Get rid of extra-dimension:
+            shape_1_images = tf.squeeze(shape_1_images, axis=0)
+            shape_2_images = tf.squeeze(shape_2_images, axis=0)
         
         # Lets clip the pixel values
         shape_1_images = tf.clip_by_value(shape_1_images, parameters.clip_values[0], parameters.clip_values[1])
