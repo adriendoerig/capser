@@ -366,7 +366,7 @@ def compute_vernieroffset_loss(shape_1_caps_activation, vernierlabels, parameter
         else:
             depth = 3
         
-        shape_1_caps_activation = tf.squeeze(shape_1_caps_activation)
+        shape_1_caps_activation = tf.squeeze(shape_1_caps_activation, [1, 2, -1])
         vernierlabels = tf.squeeze(vernierlabels)
         T_vernierlabels = tf.one_hot(tf.cast(vernierlabels, tf.int64), depth, name='T_vernierlabels')
         

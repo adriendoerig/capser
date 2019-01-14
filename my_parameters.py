@@ -37,7 +37,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log11_central_shapes'
+MODEL_NAME = '_log13_central_shapes'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -117,7 +117,7 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)*2
+caps1_nmaps = len(shape_types)
 caps1_ndims = 1
 
 
@@ -146,7 +146,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 3, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 1, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
