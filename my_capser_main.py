@@ -21,7 +21,7 @@ from tensorboard.plugins.beholder import BeholderHook
 from my_parameters import parameters
 from my_capser_model_fn import model_fn
 from my_capser_input_fn import train_input_fn, eval_input_fn, predict_input_fn
-from my_capser_functions import save_params
+from my_capser_functions import save_params, plot_uncrowding_results
 
 ###################################################
 
@@ -104,8 +104,11 @@ for idx_round in range(1, n_rounds+1):
     
     
     # Testing with crowding/uncrowding:
+    cats = []
+    res = []
     for n_category in range(len(parameters.test_crowding_data_paths)):
         category = parameters.test_crowding_data_paths[n_category]
+        cats.append(category[21:])
         print('-------------------------------------------------------')
         print('Compute vernier offset for ' + category)
         
@@ -119,6 +122,8 @@ for idx_round in range(1, n_rounds+1):
             capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
             vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
             results[stim_idx] = np.mean(vernier_accuracy)
+            res.append(np.mean(vernier_accuracy))
+
             print('Finished calculations for stimulus type ' + str(stim_idx))
             print('Result: ' + str(results[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
         
@@ -131,6 +136,7 @@ for idx_round in range(1, n_rounds+1):
             with open(txt_file_name, 'a') as f:
                 f.write(category + ' : \t' + str(results) + '\n')
 
+    plot_uncrowding_results(res, cats, save=parameters.logdir + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) + '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
 
 print('... Finished capsnet script!')
 print('-------------------------------------------------------')

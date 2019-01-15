@@ -27,6 +27,8 @@ Last update on 04.01.2019
 
 import tensorflow as tf
 import os.path
+import matplotlib.pyplot as plt
+import numpy as np
 
 ################################
 #    Small helper function:    #
@@ -474,3 +476,41 @@ def compute_location_loss(decoder_input, x_label, y_label, parameters, name_extr
 
         return x_loss, y_loss
 
+
+def plot_uncrowding_results(results, categories, save=None):
+
+    results = np.array(results)*100
+    # plot bar width & colors
+    width = .3333  # the width of the bars
+    color0 = (179. / 255, 179. / 255, 179. / 255)
+    color1 = (125. / 255, 163. / 255, 170. / 255)
+    color2 = (209. / 255, 184. / 255, 148. / 255)
+    color3 = (87. / 255, 140. / 255, 169. / 255)
+    color4 = (203. / 255, 123. / 255, 123. / 255)
+    color5 = (141. / 255, 179. / 255, 203. / 255)
+    color6 = (229. / 255, 196. / 255, 148. / 255)
+    color7 = (100. / 255, 170. / 255, 180. / 255)
+
+    N = len(results)/3
+    ind = np.arange(N)  # the x locations for the groups
+    fig, ax = plt.subplots()
+    # color = [color0, color1, color1, color2, color2, color3, color3, color4, color4, color5, color5, color6, color6, color7, color7]
+    ax.bar(ind - width / 3, results[0::3], width/3, color=color7, edgecolor='black')
+    ax.bar(ind            , results[1::3], width/3, color=color7, edgecolor='black')
+    ax.bar(ind + width / 3, results[2::3], width/3, color=color7, edgecolor='black')
+    # add some text for labels, title and axes ticks, and save figure
+    ax.set_ylabel('Percent correct')
+    ax.set_title("Vernier decoder performance detecting vernier offset")
+    ax.set_xticks(ind)
+    ax.set_xticklabels(categories)
+    plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right')
+
+    chance_line, = ax.plot([-2 * width, N], [50, 50], '#8d8f8c')  # chance level dashed line
+    chance_line.set_dashes([1, 3, 1, 3])
+
+    if save is None:
+        plt.show()
+        plt.close()
+    else:
+        plt.savefig(save)
+        plt.close()
