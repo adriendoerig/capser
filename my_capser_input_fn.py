@@ -285,7 +285,7 @@ def parse_tfrecords_test(serialized_data):
         shape_1_images = tf.reshape(shape_1_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
         shape_2_images = tf.reshape(shape_2_images, [parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
         shapelabels = tf.reshape(shapelabels, [2])
-        nshapeslabels_idx = tf.reshape(nshapeslabels_idx, [2])
+        nshapeslabels_idx = tf.reshape(nshapeslabels_idx, [1])
         vernierlabels = tf.reshape(vernierlabels, [1])
         x_shape_1 = tf.reshape(x_shape_1, [1])
         y_shape_1 = tf.reshape(y_shape_1, [1])

@@ -37,7 +37,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_log13_central_shapes'
+MODEL_NAME = '_log1'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -79,9 +79,9 @@ flags.DEFINE_integer('random_seed', None, 'if not None, set seed for weights ini
     # 2. Combine centralized_shapes=True with train_procedure='random'!
 # EXCEPTIONS:
     # 1. You can use the same training set for the train_procedures 'random_random & 'random'
-flags.DEFINE_string('train_procedure', 'random', 'choose between having vernier_shape, random_random and random')
+flags.DEFINE_string('train_procedure', 'random_random', 'choose between having vernier_shape, random_random and random')
 flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier might overlap')
-flags.DEFINE_boolean('centralized_shapes', True,  'if true, each shape is in the middle of the image')
+flags.DEFINE_boolean('centralized_shapes', False,  'if true, each shape is in the middle of the image')
 
 flags.DEFINE_integer('n_train_samples', 4800, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 2400, 'number of samples in the test set')
@@ -107,7 +107,7 @@ flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus
 flags.DEFINE_list('train_noise', [0.03, 0.07], 'amount of added random Gaussian noise')
 flags.DEFINE_list('test_noise', [0.24, 0.26], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
-flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
+flags.DEFINE_boolean('allow_flip_augmentation', True, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
 flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust contrast, must be non-negative')
@@ -117,7 +117,7 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)
+caps1_nmaps = len(shape_types)*2
 caps1_ndims = 1
 
 
@@ -146,7 +146,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 1, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 3, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -165,7 +165,7 @@ flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
 flags.DEFINE_float('learning_rate_decay_steps', 1000, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 3500, 'number of steps')
+flags.DEFINE_integer('n_steps', 200, 'number of steps')
 flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
