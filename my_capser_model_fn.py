@@ -5,7 +5,7 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 17.01.2019
+Last update on 22.01.2019
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
@@ -19,7 +19,7 @@ Last update on 17.01.2019
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
 -> for condition random, we now add up shape_1_image and shape_2_image again
 -> plot_n_images now controls, how many images are shown in tensorboard per command
--> reconstructions for prediction mode
+-> reconstructions for prediction mode (now only for last round)
 """
 
 import tensorflow as tf
@@ -39,6 +39,7 @@ def model_fn(features, labels, mode, params):
     # params:   Optional parameters; here not needed because of parameter-file
     
     plot_n_images = 4
+    log_dir = params['log_dir']
     
     ##########################################
     #      Prepararing input variables:      #
@@ -205,14 +206,17 @@ def model_fn(features, labels, mode, params):
         # If in prediction-mode use (one of) the following for predictions:
         # Since accuracy is calculated over whole batch, we have to repeat it
         # batch_size times (coz all prediction vectors must be same length)
-        pred_summary_hook = tf.train.SummarySaverHook(save_steps=1,
-                                                      output_dir=parameters.logdir + params['save_path'],
-                                                      summary_op=tf.summary.merge_all())
-        
         predictions = {'vernier_accuracy': tf.ones(shape=parameters.batch_size) * vernieroffset_accuracy,
                        'rank_pred_shapes': rank_pred_shapes,
                        'rank_pred_proba': rank_pred_proba}
-        spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, prediction_hooks=[pred_summary_hook])
+        
+        if params['idx_round']==parameters.n_rounds:
+            pred_summary_hook = tf.train.SummarySaverHook(save_steps=1,
+                                                          output_dir=log_dir + params['save_path'],
+                                                          summary_op=tf.summary.merge_all())
+            spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, prediction_hooks=[pred_summary_hook])
+        else:
+            spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
 
     ##########################################
@@ -327,7 +331,7 @@ def model_fn(features, labels, mode, params):
         
         # write summaries during evaluation
         eval_summary_hook = tf.train.SummarySaverHook(save_steps=100,
-                                                      output_dir=parameters.logdir + '/eval',
+                                                      output_dir=log_dir + '/eval',
                                                       summary_op=tf.summary.merge_all())
         
         # Wrap all of this in an EstimatorSpec.

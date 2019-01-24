@@ -9,7 +9,7 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 04.01.2019
+Last update on 21.01.2019
 -> added nshapes and location loss
 -> network can be run with 2 or 3 conv layers now
 -> you can choose now between xentropy of squared_diff as location or nshapes loss
@@ -23,6 +23,7 @@ Last update on 04.01.2019
 -> you can choose between a reconstruction decoder with fc or conv layers (currently only with 3 conv layers)
 -> use train_procedures 'vernier_shape', 'random_random' or 'random'
 -> only if batch_norm set use_bias=False
+-> last reconstruction decoder layer has sigmoid activation now and use_bias=True
 """
 
 import tensorflow as tf
@@ -232,8 +233,11 @@ def predict_shapelabels(caps2_output, n_labels):
         # Predict n_labels largest values:
         labels_pred_proba, labels_pred = tf.nn.top_k(labels_proba[:, 0, :, 0], n_labels, name='y_proba')
         labels_pred = tf.cast(labels_pred, tf.int64)
-        labels_pred = tf.contrib.framework.sort(labels_pred, axis=-1, direction='ASCENDING', name='labels_pred_sorted')
-        return labels_pred, labels_pred_proba
+        labels_pred_sorted = tf.contrib.framework.sort(labels_pred, axis=-1, direction='ASCENDING', name='labels_pred_sorted')
+        
+        labels_pred_sorted_idx = tf.contrib.framework.argsort(labels_pred, axis=-1, direction='ASCENDING', name='labels_pred_sorted')
+        labels_pred_proba_sorted = tf.batch_gather(labels_pred_proba, labels_pred_sorted_idx)
+        return labels_pred_sorted, labels_pred_proba_sorted
 
 
 def compute_margin_loss(caps2_output_norm, labels, parameters):
@@ -377,7 +381,7 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
 
             # Get back to greyscale
             reconstructed_output = tf.layers.conv2d(inputs=conv3_upsampled, filters=parameters.im_depth, kernel_size=1, padding='same',
-                                                    use_bias=False, reuse=tf.AUTO_REUSE, activation=None, name='reconstructed_output')
+                                                    use_bias=True, reuse=tf.AUTO_REUSE, activation=tf.nn.sigmoid, name='reconstructed_output')
             
             # Flatten the output to make it equal to the output of the fc
             reconstructed_output = tf.reshape(reconstructed_output, [parameters.batch_size, parameters.n_output], name='reconstructed_output_flat')
