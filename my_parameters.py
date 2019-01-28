@@ -3,7 +3,7 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 14.01.2019
+Last update on 28.01.2019
 -> added nshapes and location loss
 -> added alphas for each coordinate type
 -> added overlapping_shapes parameter
@@ -25,6 +25,7 @@ Last update on 14.01.2019
 -> implemented a variety of uncrowding stimuli (412+)
 -> implemented the possibility to have centralized_shapes only (combine this with random procedure!)
 -> decide whether to use data augment or not
+-> you can reduce the df for the x position of all shapes to have a fairer comparison
 """
 
 import tensorflow as tf
@@ -37,7 +38,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v5'
+MODEL_NAME = '_logs_v2'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -82,11 +83,12 @@ flags.DEFINE_integer('random_seed', None, 'if not None, set seed for weights ini
 flags.DEFINE_string('train_procedure', 'random', 'choose between having vernier_shape, random_random and random')
 flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier might overlap')
 flags.DEFINE_boolean('centralized_shapes', False,  'if true, each shape is in the middle of the image')
+flags.DEFINE_boolean('reduce_df', True,  'if true, the degrees of freedom for position on the x axis get adapted')
 
 flags.DEFINE_integer('n_train_samples', 200000, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 4800, 'number of samples in the test set')
 
-im_size = [30, 75]
+im_size = [20, 72]
 flags.DEFINE_list('im_size', im_size, 'image size of datasets')
 flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
 flags.DEFINE_integer('shape_size', 14, 'size of the shapes')
@@ -105,9 +107,9 @@ flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus
 #    Data augmentation    #
 ###########################
 flags.DEFINE_list('train_noise', [0.03, 0.07], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.1, 0.12], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.14, 0.26], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
-flags.DEFINE_boolean('allow_flip_augmentation', True, 'augment by flipping the image up/down or left/right')
+flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
 flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
 flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust contrast, must be non-negative')
@@ -117,8 +119,8 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)*2
-caps1_ndims = 2
+caps1_nmaps = len(shape_types)*3
+caps1_ndims = 1
 
 
 # Case of 3 conv layers:
@@ -130,7 +132,7 @@ stride2 = 2
 stride3 = 2
 
 # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
+dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 
 conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1, 'padding': 'valid'}
@@ -162,10 +164,10 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 8000, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 1000, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 40000, 'number of steps')
+flags.DEFINE_integer('n_steps', 5000, 'number of steps')
 flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 1, 'number of trained networks')
 

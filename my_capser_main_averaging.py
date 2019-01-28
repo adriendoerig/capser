@@ -4,12 +4,13 @@ My capsnet: Main script
 Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-Last update on 17.01.2019
+Last update on 28.01.2019
 -> insertion of eval_throttle_secs parameter
 -> small change for save_params
 -> new validation and testing procedures
 -> implemented n_rounds to decide how often we evaluate the test sets
 -> reconstructions for prediction mode
+-> update and check to guarantee the similarity to the main script
 """
 
 import logging
@@ -77,11 +78,9 @@ for idx_execution in range(n_iterations):
     n_rounds = parameters.n_rounds
     
     
-    for idx_round in range(n_rounds, n_rounds+1):
+    for idx_round in range(1, n_rounds+1):
         train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps*idx_round)
-    #    , hooks=[beholder_hook]
         tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
-    
     
         ##################################
         #     Testing / Predictions:     #
@@ -92,7 +91,6 @@ for idx_execution in range(n_iterations):
         # Testing with crowding/uncrowding:
         cats = []
         res = []
-
         for n_category in range(n_categories):
             category = parameters.test_crowding_data_paths[n_category]
             cats.append(category[21:])
@@ -108,7 +106,8 @@ for idx_execution in range(n_iterations):
                 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
                                                 params={'log_dir': log_dir,
                                                         'idx_round': idx_round,
-                                                        'save_path': '/uncrowding/' + category[21:] + str(stim_idx) + '_step' + str(parameters.n_steps*idx_round)})
+                                                        'save_path': '/uncrowding/' + category[21:] + str(stim_idx) + '_step' + str(parameters.n_steps*idx_round) +
+                                                        '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1])})
                 capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
                 vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
                 rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]

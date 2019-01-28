@@ -4,12 +4,13 @@ My capsnet: Main script
 Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-Last update on 17.01.2019
+Last update on 28.01.2019
 -> insertion of eval_throttle_secs parameter
 -> small change for save_params
 -> new validation and testing procedures
 -> implemented n_rounds to decide how often we evaluate the test sets
 -> reconstructions for prediction mode
+-> update and check to guarantee the similarity to the main_average script
 """
 
 import logging
@@ -75,17 +76,14 @@ for idx_execution in range(n_iterations):
     
     for idx_round in range(1, n_rounds+1):
         train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=parameters.n_steps*idx_round)
-    #    , hooks=[beholder_hook]
         tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
-    
     
         ##################################
         #     Testing / Predictions:     #
         ##################################
         # Lets have less annoying logs:
         logging.getLogger().setLevel(logging.CRITICAL)
-        
-        
+
         # Testing with training stimuli:
         for n_category in range(len(parameters.test_data_paths)):
             test_filename = parameters.test_data_paths[n_category]
@@ -96,7 +94,8 @@ for idx_execution in range(n_iterations):
             capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
                                                 params={'log_dir': log_dir,
                                                         'idx_round': idx_round,
-                                                        'save_path': '/regular/' + '_step' + str(parameters.n_steps*idx_round)})
+                                                        'save_path': '/regular/' + '_step' + str(parameters.n_steps*idx_round) +
+                                                        '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1])})
             capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
             vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
             rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
@@ -126,8 +125,7 @@ for idx_execution in range(n_iterations):
             print('-------------------------------------------------------')
             print('Compute vernier offset for ' + category)
             
-            # Determine vernier_accuracy for our vernier/crowding/uncrowding stimuli 
-            # (associated indices: 0/1/2) & save everything in a txt-file
+            # Determine vernier_accuracy for our vernier/crowding/uncrowding stimuli
             n_idx = 3
             results = np.zeros(shape=(n_idx,))
             
@@ -138,7 +136,8 @@ for idx_execution in range(n_iterations):
                 capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
                                                 params={'log_dir': log_dir,
                                                         'idx_round': idx_round,
-                                                        'save_path': '/uncrowding/' + category[21:] + str(stim_idx) + '_step' + str(parameters.n_steps*idx_round)})
+                                                        'save_path': '/uncrowding/' + category[21:] + str(stim_idx) + '_step' + str(parameters.n_steps*idx_round) +
+                                                        '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1])})
                 capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
                 vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
                 rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
@@ -151,7 +150,7 @@ for idx_execution in range(n_iterations):
                 print('Finished calculations for stimulus type ' + str(stim_idx))
                 print('Result: ' + str(results[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
                 
-                txt_ranking_file_name = log_dir + '/ranking_step_' + str(parameters.n_steps*idx_round) + '.txt'
+                txt_ranking_file_name = log_dir + '/ranking_step_' + str(parameters.n_steps*idx_round) + '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
                 if not os.path.exists(txt_ranking_file_name):
                     with open(txt_ranking_file_name, 'w') as f:
                         f.write(category + str(stim_idx) + ' : \t' + str(results1) + ' : \t' + str(results2) + '\n')

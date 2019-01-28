@@ -5,7 +5,7 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 22.01.2019
+Last update on 28.01.2019
 -> introduction of nshapes and location loss
 -> reconstruction loss now optional
 -> added some summaries
@@ -20,6 +20,7 @@ Last update on 22.01.2019
 -> for condition random, we now add up shape_1_image and shape_2_image again
 -> plot_n_images now controls, how many images are shown in tensorboard per command
 -> reconstructions for prediction mode (now only for last round)
+-> always reconstruct vernier in prediction mode
 """
 
 import tensorflow as tf
@@ -202,7 +203,17 @@ def model_fn(features, labels, mode, params):
     ##########################################
     #            Prediction mode:            #
     ##########################################
-    if mode == tf.estimator.ModeKeys.PREDICT:
+    if mode == tf.estimator.ModeKeys.PREDICT:        
+        # If in prediction mode, we want to make sure to also have a reconstruction of the vernier:
+        vernier_decoder_input = create_masked_decoder_input(mask_with_labels, shapelabels[:, 0], shapelabels[:, 0], caps2_output, parameters)
+        vernier_output_reconstructed = compute_reconstruction(vernier_decoder_input, parameters, is_training, conv_output_sizes)
+        
+        vernier_img_reconstructed = tf.reshape(
+                vernier_output_reconstructed,
+                [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                name='vernier_img_reconstructed')
+        tf.summary.image('vernier_img_reconstructed', vernier_img_reconstructed, plot_n_images)
+          
         # If in prediction-mode use (one of) the following for predictions:
         # Since accuracy is calculated over whole batch, we have to repeat it
         # batch_size times (coz all prediction vectors must be same length)
