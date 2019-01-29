@@ -4,7 +4,7 @@ My capsnet: Main script
 Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-Last update on 28.01.2019
+Last update on 29.01.2019
 -> insertion of eval_throttle_secs parameter
 -> small change for save_params
 -> new validation and testing procedures
@@ -113,14 +113,20 @@ for idx_execution in range(n_iterations):
                 rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
                 rank_pred_proba = [p['rank_pred_proba'] for p in capser_out]
                 
-                results[stim_idx, n_category] += np.mean(vernier_accuracy)
+                # Get the the results for averaging over several trained networks only from the final round:
+                if idx_round==n_rounds:
+                    results[stim_idx, n_category] += np.mean(vernier_accuracy)
+                
+                # Get all the other results per round:
                 results0[stim_idx] = np.mean(vernier_accuracy)
                 results1 = np.unique(rank_pred_shapes)
                 results2 = np.mean(rank_pred_proba, 0)
                 res.append(np.mean(vernier_accuracy))
+
                 print('Finished calculations for stimulus type ' + str(stim_idx))
                 print('Result: ' + str(results0[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
                 
+                # Saving:
                 txt_ranking_file_name = log_dir + '/ranking_step_' + str(parameters.n_steps*idx_round) + '.txt'
                 if not os.path.exists(txt_ranking_file_name):
                     with open(txt_ranking_file_name, 'w') as f:
@@ -129,6 +135,7 @@ for idx_execution in range(n_iterations):
                     with open(txt_ranking_file_name, 'a') as f:
                         f.write(category + str(stim_idx) + ' : \t' + str(results1) + ' : \t' + str(results2) + '\n')
             
+            # Saving:
             txt_file_name = log_dir + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) + \
             '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
             if not os.path.exists(txt_file_name):
@@ -138,10 +145,12 @@ for idx_execution in range(n_iterations):
                 with open(txt_file_name, 'a') as f:
                     f.write(category + ' : \t' + str(results0) + '\n')
         
+        # Plotting:
         plot_uncrowding_results(res, cats, save=log_dir + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) +
                                 '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
 
 
+# Saving:
 final_result_file = parameters.logdir + '/final_results_iterations_' + str(n_iterations) + '.txt'
 for n_category in range(n_categories):
     category = parameters.test_crowding_data_paths[n_category]
