@@ -169,8 +169,8 @@ if testing:
                    centralize=parameters.centralized_shapes, reduce_df=parameters.reduce_df)
 
     # Individual test sets:
-    for i in range(len(shape_types_train)-1):
-        chosen_shape = shape_types_train[i+1]
+    for i in range(len(shape_types_train)):
+        chosen_shape = shape_types_train[i]
         test_file_path = parameters.test_data_paths[i]
         make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
                        parameters.n_test_samples, train_procedure, parameters.overlapping_shapes,
@@ -190,8 +190,8 @@ if testing_crowding:
                    parameters.n_test_samples, centralize=parameters.centralized_shapes, reduce_df=parameters.reduce_df)
 
     # Individual test sets:
-    for i in range(len(shape_types_test)-1):
-        chosen_shape = shape_types_test[i+1]
+    for i in range(len(shape_types_test)):
+        chosen_shape = shape_types_test[i]
         test_data_path = parameters.test_crowding_data_paths[i]
         if not os.path.exists(test_data_path):
             os.mkdir(test_data_path)

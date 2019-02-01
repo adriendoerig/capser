@@ -38,7 +38,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v5'
+MODEL_NAME = '_logs_v13'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -97,7 +97,7 @@ flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
 # shape_types for training have to have a range from 0 to max
 # the data_paths for the train and test have to match the chosen shape types 
 shape_types = [0, 1, 2, 3]
-test_shape_types = [0, 1, 2, 3, 412, 421, 413, 431, 423, 432]
+test_shape_types = [1, 2, 3, 412, 421, 413, 431, 423, 432]
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('test_shape_types', test_shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus')
@@ -106,13 +106,13 @@ flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.03, 0.07], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.14, 0.26], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.02, 0.04], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.025, 0.035], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
 flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
-flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust contrast, must be non-negative')
+flags.DEFINE_list('delta_contrast', [0.8, 1.2], 'min and max factor to adjust contrast, must be non-negative')
 
 
 ###########################
@@ -148,7 +148,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 8, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 3, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -169,7 +169,7 @@ flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay res
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
 flags.DEFINE_integer('n_steps', 2500, 'number of steps')
 flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
-flags.DEFINE_integer('n_iterations', 5, 'number of trained networks')
+flags.DEFINE_integer('n_iterations', 10, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
@@ -183,11 +183,11 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 ###########################
 flags.DEFINE_boolean('decode_reconstruction', True, 'decode the reconstruction and use reconstruction loss')
 
-flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
+flags.DEFINE_boolean('decode_nshapes', False, 'decode the number of shapes and use nshapes loss')
 nshapes_loss = 'xentropy'
 flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
-flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
+flags.DEFINE_boolean('decode_location', False, 'decode the shapes locations and use location loss')
 location_loss = 'xentropy'
 flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 
