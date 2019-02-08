@@ -38,7 +38,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v13'
+MODEL_NAME = '_logs_v26'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -106,13 +106,13 @@ flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.02, 0.04], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.025, 0.035], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0., 0.], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.05, 0.15], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
 flags.DEFINE_float('delta_brightness', 0.1, 'factor to adjust brightness (+/-), must be non-negative')
-flags.DEFINE_list('delta_contrast', [0.8, 1.2], 'min and max factor to adjust contrast, must be non-negative')
+flags.DEFINE_list('delta_contrast', [0.9, 1.1], 'min and max factor to adjust contrast, must be non-negative')
 
 
 ###########################
@@ -124,9 +124,9 @@ caps1_ndims = 1
 
 
 # Case of 3 conv layers:
-kernel1 = 4
+kernel1 = 5
 kernel2 = 4
-kernel3 = 5
+kernel3 = 4
 stride1 = 1
 stride2 = 2
 stride3 = 2

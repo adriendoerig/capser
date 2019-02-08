@@ -67,8 +67,7 @@ for idx_execution in range(n_iterations):
     # Create the estimator:
     my_checkpointing_config = tf.estimator.RunConfig(keep_checkpoint_max = 2)  # Retain the 2 most recent checkpoints.
     
-    capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
-                                    params={'log_dir': log_dir})
+    capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config, params={'log_dir': log_dir})
     eval_spec = tf.estimator.EvalSpec(lambda: eval_input_fn(parameters.val_data_path), steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
     
     # Save parameters from parameter file for reproducability
@@ -103,11 +102,7 @@ for idx_execution in range(n_iterations):
                 test_filename = category + '/' + str(stim_idx) + '.tfrecords'
                 
                 # Lets also get some reconstructions for prediction mode using the following path:
-                capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
-                                                params={'log_dir': log_dir,
-                                                        'idx_round': idx_round,
-                                                        'save_path': '/uncrowding/' + category[21:] + str(stim_idx) + '_step' + str(parameters.n_steps*idx_round) +
-                                                        '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1])})
+                capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, params={'log_dir': log_dir, 'get_reconstructions': False})
                 capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
                 vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
                 rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
@@ -163,3 +158,7 @@ for n_category in range(n_categories):
 
 print('... Finished capsnet script!')
 print('-------------------------------------------------------')
+
+
+# Get reconstructions:
+os.system('python my_capser_get_reconstructions.py')

@@ -54,19 +54,11 @@ def plot_uncrowding_results(results, categories, save=None):
     
     # plot bar width & colors
     width = .3333  # the width of the bars
-#    color0 = (179. / 255, 179. / 255, 179. / 255)
-#    color1 = (125. / 255, 163. / 255, 170. / 255)
-#    color2 = (209. / 255, 184. / 255, 148. / 255)
-#    color3 = (87. / 255, 140. / 255, 169. / 255)
-#    color4 = (203. / 255, 123. / 255, 123. / 255)
-#    color5 = (141. / 255, 179. / 255, 203. / 255)
-#    color6 = (229. / 255, 196. / 255, 148. / 255)
     color7 = (100. / 255, 170. / 255, 180. / 255)
 
     N = len(results)/3
     ind = np.arange(N)  # the x locations for the groups
     fig, ax = plt.subplots()
-    # color = [color0, color1, color1, color2, color2, color3, color3, color4, color4, color5, color5, color6, color6, color7, color7]
     ax.bar(ind - width / 3, results[0::3], width/3, color=color7, edgecolor='black')
     ax.bar(ind            , results[1::3], width/3, color=color7, edgecolor='black')
     ax.bar(ind + width / 3, results[2::3], width/3, color=color7, edgecolor='black')
@@ -187,14 +179,14 @@ def conv_layers(X, parameters, phase=True):
 
 def primary_caps_layer(conv_output, parameters):
     with tf.name_scope('2_primary_capsules'):
-        caps1_reshaped = tf.reshape(conv_output, [parameters.batch_size, parameters.caps1_ncaps, parameters.caps1_ndims], name='caps1_reshaped')
+        caps1_reshaped = tf.reshape(conv_output, [-1, parameters.caps1_ncaps, parameters.caps1_ndims], name='caps1_reshaped')
         caps1_output = squash(caps1_reshaped, name='caps1_output')
         caps1_output_norm = safe_norm(caps1_output, axis=-1, keepdims=False, name='caps1_output_norm')
         tf.summary.histogram('caps1_output_norm', caps1_output_norm)
         return caps1_output
 
 
-def secondary_caps_layer(caps1_output, parameters, W_init=None):
+def secondary_caps_layer(caps1_output, batch_size, parameters, W_init=None):
     with tf.name_scope('3_secondary_caps_layer'):
         # Initialize and repeat weights for further calculations:
         if W_init==None:
@@ -203,7 +195,7 @@ def secondary_caps_layer(caps1_output, parameters, W_init=None):
                 stddev=parameters.init_sigma, dtype=tf.float32, seed=parameters.random_seed, name='W_init')
 
         W = tf.Variable(W_init, dtype=tf.float32, name='W')
-        W_tiled = tf.tile(W, [parameters.batch_size, 1, 1, 1, 1], name='W_tiled')
+        W_tiled = tf.tile(W, [batch_size, 1, 1, 1, 1], name='W_tiled')
 
         # Create second array by repeating the output of the 1st layer 10 times:
         caps1_output_expanded = tf.expand_dims(caps1_output, -1, name='caps1_output_expanded')
@@ -214,7 +206,7 @@ def secondary_caps_layer(caps1_output, parameters, W_init=None):
         caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled, name='caps2_predicted')
         
         # Routing by agreement:
-        caps2_output = routing_by_agreement(caps2_predicted, parameters.batch_size, parameters)
+        caps2_output = routing_by_agreement(caps2_predicted, batch_size, parameters)
         
         # Compute the norm of the output for each output caps and each instance:
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')
@@ -252,9 +244,9 @@ def compute_margin_loss(caps2_output_norm, labels, parameters):
             T_shapelabels = T_shapelabels_raw
         T_shapelabels = tf.minimum(T_shapelabels, 1)
         present_error_raw = tf.square(tf.maximum(0., parameters.m_plus - caps2_output_norm), name='present_error_raw')
-        present_error = tf.reshape(present_error_raw, shape=(parameters.batch_size, parameters.caps2_ncaps), name='present_error')
+        present_error = tf.reshape(present_error_raw, shape=(-1, parameters.caps2_ncaps), name='present_error')
         absent_error_raw = tf.square(tf.maximum(0., caps2_output_norm - parameters.m_minus), name='absent_error_raw')
-        absent_error = tf.reshape(absent_error_raw, shape=(parameters.batch_size, parameters.caps2_ncaps), name='absent_error')
+        absent_error = tf.reshape(absent_error_raw, shape=(-1, parameters.caps2_ncaps), name='absent_error')
         L = tf.add(T_shapelabels * present_error, parameters.lambda_val * (1.0 - T_shapelabels) * absent_error, name='L')
         
         # Sum digit losses for each instance and compute mean:
@@ -281,11 +273,11 @@ def create_masked_decoder_input(mask_with_labels, labels, labels_pred, caps2_out
     with tf.name_scope('compute_decoder_input'):
         reconstruction_targets = tf.cond(mask_with_labels, lambda: labels, lambda: labels_pred, name='reconstruction_targets')
         reconstruction_mask = tf.one_hot(reconstruction_targets, depth=parameters.caps2_ncaps, name='reconstruction_mask')
-        reconstruction_mask = tf.reshape(reconstruction_mask, [parameters.batch_size, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
+        reconstruction_mask = tf.reshape(reconstruction_mask, [-1, 1, parameters.caps2_ncaps, 1, 1], name='reconstruction_mask')
         caps2_output_masked = tf.multiply(caps2_output, reconstruction_mask, name='caps2_output_masked')
         
         # Flatten decoder inputs:
-        decoder_input = tf.reshape(caps2_output_masked, [parameters.batch_size, parameters.caps2_ndims*parameters.caps2_ncaps], name='decoder_input')
+        decoder_input = tf.reshape(caps2_output_masked, [-1, parameters.caps2_ndims*parameters.caps2_ncaps], name='decoder_input')
         return decoder_input
 
 
@@ -334,7 +326,7 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
             else:
                 upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * bottleneck_units,
                                             activation=None, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction')
-            upsample1 = tf.reshape(upsample1, [parameters.batch_size, upsample_size1[0], upsample_size1[1], bottleneck_units],
+            upsample1 = tf.reshape(upsample1, [-1, upsample_size1[0], upsample_size1[1], bottleneck_units],
                                             name='reshaped_upsample_reconstruction')
 
             # Redo step from conv2 to primary caps (=conv3):
@@ -384,7 +376,7 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
                                                     use_bias=True, reuse=tf.AUTO_REUSE, activation=tf.nn.sigmoid, name='reconstructed_output')
             
             # Flatten the output to make it equal to the output of the fc
-            reconstructed_output = tf.reshape(reconstructed_output, [parameters.batch_size, parameters.n_output], name='reconstructed_output_flat')
+            reconstructed_output = tf.reshape(reconstructed_output, [-1, parameters.n_output], name='reconstructed_output_flat')
         
         else:
             raise SystemExit('\nPROBLEM: Your reconstruction decoder does not know what to do!\nCheck rec_decoder_type')
@@ -397,7 +389,7 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
 ################################
 def compute_reconstruction_loss(X, reconstructed_output, parameters):
     with tf.name_scope('compute_reconstruction_loss'):
-        imgs_flat = tf.reshape(X, [parameters.batch_size, parameters.n_output], name='imgs_flat')
+        imgs_flat = tf.reshape(X, [-1, parameters.n_output], name='imgs_flat')
         imgs_flat = tf.cast(imgs_flat, tf.float32)
         squared_difference = tf.square(imgs_flat - reconstructed_output, name='squared_difference')
         # reconstruction_loss = tf.reduce_mean(squared_difference, name='reconstruction_loss')

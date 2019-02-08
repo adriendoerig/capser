@@ -37,6 +37,7 @@ print('Starting capsnet script...')
 print('Chosen training procedure:', parameters.train_procedure)
 print('-------------------------------------------------------')
 
+
 ###########################
 #      Preparations:      #
 ###########################
@@ -63,8 +64,7 @@ for idx_execution in range(n_iterations):
     # Create the estimator:
     my_checkpointing_config = tf.estimator.RunConfig(keep_checkpoint_max = 2)  # Retain the 2 most recent checkpoints.
     
-    capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
-                                    params={'log_dir': log_dir})
+    capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config, params={'log_dir': log_dir})
     eval_spec = tf.estimator.EvalSpec(lambda: eval_input_fn(parameters.val_data_path), steps=parameters.eval_steps, throttle_secs=parameters.eval_throttle_secs)
     
     # Save parameters from parameter file for reproducability
@@ -91,11 +91,7 @@ for idx_execution in range(n_iterations):
             print('Compute vernier offset for ' + test_filename)
             
             # Determine vernier_accuracy for each shape type
-            capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
-                                                params={'log_dir': log_dir,
-                                                        'idx_round': idx_round,
-                                                        'save_path': '/regular/' + '_step' + str(parameters.n_steps*idx_round) +
-                                                        '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1])})
+            capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, params={'log_dir': log_dir, 'get_reconstructions': False})
             capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
             vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
             rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
@@ -106,6 +102,7 @@ for idx_execution in range(n_iterations):
             results2 = np.mean(rank_pred_proba, 0)
             print('Result: ' + str(results) + '; test_samples used: ' + str(len(vernier_accuracy)))
             
+            # Saving
             txt_file_name = log_dir + '/testing_results_step_' + str(parameters.n_steps*idx_round) + \
             '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
             if not os.path.exists(txt_file_name):
@@ -133,11 +130,7 @@ for idx_execution in range(n_iterations):
                 test_filename = category + '/' + str(stim_idx) + '.tfrecords'
                 
                 # Lets also get some reconstructions for prediction mode using the following path:
-                capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, config=my_checkpointing_config,
-                                                params={'log_dir': log_dir,
-                                                        'idx_round': idx_round,
-                                                        'save_path': '/uncrowding/' + category[21:] + str(stim_idx) + '_step' + str(parameters.n_steps*idx_round) +
-                                                        '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1])})
+                capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir, params={'log_dir': log_dir, 'get_reconstructions': False})
                 capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
                 vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
                 rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
@@ -150,6 +143,7 @@ for idx_execution in range(n_iterations):
                 print('Finished calculations for stimulus type ' + str(stim_idx))
                 print('Result: ' + str(results[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
                 
+                # Saving
                 txt_ranking_file_name = log_dir + '/ranking_step_' + str(parameters.n_steps*idx_round) + '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
                 if not os.path.exists(txt_ranking_file_name):
                     with open(txt_ranking_file_name, 'w') as f:
@@ -158,6 +152,7 @@ for idx_execution in range(n_iterations):
                     with open(txt_ranking_file_name, 'a') as f:
                         f.write(category + str(stim_idx) + ' : \t' + str(results1) + ' : \t' + str(results2) + '\n')
             
+            # Saving
             txt_file_name = log_dir + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) + \
             '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
             if not os.path.exists(txt_file_name):
@@ -173,3 +168,7 @@ for idx_execution in range(n_iterations):
 
 print('... Finished capsnet script!')
 print('-------------------------------------------------------')
+
+
+# Get reconstructions:
+os.system('python my_capser_get_reconstructions.py')

@@ -45,11 +45,11 @@ def model_fn(features, labels, mode, params):
     ##########################################
     #      Prepararing input variables:      #
     ##########################################
-    shape_1_images = features['shape_1_images']
-    shape_2_images = features['shape_2_images']
-    shapelabels = features['shapelabels']
-    nshapeslabels = features['nshapeslabels']
-    vernierlabels = features['vernier_offsets']
+    shape_1_images = tf.cast(features['shape_1_images'], tf.float32)
+    shape_2_images = tf.cast(features['shape_2_images'], tf.float32)
+    shapelabels = tf.cast(features['shapelabels'], tf.int64)
+    nshapeslabels = tf.cast(features['nshapeslabels'], tf.int64)
+    vernierlabels = tf.cast(features['vernier_offsets'], tf.int64)
     x_shape_1 = features['x_shape_1']
     y_shape_1 = features['y_shape_1']
     x_shape_2 = features['x_shape_2']
@@ -60,6 +60,11 @@ def model_fn(features, labels, mode, params):
     input_images = tf.add(shape_1_images, shape_2_images, name='input_images')
     input_images = tf.clip_by_value(input_images, parameters.clip_values[0], parameters.clip_values[1], name='input_images_clipped')
     tf.summary.image('full_input_images', input_images, plot_n_images)
+    
+    try:
+        batch_size = params['batch_size']
+    except:
+        batch_size = parameters.batch_size
 
 
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -89,7 +94,7 @@ def model_fn(features, labels, mode, params):
     caps1_output = primary_caps_layer(conv_output, parameters)
     
     # Create secondary caps and their output and also divide vernier caps activation and shape caps activation:
-    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, parameters)
+    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, batch_size, parameters)
     shape_1_caps_activation = caps2_output[:, :, 0, :, :]
     shape_1_caps_activation = tf.expand_dims(shape_1_caps_activation, 2)
 
@@ -144,11 +149,11 @@ def model_fn(features, labels, mode, params):
                 
                 shape_1_img_reconstructed = tf.reshape(
                         shape_1_output_reconstructed,
-                        [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                        [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                         name='shape_1_img_reconstructed')
                 shape_2_img_reconstructed = tf.reshape(
                         shape_2_output_reconstructed,
-                        [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                        [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                         name='shape_2_img_reconstructed')
 
                 # make an rgb tf.summary image. Note: there's sum fucked up dimension tweaking but it works.
@@ -160,8 +165,8 @@ def model_fn(features, labels, mode, params):
                 decoder_output_images_rgb_0 = tf.image.grayscale_to_rgb(shape_1_img_reconstructed) * color_masks[0, :, :, :]
                 decoder_output_images_rgb_1 = tf.image.grayscale_to_rgb(shape_2_img_reconstructed) * color_masks[1, :, :, :]
 
-                decoder_output_images_sum = decoder_output_images_rgb_0 + decoder_output_images_rgb_1
-                tf.summary.image('decoder_output_images_sum', decoder_output_images_sum, plot_n_images)
+                decoder_output_img = decoder_output_images_rgb_0 + decoder_output_images_rgb_1
+                tf.summary.image('decoder_output_img', decoder_output_img, plot_n_images)
                 
                 # Calculate reconstruction loss for shape_1 and shape_2 images batch
                 shape_1_reconstruction_loss = compute_reconstruction_loss(shape_1_images, shape_1_output_reconstructed, parameters)
@@ -178,7 +183,7 @@ def model_fn(features, labels, mode, params):
                 
                 decoder_output_img = tf.reshape(
                         shape_1_output_reconstructed,
-                        [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                        [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                         name='shape_1_img_reconstructed')
     
                 tf.summary.image('decoder_output_img', decoder_output_img, plot_n_images)
@@ -210,24 +215,22 @@ def model_fn(features, labels, mode, params):
         
         vernier_img_reconstructed = tf.reshape(
                 vernier_output_reconstructed,
-                [parameters.batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
                 name='vernier_img_reconstructed')
-        tf.summary.image('vernier_img_reconstructed', vernier_img_reconstructed, plot_n_images)
           
         # If in prediction-mode use (one of) the following for predictions:
         # Since accuracy is calculated over whole batch, we have to repeat it
         # batch_size times (coz all prediction vectors must be same length)
-        predictions = {'vernier_accuracy': tf.ones(shape=parameters.batch_size) * vernieroffset_accuracy,
-                       'rank_pred_shapes': rank_pred_shapes,
-                       'rank_pred_proba': rank_pred_proba}
-        
-        if params['idx_round']==parameters.n_rounds:
-            pred_summary_hook = tf.train.SummarySaverHook(save_steps=1,
-                                                          output_dir=log_dir + params['save_path'],
-                                                          summary_op=tf.summary.merge_all())
-            spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, prediction_hooks=[pred_summary_hook])
+        if params['get_reconstructions']:
+            predictions = {'decoder_output_img1': shape_1_img_reconstructed,
+                           'decoder_output_img2': shape_2_img_reconstructed,
+                           'decoder_vernier_img': vernier_img_reconstructed}
         else:
-            spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
+            predictions = {'vernier_accuracy': tf.ones(shape=batch_size) * vernieroffset_accuracy,
+                           'rank_pred_shapes': rank_pred_shapes,
+                           'rank_pred_proba': rank_pred_proba}
+        
+        spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
 
     ##########################################
