@@ -4,7 +4,7 @@ My capsnet: my_batchmaker!
 Involving all basic shapes (verniers, squares, circles, polygons, stars)
 @author: Lynn
 
-Last update on 28.01.2019
+Last update on 18.02.2019
 -> added requirements for nshape and location loss
 -> nshapeslabels now with index labels [0, len(n_shapes)]
 -> added overlapping_shapes parameter
@@ -15,6 +15,7 @@ Last update on 28.01.2019
 -> implemented the possibility to have centralized shapes only
 -> for the data augmentation, we need the real nshapelabels and not just the idx
 -> you can reduce the df for the x position of all shapes to have a fairer comparison
+-> again: all shapes included
 """
 
 import numpy as np
@@ -155,15 +156,13 @@ class stim_maker_fn:
         if shapeID == 3:
             patch = self.drawPolygon(4, 0)
         if shapeID == 4:
+            patch = self.drawStar(4, np.pi/4, np.pi/2, 3., 5)
+        if shapeID == 5:
+            patch = self.drawPolygon(6, 0)
+        if shapeID == 6:
+            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
+        if shapeID == 7:
             patch = self.drawStuff(5)
-#        if shapeID == 4:
-#            patch = self.drawStar(4, np.pi/4, np.pi/2, 2.5, 5)
-#        if shapeID == 5:
-#            patch = self.drawPolygon(6, 0)
-#        if shapeID == 6:
-#            patch = self.drawStuff(5)
-#        if shapeID == 7:
-#            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
         return patch
 
     
@@ -222,7 +221,7 @@ class stim_maker_fn:
             offset_direction = np.random.randint(0, 2)
             vernier_patch = self.drawShape(shapeID=0, offset_direction=offset_direction)
 
-            # the 42-category is for creating squares_stars
+            # the 4XY-category is for creating X-Y configurations
             if selected_shape==412:
                 shape_patch = self.drawShape(shapeID=1)
                 uncrowding_patch = self.drawShape(shapeID=2)
@@ -235,12 +234,84 @@ class stim_maker_fn:
             elif selected_shape==431:
                 shape_patch = self.drawShape(shapeID=3)
                 uncrowding_patch = self.drawShape(shapeID=1)
+            elif selected_shape==414:
+                shape_patch = self.drawShape(shapeID=1)
+                uncrowding_patch = self.drawShape(shapeID=4)
+            elif selected_shape==441:
+                shape_patch = self.drawShape(shapeID=4)
+                uncrowding_patch = self.drawShape(shapeID=1)
+            elif selected_shape==415:
+                shape_patch = self.drawShape(shapeID=1)
+                uncrowding_patch = self.drawShape(shapeID=5)
+            elif selected_shape==451:
+                shape_patch = self.drawShape(shapeID=5)
+                uncrowding_patch = self.drawShape(shapeID=1)
+            elif selected_shape==416:
+                shape_patch = self.drawShape(shapeID=1)
+                uncrowding_patch = self.drawShape(shapeID=6)
+            elif selected_shape==461:
+                shape_patch = self.drawShape(shapeID=6)
+                uncrowding_patch = self.drawShape(shapeID=1)
             elif selected_shape==423:
                 shape_patch = self.drawShape(shapeID=2)
                 uncrowding_patch = self.drawShape(shapeID=3)
             elif selected_shape==432:
                 shape_patch = self.drawShape(shapeID=3)
                 uncrowding_patch = self.drawShape(shapeID=2)
+            elif selected_shape==424:
+                shape_patch = self.drawShape(shapeID=2)
+                uncrowding_patch = self.drawShape(shapeID=4)
+            elif selected_shape==442:
+                shape_patch = self.drawShape(shapeID=4)
+                uncrowding_patch = self.drawShape(shapeID=2)
+            elif selected_shape==425:
+                shape_patch = self.drawShape(shapeID=2)
+                uncrowding_patch = self.drawShape(shapeID=5)
+            elif selected_shape==452:
+                shape_patch = self.drawShape(shapeID=5)
+                uncrowding_patch = self.drawShape(shapeID=2)
+            elif selected_shape==426:
+                shape_patch = self.drawShape(shapeID=2)
+                uncrowding_patch = self.drawShape(shapeID=6)
+            elif selected_shape==462:
+                shape_patch = self.drawShape(shapeID=6)
+                uncrowding_patch = self.drawShape(shapeID=2)
+            elif selected_shape==434:
+                shape_patch = self.drawShape(shapeID=3)
+                uncrowding_patch = self.drawShape(shapeID=4)
+            elif selected_shape==443:
+                shape_patch = self.drawShape(shapeID=4)
+                uncrowding_patch = self.drawShape(shapeID=3)
+            elif selected_shape==435:
+                shape_patch = self.drawShape(shapeID=3)
+                uncrowding_patch = self.drawShape(shapeID=5)
+            elif selected_shape==453:
+                shape_patch = self.drawShape(shapeID=5)
+                uncrowding_patch = self.drawShape(shapeID=3)
+            elif selected_shape==436:
+                shape_patch = self.drawShape(shapeID=3)
+                uncrowding_patch = self.drawShape(shapeID=6)
+            elif selected_shape==463:
+                shape_patch = self.drawShape(shapeID=6)
+                uncrowding_patch = self.drawShape(shapeID=3)
+            elif selected_shape==445:
+                shape_patch = self.drawShape(shapeID=4)
+                uncrowding_patch = self.drawShape(shapeID=5)
+            elif selected_shape==454:
+                shape_patch = self.drawShape(shapeID=5)
+                uncrowding_patch = self.drawShape(shapeID=4)
+            elif selected_shape==446:
+                shape_patch = self.drawShape(shapeID=4)
+                uncrowding_patch = self.drawShape(shapeID=6)
+            elif selected_shape==464:
+                shape_patch = self.drawShape(shapeID=6)
+                uncrowding_patch = self.drawShape(shapeID=4)
+            elif selected_shape==456:
+                shape_patch = self.drawShape(shapeID=5)
+                uncrowding_patch = self.drawShape(shapeID=6)
+            elif selected_shape==465:
+                shape_patch = self.drawShape(shapeID=6)
+                uncrowding_patch = self.drawShape(shapeID=5)
             else:
                 shape_patch = self.drawShape(shapeID=selected_shape)
             
@@ -501,8 +572,8 @@ class stim_maker_fn:
 #n_shapes = [1, 3, 5]
 ##batch_size = parameters.batch_size
 #batch_size = 10
-#shape_types = parameters.shape_types
-##shape_types = [0, 1, 2, 3]
+##shape_types = parameters.shape_types
+##shape_types = [0, 1, 2, 3, 4, 5, 6, 7]
 ##train_procedure = parameters.train_procedure
 #train_procedure = 'vernier_shape'
 #overlap = parameters.overlapping_shapes
@@ -514,7 +585,7 @@ class stim_maker_fn:
 #test = stim_maker_fn(imSize, shapeSize, barWidth)
 
 #plt.imshow(test.drawShape(5))
-#test.plotStim([1, 2, 4, 5], 0.01)
+#test.plotStim([1, 2, 3, 4], 0.01)
 
 #[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
 # nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
@@ -525,7 +596,7 @@ class stim_maker_fn:
 
 #[vernier_images, shape_images,  shapelabels_idx, vernierlabels_idx,
 # nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(
-# 3, n_shapes, batch_size, None, centralize, reduce_df)
+# 465, n_shapes, batch_size, None, centralize, reduce_df)
 #for i in range(batch_size):
 #    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
 #    plt.pause(0.5)

@@ -30,7 +30,7 @@ from my_batchmaker import stim_maker_fn
 ##################################
 #       Extra parameters:        #
 ##################################
-training = 0
+training = 1
 testing = 1
 testing_crowding = 1
 
@@ -171,6 +171,7 @@ if testing:
 
     # Individual test sets:
     for i in range(len(parameters.test_data_paths)):
+        # We use +1 here to skip a vernier-vernier configuration
         chosen_shape = shape_types_train[i+1]
         test_file_path = parameters.test_data_paths[i]
         make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
