@@ -4,13 +4,14 @@ My capsnet: Main script
 Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-Last update on 29.01.2019
+Last update on 14.02.2019
 -> insertion of eval_throttle_secs parameter
 -> small change for save_params
 -> new validation and testing procedures
 -> implemented n_rounds to decide how often we evaluate the test sets
 -> reconstructions for prediction mode
 -> update and check to guarantee the similarity to the main script
+-> added final stds
 """
 
 import logging
@@ -48,7 +49,7 @@ tf.set_random_seed(42)
 n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
 n_idx = 3
-results = np.zeros(shape=(n_idx, n_categories))
+results = np.zeros(shape=(n_categories, n_idx, n_iterations))
 
 
 for idx_execution in range(n_iterations):
@@ -110,7 +111,7 @@ for idx_execution in range(n_iterations):
                 
                 # Get the the results for averaging over several trained networks only from the final round:
                 if idx_round==n_rounds:
-                    results[stim_idx, n_category] += np.mean(vernier_accuracy)
+                    results[n_category, stim_idx, idx_execution] = np.mean(vernier_accuracy)
                 
                 # Get all the other results per round:
                 results0[stim_idx] = np.mean(vernier_accuracy)
@@ -145,16 +146,29 @@ for idx_execution in range(n_iterations):
                                 '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
 
 
-# Saving:
+# Saving final means:
 final_result_file = parameters.logdir + '/final_results_iterations_' + str(n_iterations) + '.txt'
+final_results_mean = np.mean(results, 2)
 for n_category in range(n_categories):
     category = parameters.test_crowding_data_paths[n_category]
     if not os.path.exists(final_result_file):
         with open(final_result_file, 'w') as f:
-            f.write(category + ' : \t' + str(results[:, n_category] / n_iterations) + '\n')
+            f.write(category + ' : \t' + str(final_results_mean[n_category, :]) + '\n')
     else:
         with open(final_result_file, 'a') as f:
-            f.write(category + ' : \t' + str(results[:, n_category] / n_iterations) + '\n')
+            f.write(category + ' : \t' + str(final_results_mean[n_category, :]) + '\n')
+
+# Saving final stds:
+final_result_file = parameters.logdir + '/final_results_std_iterations_' + str(n_iterations) + '.txt'
+final_results_std = np.std(results, 2)
+for n_category in range(n_categories):
+    category = parameters.test_crowding_data_paths[n_category]
+    if not os.path.exists(final_result_file):
+        with open(final_result_file, 'w') as f:
+            f.write(category + ' : \t' + str(final_results_std[n_category, :]) + '\n')
+    else:
+        with open(final_result_file, 'a') as f:
+            f.write(category + ' : \t' + str(final_results_std[n_category, :]) + '\n')
 
 print('... Finished capsnet script!')
 print('-------------------------------------------------------')

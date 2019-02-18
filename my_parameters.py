@@ -38,7 +38,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v26'
+MODEL_NAME = '_logs_v4'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -96,7 +96,7 @@ flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
 
 # shape_types for training have to have a range from 0 to max
 # the data_paths for the train and test have to match the chosen shape types 
-shape_types = [0, 1, 2, 3]
+shape_types = [0, 1, 2, 3, 4]
 test_shape_types = [1, 2, 3, 412, 421, 413, 431, 423, 432]
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('test_shape_types', test_shape_types, 'pool of shapes (see batchmaker)')
@@ -119,16 +119,16 @@ flags.DEFINE_list('delta_contrast', [0.9, 1.1], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)*2
-caps1_ndims = 1
+caps1_nmaps = len(shape_types)
+caps1_ndims = 2
 
 
 # Case of 3 conv layers:
 kernel1 = 5
-kernel2 = 4
-kernel3 = 4
+kernel2 = 5
+kernel3 = 6
 stride1 = 1
-stride2 = 2
+stride2 = 1
 stride3 = 2
 
 # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
@@ -148,7 +148,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 3, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 5, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -164,10 +164,10 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 5000, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 2500, 'number of steps')
+flags.DEFINE_integer('n_steps', 20000, 'number of steps')
 flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 10, 'number of trained networks')
 

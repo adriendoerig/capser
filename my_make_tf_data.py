@@ -7,7 +7,7 @@ This code is inspired by this youtube-vid and code:
 https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 
-Last update on 28.01.2019
+Last update on 15.02.2019
 -> added requirements for nshapes and location loss
 -> added overlapping_shapes parameter
 -> new validation and testing procedures
@@ -15,6 +15,7 @@ Last update on 28.01.2019
 -> implemented the possibility to have centralized shapes only
 -> for the data augmentation, we need the real nshapelabels and not just the idx
 -> you can reduce the df for the x position of all shapes to have a fairer comparison
+-> correction of small bug
 """
 
 import sys
@@ -29,7 +30,7 @@ from my_batchmaker import stim_maker_fn
 ##################################
 #       Extra parameters:        #
 ##################################
-training = 1
+training = 0
 testing = 1
 testing_crowding = 1
 
@@ -169,8 +170,8 @@ if testing:
                    centralize=parameters.centralized_shapes, reduce_df=parameters.reduce_df)
 
     # Individual test sets:
-    for i in range(len(shape_types_train)):
-        chosen_shape = shape_types_train[i]
+    for i in range(len(parameters.test_data_paths)):
+        chosen_shape = shape_types_train[i+1]
         test_file_path = parameters.test_data_paths[i]
         make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
                        parameters.n_test_samples, train_procedure, parameters.overlapping_shapes,

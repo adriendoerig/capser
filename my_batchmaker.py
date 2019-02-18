@@ -155,11 +155,13 @@ class stim_maker_fn:
         if shapeID == 3:
             patch = self.drawPolygon(4, 0)
         if shapeID == 4:
-            patch = self.drawStar(4, np.pi/4, np.pi/2, 2.5, 5)
-        if shapeID == 5:
-            patch = self.drawPolygon(6, 0)
-        if shapeID == 6:
             patch = self.drawStuff(5)
+#        if shapeID == 4:
+#            patch = self.drawStar(4, np.pi/4, np.pi/2, 2.5, 5)
+#        if shapeID == 5:
+#            patch = self.drawPolygon(6, 0)
+#        if shapeID == 6:
+#            patch = self.drawStuff(5)
 #        if shapeID == 7:
 #            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
         return patch
