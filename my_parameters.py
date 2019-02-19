@@ -39,7 +39,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v3'
+MODEL_NAME = '_logs_v1'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -162,7 +162,7 @@ flags.DEFINE_list('delta_contrast', [0.9, 1.1], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)*2
+caps1_nmaps = len(shape_types)*3
 caps1_ndims = 1
 
 
@@ -191,7 +191,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 4, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 5, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -207,10 +207,10 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 250, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 2500, 'number of steps')
+flags.DEFINE_integer('n_steps', 5000, 'number of steps')
 flags.DEFINE_integer('n_rounds', 2, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 10, 'number of trained networks')
 
@@ -226,11 +226,11 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 ###########################
 flags.DEFINE_boolean('decode_reconstruction', True, 'decode the reconstruction and use reconstruction loss')
 
-flags.DEFINE_boolean('decode_nshapes', False, 'decode the number of shapes and use nshapes loss')
+flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
 nshapes_loss = 'xentropy'
 flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
-flags.DEFINE_boolean('decode_location', False, 'decode the shapes locations and use location loss')
+flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
 location_loss = 'xentropy'
 flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 
