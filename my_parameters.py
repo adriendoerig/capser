@@ -39,7 +39,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v1'
+MODEL_NAME = '_logs_v108'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -229,7 +229,7 @@ flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and us
 nshapes_loss = 'xentropy'
 flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
-flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
+flags.DEFINE_boolean('decode_location', False, 'decode the shapes locations and use location loss')
 location_loss = 'xentropy'
 flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 
