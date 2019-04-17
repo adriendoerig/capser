@@ -153,16 +153,16 @@ class stim_maker_fn:
             patch = self.drawSquare(-1)
         if shapeID == 2:
             patch = self.drawCircle(-1)
+#        if shapeID == 3:
+#            patch = self.drawPolygon(4, 0)
         if shapeID == 3:
-            patch = self.drawPolygon(4, 0)
-        if shapeID == 4:
             patch = self.drawStar(4, np.pi/4, np.pi/2, 3., 5)
-        if shapeID == 5:
-            patch = self.drawPolygon(6, 0)
-        if shapeID == 6:
-            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
-        if shapeID == 7:
-            patch = self.drawStuff(5)
+#        if shapeID == 5:
+#            patch = self.drawPolygon(6, 0)
+#        if shapeID == 3:
+#            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
+#        if shapeID == 7:
+#            patch = self.drawStuff(5)
         return patch
 
     
@@ -510,32 +510,54 @@ class stim_maker_fn:
                     col_shape_2_init = np.random.randint(0, self.imSize[1] - self.shapeSize*selected_repetitions_2)
                     col_shape_2 = col_shape_2_init
             
-            # Repeat shape_1 selected_repetitions times if not vernier:
-            if selected_shape_1!=0:
-                for i in range(selected_repetitions_1):
-                    shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
-                                  col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
-                    col_shape_1 += self.shapeSize
-            
             # Repeat shape_2 selected_repetitions times:
             for i in range(selected_repetitions_2):
                 shape_2_image[row_shape_2:row_shape_2+self.shapeSize,
                               col_shape_2:col_shape_2+self.shapeSize] += shape_2_patch
                 col_shape_2 += self.shapeSize
 
-            # If vernier, do we allow for overlap between vernier and shape image?
-            if selected_shape_1==0:
-                if overlap or centralize:
+            # Do we allow for overlap between vernier and shape image?
+            if overlap or centralize:
+                    if selected_shape_1==0:
                         shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
                                       col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
-                else:
-                    while np.sum(shape_2_image[row_shape_1:row_shape_1+self.shapeSize,
-                                               col_shape_1:col_shape_1+self.shapeSize] + shape_1_patch) > np.sum(shape_1_patch):
-                        row_shape_1 = np.random.randint(0, self.imSize[0] - self.shapeSize)
+                    else:
+                        for i in range(selected_repetitions_1):
+                            shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
+                                          col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
+                            col_shape_1 += self.shapeSize
+            else:
+                while np.sum(shape_2_image[row_shape_1:row_shape_1+self.shapeSize,
+                                           col_shape_2_init:col_shape_2+self.shapeSize]) + np.sum(shape_1_patch) > np.sum(shape_1_patch):
+                    row_shape_1 = np.random.randint(0, self.imSize[0] - self.shapeSize)
+                    row_shape_2 = np.random.randint(0, self.imSize[0] - self.shapeSize)
+                
+                    # It might be useful to replace shape_2 too:
+                    shape_2_image = np.zeros(shape=[self.imSize[0], self.imSize[1]], dtype=np.float32)
+                    col_shape_2 = col_shape_2_init
+                    for i in range(selected_repetitions_2):
+                        shape_2_image[row_shape_2:row_shape_2+self.shapeSize,
+                                      col_shape_2:col_shape_2+self.shapeSize] += shape_2_patch
+                        col_shape_2 += self.shapeSize
+                    
+                    if reduce_df:
+                        # We want to make the degrees of freedom for position on the x axis fair:
+                        imSize_adapted_1 = self.imSize[1] - (max(n_shapes)-selected_repetitions_1)*self.shapeSize
+                        imStart_1 = int((self.imSize[1] - imSize_adapted_1) / 2)
+                        col_shape_1_init = np.random.randint(imStart_1, imStart_1+imSize_adapted_1 - self.shapeSize*selected_repetitions_1)
+                        col_shape_1 = col_shape_1_init
+                    else:
                         col_shape_1 = np.random.randint(0, self.imSize[1] - self.shapeSize)
+                
+                if selected_shape_1==0:
                     shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
                                   col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
                     col_shape_1_init = col_shape_1
+                else:
+                    for i in range(selected_repetitions_1):
+                        shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
+                                      col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
+                        col_shape_1 += self.shapeSize
             
 
             shape_1_images[idx_batch, :, :] = shape_1_image
@@ -563,40 +585,40 @@ class stim_maker_fn:
 #          HAVE A LOOK AT WHAT THE CODE DOES                #
 #############################################################
 #from my_parameters import parameters
-#imSize = parameters.im_size
-##imSize = [20, 75]
+##imSize = parameters.im_size
+#imSize = [20, 75]
 #shapeSize = parameters.shape_size
 ##shapeSize = 14
 #barWidth = parameters.bar_width
-##n_shapes = parameters.n_shapes
-#n_shapes = [1, 3, 5]
+#n_shapes = parameters.n_shapes
+##n_shapes = [1, 3, 5]
 ##batch_size = parameters.batch_size
 #batch_size = 10
 ##shape_types = parameters.shape_types
-##shape_types = [0, 1, 2, 3, 4, 5, 6, 7]
-##train_procedure = parameters.train_procedure
-#train_procedure = 'vernier_shape'
+#shape_types = [0, 1, 2, 3]
+#train_procedure = parameters.train_procedure
+##train_procedure = 'vernier_shape'
 #overlap = parameters.overlapping_shapes
 ##overlap = True
-##centralize = parameters.centralized_shapes
-#centralize = False
+#centralize = parameters.centralized_shapes
+##centralize = False
 #reduce_df = parameters.reduce_df
-#reduce_df = True
+##reduce_df = True
 #test = stim_maker_fn(imSize, shapeSize, barWidth)
-
-#plt.imshow(test.drawShape(5))
-#test.plotStim([1, 2, 3, 4], 0.01)
-
-#[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
-# nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
-# shape_types, n_shapes, batch_size, train_procedure, overlap=overlap, centralize=centralize, reduce_df=reduce_df)
-#for i in range(batch_size):
-#    plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
-#    plt.pause(0.5)
-
+#
+##plt.imshow(test.drawShape(5))
+##test.plotStim([1, 2, 3, 4], 0.01)
+#
+##[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
+## nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
+## shape_types, n_shapes, batch_size, train_procedure, overlap=overlap, centralize=centralize, reduce_df=reduce_df)
+##for i in range(batch_size):
+##    plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
+##    plt.pause(0.5)
+#
 #[vernier_images, shape_images,  shapelabels_idx, vernierlabels_idx,
 # nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(
-# 465, n_shapes, batch_size, None, centralize, reduce_df)
+# 3, n_shapes, batch_size, None, centralize, reduce_df)
 #for i in range(batch_size):
 #    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
 #    plt.pause(0.5)

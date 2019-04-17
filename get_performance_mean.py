@@ -49,8 +49,8 @@ for idx_execution in range(n_iterations):
 
 
 # Saving:
-final_result_file = parameters.logdir + '/final_results_std_iterations_' + str(n_iterations) + '.txt'
-final_results = np.round(np.std(results, 2), 3)
+final_result_file = parameters.logdir + '/final_results_iterations_' + str(n_iterations) + '.txt'
+final_results = np.mean(results, 2)
 for n_category in range(n_categories):
     category = parameters.test_crowding_data_paths[n_category]
     if not os.path.exists(final_result_file):

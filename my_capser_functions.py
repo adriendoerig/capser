@@ -326,6 +326,7 @@ def compute_reconstruction(decoder_input,  parameters, phase=True, conv_output_s
             else:
                 upsample1 = tf.layers.dense(decoder_input, upsample_size1[0] * upsample_size1[1] * bottleneck_units,
                                             activation=None, reuse=tf.AUTO_REUSE, name='upsample1_reconstruction')
+            upsample1 = tf.nn.elu(upsample1, name='upsample1_activation')
             upsample1 = tf.reshape(upsample1, [-1, upsample_size1[0], upsample_size1[1], bottleneck_units],
                                             name='reshaped_upsample_reconstruction')
 
