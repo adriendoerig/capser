@@ -32,7 +32,6 @@ print('Starting capsnet script...')
 print('Chosen training procedure:', parameters.train_procedure)
 print('-------------------------------------------------------')
 
-
 ###########################
 #      Preparations:      #
 ###########################

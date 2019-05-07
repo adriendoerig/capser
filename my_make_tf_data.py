@@ -197,7 +197,7 @@ if testing_crowding:
         test_data_path = parameters.test_crowding_data_paths[i]
         if not os.path.exists(test_data_path):
             os.mkdir(test_data_path)
-        for stim_idx in range(3):
+        for stim_idx in range(2):
             test_file_path = test_data_path + '/' + str(stim_idx) + '.tfrecords'
             make_tfrecords(test_file_path, stim_maker, mode, test_config, parameters.n_shapes,
                            parameters.n_test_samples, stim_idx=stim_idx, centralize=parameters.centralized_shapes,

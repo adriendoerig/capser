@@ -490,38 +490,38 @@ class stim_maker_fn:
 #############################################################
 #          HAVE A LOOK AT WHAT THE CODE DOES                #
 #############################################################
-from my_parameters import parameters
-imSize = parameters.im_size
-#imSize = [16, 48]
-shapeSize = parameters.shape_size
-#shapeSize = [14, 11, 6]
-barWidth = parameters.bar_width
-offset = parameters.offset
-n_shapes = parameters.n_shapes
-#batch_size = parameters.batch_size
-batch_size = 20
-shape_types = parameters.shape_types
-#shape_types = [0, 1, 2, 3, 4, 5, 6]
-crowding_config = [1, 1]
-train_procedure = parameters.train_procedure
-overlap = parameters.overlapping_shapes
-centralize = parameters.centralized_shapes
-#reduce_df = parameters.reduce_df
-reduce_df = True
-test = stim_maker_fn(imSize, shapeSize, barWidth, offset)
+#from my_parameters import parameters
+#imSize = parameters.im_size
+##imSize = [16, 48]
+#shapeSize = parameters.shape_size
+##shapeSize = [14, 11, 6]
+#barWidth = parameters.bar_width
+#offset = parameters.offset
+#n_shapes = parameters.n_shapes
+##batch_size = parameters.batch_size
+#batch_size = 20
+#shape_types = parameters.shape_types
+##shape_types = [0, 1, 2, 3, 4, 5, 6]
+#crowding_config = [1, 1]
+#train_procedure = parameters.train_procedure
+#overlap = parameters.overlapping_shapes
+#centralize = parameters.centralized_shapes
+##reduce_df = parameters.reduce_df
+#reduce_df = True
+#test = stim_maker_fn(imSize, shapeSize, barWidth, offset)
 
 #plt.imshow(test.drawShape(1))
 #test.plotStim([3, 0, 4], offset, 0.01)
 
-[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
- nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
- shape_types, n_shapes, batch_size, train_procedure, overlap, centralize, reduce_df)
-for i in range(batch_size):
-    if train_procedure=='random':
-        plt.imshow(np.squeeze(shape_1_images[i, :, :]))
-    else:
-        plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
-    plt.pause(0.5)
+#[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
+# nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
+# shape_types, n_shapes, batch_size, train_procedure, overlap, centralize, reduce_df)
+#for i in range(batch_size):
+#    if train_procedure=='random':
+#        plt.imshow(np.squeeze(shape_1_images[i, :, :]))
+#    else:
+#        plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
+#    plt.pause(0.5)
 
 #[vernier_images, shape_images,  shapelabels_idx, vernierlabels_idx,
 # nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(
