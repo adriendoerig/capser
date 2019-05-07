@@ -3,30 +3,9 @@
 My capsnet: all parameters
 @author: Lynn
 
-Last update on 18.02.2019
--> added nshapes and location loss
--> added alphas for each coordinate type
--> added overlapping_shapes parameter
--> added data augmentation (noise, flipping, contrast, brightness)
--> network can be run with 2 or 3 conv layers now
--> you can choose now between xentropy of squared_diff as location or nshapes loss
--> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
--> added some parameters for the reconstruction script
--> train and test noise is randomly changed now between a lower and upper border
--> change for random_seed with regards to change in secondary_caps_layer()
--> small changes due to finally working reconstruction script
--> some changes in parameter names
--> you can choose between a reconstruction decoder with fc or conv layers
--> now we always have as many primary caps types as train_shape_types
--> new dataset
--> new validation and testing procedures
--> use train_procedures 'vernier_shape', 'random_random' or 'random'
--> implemented n_rounds to decide how often we evaluate the test sets
--> implemented a variety of uncrowding stimuli (412+)
--> implemented the possibility to have centralized_shapes only (combine this with random procedure!)
--> decide whether to use data augment or not
--> you can reduce the df for the x position of all shapes to have a fairer comparison
--> all shapes included again
+Last update on 07.05.2019
+-> adaptation for new project (e.g. shapeSize as list, test_configs as dict,
+different iter_routing for training and testing)
 """
 
 import tensorflow as tf
@@ -46,52 +25,19 @@ flags.DEFINE_string('data_path', data_path, 'path where all data files are locat
 flags.DEFINE_string('train_data_path', data_path+'/train.tfrecords', 'path for tfrecords with training set')
 flags.DEFINE_string('val_data_path', data_path+'/val.tfrecords', 'path for tfrecords with validation set')
 flags.DEFINE_list('test_data_paths',
-                  [data_path+'/test_squares.tfrecords',
-                   data_path+'/test_circles.tfrecords',
-                   data_path+'/test_rhombus.tfrecords',
-                   data_path+'/test_4stars.tfrecords',
-                   data_path+'/test_hexagons.tfrecords',
-                   data_path+'/test_6stars.tfrecords',], 'path for tfrecords with test set')
+                  [data_path+'/test_lines.tfrecords',
+                   data_path+'/test_rectangles.tfrecords',
+                   data_path+'/test_cuboids.tfrecords',
+                   data_path+'/test_shuffled_cuboids.tfrecords'
+                   ], 'path for tfrecords with test set')
 
 # For crowding/uncrowding stimuli:
 flags.DEFINE_string('val_crowding_data_path', data_path+'/val_crowding.tfrecords', 'path for tfrecords with validation crowding set')
 flags.DEFINE_list('test_crowding_data_paths',
-                  [data_path+'/test_crowding_squares',
-                   data_path+'/test_crowding_circles',
-                   data_path+'/test_crowding_rhombus',
-                   data_path+'/test_crowding_4stars',
-                   data_path+'/test_crowding_hexagons',
-                   data_path+'/test_crowding_6stars',
-                   data_path+'/test_crowding_squares_circles',
-#                   data_path+'/test_crowding_circles_squares',
-#                   data_path+'/test_crowding_squares_rhombus',
-#                   data_path+'/test_crowding_rhombus_squares',
-                   data_path+'/test_crowding_squares_4stars',
-#                   data_path+'/test_crowding_4stars_squares',
-#                   data_path+'/test_crowding_squares_hexagons',
-#                   data_path+'/test_crowding_hexagons_squares',
-                   data_path+'/test_crowding_squares_6stars',
-#                   data_path+'/test_crowding_6stars_squares',
-                   data_path+'/test_crowding_circles_rhombus',
-#                   data_path+'/test_crowding_rhombus_circles',
-#                   data_path+'/test_crowding_circles_4stars',
-#                   data_path+'/test_crowding_4stars_circles',
-                   data_path+'/test_crowding_circles_hexagons',
-#                   data_path+'/test_crowding_hexagons_circles',
-#                   data_path+'/test_crowding_circles_6stars',
-#                   data_path+'/test_crowding_6stars_circles',
-                   data_path+'/test_crowding_rhombus_4stars',
-#                   data_path+'/test_crowding_4stars_rhombus',
-#                   data_path+'/test_crowding_rhombus_hexagons',
-#                   data_path+'/test_crowding_hexagons_rhombus',
-                   data_path+'/test_crowding_rhombus_6stars',
-#                   data_path+'/test_crowding_6stars_rhombus',
-                   data_path+'/test_crowding_4stars_hexagons',
-#                   data_path+'/test_crowding_hexagons_4stars',
-#                   data_path+'/test_crowding_4stars_6stars',
-                   data_path+'/test_crowding_6stars_4stars',
-                   data_path+'/test_crowding_hexagons_6stars',
-#                   data_path+'/test_crowding_6stars_hexagons'
+                  [data_path+'/test_crowding_lines',
+                   data_path+'/test_crowding_rectangles',
+                   data_path+'/test_crowding_cuboids',
+                   data_path+'/test_crowding_shuffled_cuboids'
                    ], 'path for tfrecords with test crowding set')
 
 flags.DEFINE_string('logdir', data_path + '/' + MODEL_NAME + '/', 'save the model results here')
@@ -117,40 +63,33 @@ flags.DEFINE_boolean('overlapping_shapes', True,  'if true, shapes and vernier m
 flags.DEFINE_boolean('centralized_shapes', False,  'if true, each shape is in the middle of the image')
 flags.DEFINE_boolean('reduce_df', True,  'if true, the degrees of freedom for position on the x axis get adapted')
 
-flags.DEFINE_integer('n_train_samples', 100000, 'number of samples in the training set')
+flags.DEFINE_integer('n_train_samples', 240000, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 2400, 'number of samples in the test set')
 
-im_size = [20, 72]
+im_size = [16, 48]
 flags.DEFINE_list('im_size', im_size, 'image size of datasets')
 flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
-flags.DEFINE_integer('shape_size', 14, 'size of the shapes')
+flags.DEFINE_list('shape_size', [14, 11, 6], 'size of the shapes')
 flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
+flags.DEFINE_integer('offset', 1, 'offset between shapes and vernier offset width')
 
 # shape_types for training have to have a range from 0 to max
 # the data_paths for the train and test have to match the chosen shape types 
 shape_types = [0, 1, 2, 3, 4, 5, 6]
-#test_shape_types = [1, 2, 3, 4, 5, 6,
-#                    412, 421, 413, 431, 414, 441, 415, 451, 416, 461,
-#                    423, 432, 424, 442, 425, 452, 426, 462,
-#                    434, 443, 435, 453, 436, 463,
-#                    445, 454, 446, 464,
-#                    456, 465]
-test_shape_types = [1, 2, 3, 4, 5, 6,
-                    412, 414, 416,
-                    423, 425,
-                    434, 436,
-                    445, 464,
-                    456]
+test_configs = {'0': [1, 0, 1],
+                '1': [2, 0, 2],
+                '2': [3, 0, 4],
+                '3': [5, 0, 6]}
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
-flags.DEFINE_list('test_shape_types', test_shape_types, 'pool of shapes (see batchmaker)')
-flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus')
+flags.DEFINE_list('test_configs', [test_configs], 'pool of shapes (see batchmaker)')
+flags.DEFINE_list('n_shapes', [1, 2], 'pool of shape repetitions per stimulus')
 
 
 ###########################
 #    Data augmentation    #
 ###########################
 flags.DEFINE_list('train_noise', [0., 0.], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.1, 0.12], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.0, 0.05], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
@@ -162,7 +101,7 @@ flags.DEFINE_list('delta_contrast', [0.9, 1.1], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)*3
+caps1_nmaps = len(shape_types)
 caps1_ndims = 1
 
 
@@ -207,17 +146,18 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 250, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
 flags.DEFINE_integer('n_steps', 5000, 'number of steps')
-flags.DEFINE_integer('n_rounds', 2, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_rounds', 4, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 10, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 150, 'minimal seconds between evaluation passes')
-flags.DEFINE_integer('iter_routing', 3, 'number of iterations in routing algorithm')
+flags.DEFINE_integer('train_iter_routing', 5, 'number of iterations in routing algorithm during training')
+flags.DEFINE_integer('test_iter_routing', 1, 'number of iterations in routing algorithm during testing')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
@@ -226,11 +166,11 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 ###########################
 flags.DEFINE_boolean('decode_reconstruction', True, 'decode the reconstruction and use reconstruction loss')
 
-flags.DEFINE_boolean('decode_nshapes', True, 'decode the number of shapes and use nshapes loss')
+flags.DEFINE_boolean('decode_nshapes', False, 'decode the number of shapes and use nshapes loss')
 nshapes_loss = 'xentropy'
 flags.DEFINE_string('nshapes_loss', nshapes_loss, 'currently either xentropy or squared_diff')
 
-flags.DEFINE_boolean('decode_location', True, 'decode the shapes locations and use location loss')
+flags.DEFINE_boolean('decode_location', False, 'decode the shapes locations and use location loss')
 location_loss = 'xentropy'
 flags.DEFINE_string('location_loss', location_loss, 'currently either xentropy or squared_diff')
 

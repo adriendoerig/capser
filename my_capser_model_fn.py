@@ -5,22 +5,8 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 28.01.2019
--> introduction of nshapes and location loss
--> reconstruction loss now optional
--> added some summaries
--> added alphas for each coordinate type
--> network can be run with 2 or 3 conv layers now
--> you can choose now between xentropy of squared_diff as location or nshapes loss
--> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
--> small change for reconstruction decoder
--> clip values of added images too!
--> small change for reconstruction decoder with conv layers
--> use train_procedures 'vernier_shape', 'random_random' or 'random'
--> for condition random, we now add up shape_1_image and shape_2_image again
--> plot_n_images now controls, how many images are shown in tensorboard per command
--> reconstructions for prediction mode (now only for last round)
--> always reconstruct vernier in prediction mode
+Last update on 07.05.2019
+-> adaption for new project: different iter_routing for training and testing
 """
 
 import tensorflow as tf
@@ -69,8 +55,10 @@ def model_fn(features, labels, mode, params):
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         n_shapes  = shapelabels.shape[1]
+        iter_routing = parameters.test_iter_routing
         
     else:
+        iter_routing = parameters.train_iter_routing
         if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
             n_shapes  = shapelabels.shape[1]
     
@@ -94,7 +82,7 @@ def model_fn(features, labels, mode, params):
     caps1_output = primary_caps_layer(conv_output, parameters)
     
     # Create secondary caps and their output and also divide vernier caps activation and shape caps activation:
-    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, batch_size, parameters)
+    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters)
     shape_1_caps_activation = caps2_output[:, :, 0, :, :]
     shape_1_caps_activation = tf.expand_dims(shape_1_caps_activation, 2)
 

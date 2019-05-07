@@ -1,21 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-My capsnet: my_batchmaker!
-Involving all basic shapes (verniers, squares, circles, polygons, stars)
+Publishing results: my_batchmaker!
 @author: Lynn
 
-Last update on 18.02.2019
--> added requirements for nshape and location loss
--> nshapeslabels now with index labels [0, len(n_shapes)]
--> added overlapping_shapes parameter
--> lets rather use a rotated square instead of stars, so we can decrease imSize
--> new validation and testing procedures
--> use train_procedures 'vernier_shape', 'random_random' or 'random'
--> implemented a variety of uncrowding stimuli (412+)
--> implemented the possibility to have centralized shapes only
--> for the data augmentation, we need the real nshapelabels and not just the idx
--> you can reduce the df for the x position of all shapes to have a fairer comparison
--> again: all shapes included
+Last update on 07.05.2019
+-> First draft of all stimuli is finished
+-> Everything should be set
 """
 
 import numpy as np
@@ -28,160 +18,226 @@ from skimage import draw
 ##################################
 class stim_maker_fn:
 
-    def __init__(self, imSize, shapeSize, barWidth):
-        self.imSize    = imSize
-        self.shapeSize = shapeSize
+    def __init__(self, imSize, shapeSize, barWidth, offset=0):
+        shapeDepth = shapeSize[2]
+        depthW = int(np.floor((np.tan(45/180 * np.pi) * shapeDepth)))
+        depthH = int(np.floor((np.sin(45/180 * np.pi) * shapeDepth)))
+        
+        self.imSize = imSize
+        self.depthW = depthW
+        self.depthH = depthH
+        # I want all the patches to have the same height
+        self.patchHeight = shapeSize[1]+depthH
+
+        self.shapeWidth = shapeSize[0]
+        self.shapeHeight = shapeSize[1]
         self.barWidth  = barWidth
+#        self.vernierOffsetWidth = 1
+        self.vernierOffsetHeight = 1
+        self.offset = offset
+        
+        if not np.mod(shapeSize[1] + self.vernierOffsetHeight, 2) == 0:
+            raise SystemExit('\nshapeHeight + vernierOffsetHeight has to be even!')
 
     
-    def drawVernier(self, offset_direction, zoom=0):
+    def drawVernier(self, offset, offset_direction):
         # Inputs:
-        # zoom: neg/pos number to de-/increase shape size
         # offset_direction: 0=r, 1=l
-
-        barHeight = int((self.shapeSize+zoom)/4 - (self.barWidth)/4)
-        offsetHeight = 1
-        # minimum distance between verniers should be one pixel
-        if barHeight/2 < 2:
-            offset_size = 1
-        else:
-            offset_size = np.random.randint(1, barHeight/2)
-        patch = np.zeros((2*barHeight+offsetHeight, 2*self.barWidth+offset_size), dtype=np.float32)
-        patch[0:barHeight, 0:self.barWidth] = 1
-        patch[barHeight+offsetHeight:, self.barWidth+offset_size:] = 1
+        patchHeight = self.patchHeight
+        height = self.shapeHeight
+        depthH = self.depthH
+        barW = self.barWidth
+        offsetW = offset
+        offsetH = self.vernierOffsetHeight
+        
+        vernierSize = int((height - offsetH) / 2)
+        patch = np.zeros([patchHeight, 2*barW+offsetW], dtype=np.float32)
+        patch[depthH:depthH+vernierSize, 0:barW] = 1
+        patch[depthH+offsetH+vernierSize:depthH+offsetH+vernierSize*2, barW+offsetW:] = 1
         
         if offset_direction:
             patch = np.fliplr(patch)
-        fullPatch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-        firstRow  = int((self.shapeSize-patch.shape[0])/2)
-        firstCol  = int((self.shapeSize-patch.shape[1])/2)
-        fullPatch[firstRow:firstRow+patch.shape[0], firstCol:firstCol+patch.shape[1]] = patch
-        return fullPatch
-
-
-    def drawSquare(self, zoom=0):
-        # Inputs:
-        # zoom: neg/pos number to de-/increase shape size
-        zoom = np.abs(zoom)
-        patch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-        patch[zoom:self.barWidth+zoom, zoom:self.shapeSize-zoom] = 1
-        patch[zoom:self.shapeSize-zoom, zoom:self.barWidth+zoom] = 1
-        patch[self.shapeSize-self.barWidth-zoom:self.shapeSize-zoom, zoom:self.shapeSize-zoom] = 1
-        patch[zoom:self.shapeSize-zoom, self.shapeSize-self.barWidth-zoom:self.shapeSize-zoom] = 1
         return patch
 
 
-    def drawCircle(self, zoom=0, eps=1):
-        # Inputs:
-        # zoom: neg/pos number to de-/increase shape size
-        # eps: you might have to increase this to take care of empty spots in the shape
-        patch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-        radius = (self.shapeSize+zoom)/2
-        t = np.linspace(0, np.pi*2, self.shapeSize*4)
-        for i in range(1,self.barWidth*eps+1):
-            row = np.floor((radius-i/eps) * np.cos(t)+radius - zoom/2)
-            col = np.floor((radius-i/eps) * np.sin(t)+radius - zoom/2)
-            patch[row.astype(np.int), col.astype(np.int)] = 1
-        return patch
-
-    
-    def drawPolygon(self, nSides, phi, zoom=0, eps=1):
-        # Inputs:
-        # nSides: number of sides;
-        # phi: angle for rotation;
-        # zoom: neg/pos number to de-/increase shape size
-        # eps: you might have to increase this to take care of empty spots in the shape
+    def drawLines(self, offset=0):
+        patchHeight = self.patchHeight
+        height = self.shapeHeight
+        depthH = self.depthH
+        barW = self.barWidth
         
-        patch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-        slide_factor = -1  # you might want to move the shape a little to fit the vernier inside
-        radius = (self.shapeSize+zoom)/2
-        t = np.linspace(0+phi, np.pi*2+phi, nSides+1)
-        for i in range(1,self.barWidth*eps+1):
-            rowCorner = (np.round((radius-i/eps) * np.sin(t)+radius - zoom/2 + slide_factor))
-            colCorner = (np.round((radius-i/eps) * np.cos(t)+radius - zoom/2 + slide_factor))
-            for n in range(len(rowCorner)-1):
-                rowLines, colLines = draw.line(rowCorner.astype(np.int)[n], colCorner.astype(np.int)[n],
-                                               rowCorner.astype(np.int)[n+1], colCorner.astype(np.int)[n+1])
-                patch[rowLines, colLines] = 1
+        patch = np.zeros([patchHeight, barW+2*offset], dtype=np.float32)
+        patch[depthH:depthH+height, offset:offset+barW] = 1
+        return patch
+
+
+    def drawRectangles(self, offset=0):
+        patchHeight = self.patchHeight
+        height = self.shapeHeight
+        width = self.shapeWidth
+        depthH = self.depthH
+        barW = self.barWidth
+        
+        patch = np.zeros([patchHeight, width+2*offset], dtype=np.float32)
+        patch[depthH:depthH+height, offset+width-barW:offset+width] = 1
+        patch[depthH:depthH+height, offset:offset+barW] = 1
+        patch[depthH:depthH+barW, offset:offset+width] = 1
+        patch[depthH+height-barW:depthH+height, offset:offset+width] = 1
+        return patch
+
+
+    def drawCuboidsL(self, offset=0):
+        # Unfortunately, the drawing function is sometimes out of borders
+        adjust = 1
+        patchHeight = self.patchHeight
+        height = self.shapeHeight
+        width = self.shapeWidth
+        depthW = self.depthW
+        depthH = self.depthH
+        barW = self.barWidth
+        
+        patch = np.zeros([patchHeight, width+depthW+2*offset], dtype=np.float32)
+        patch[depthH:depthH+height, depthW+offset+width-barW:depthW+offset+width] = 1
+        patch[depthH:depthH+height, depthW+offset:depthW+offset+barW] = 1
+        patch[depthH:depthH+barW, depthW+offset:depthW+offset+width] = 1
+        patch[depthH+height-barW:depthH+height, depthW+offset:depthW+offset+width] = 1
+        
+        patch[0:barW, offset:offset+width] = 1
+        patch[height-adjust:height+barW-adjust, offset:offset+width] = 1
+        patch[0:height, offset:offset+barW] = 1
+        patch[0:height, offset+width:offset+width+barW] = 1
+        
+        row1, col1 = draw.line(0, offset, depthH, offset+depthW)
+        row2, col2 = draw.line(height-adjust, offset, height+depthH-adjust, offset+depthW)
+        row3, col3 = draw.line(0, width+offset-adjust, depthH, width+depthW+offset-adjust)
+        row4, col4 = draw.line(height-adjust, width+offset-adjust, height+depthH-adjust, width+depthW+offset-adjust)
+        patch[row1, col1] = 1
+        patch[row2, col2] = 1
+        patch[row3, col3] = 1
+        patch[row4, col4] = 1        
         return patch
 
     
-    def drawStar(self, nSides, phi1, phi2, depth, zoom=1, eps=1):
-        # Inputs:
-        # nSides: number of sides;
-        # phi1: angle for rotation of outer corners;
-        # phi2: angle for rotation of inner corners;
-        # depth: control the distance between inner and outer corners;
-        # zoom: neg/pos number to de-/increase shape size
-        # eps: you might have to increase this to take care of empty spots in the shape
-
-        patch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-        slide_factor = -1  # you might want to move the shape a little to fit the vernier inside
-        radius_big = (self.shapeSize + zoom)/2
-        radius_small = self.shapeSize/depth
-        tExt = np.linspace(0+phi1, np.pi*2+phi1, nSides+1)
-        tInt = np.linspace(0+phi2, np.pi*2+phi2, nSides+1)
-        for i in range(1,self.barWidth*eps+1):
-            rowCornerExt = (np.round((radius_big-i/eps) * np.sin(tExt)+radius_big - zoom/2 + slide_factor))
-            colCornerExt = (np.round((radius_big-i/eps) * np.cos(tExt)+radius_big - zoom/2 + slide_factor))
-            rowCornerInt = (np.round((radius_small-i/eps) * np.sin(tInt)+radius_big - zoom/2 + slide_factor))
-            colCornerInt = (np.round((radius_small-i/eps) * np.cos(tInt)+radius_big - zoom/2 + slide_factor))
-            for n in range(0, len(rowCornerExt)-1, 1):
-                rowLines, colLines = draw.line(rowCornerExt.astype(np.int)[n], colCornerExt.astype(np.int)[n],
-                                               rowCornerInt.astype(np.int)[n], colCornerInt.astype(np.int)[n])
-                patch[rowLines, colLines] = 1
-                rowLines, colLines = draw.line(rowCornerExt.astype(np.int)[n+1], colCornerExt.astype(np.int)[n+1],
-                                               rowCornerInt.astype(np.int)[n], colCornerInt.astype(np.int)[n])
-                patch[rowLines, colLines] = 1
-        return patch
-    
-    
-    def drawStuff(self, n_lines):
-        patch = np.zeros((self.shapeSize, self.shapeSize), dtype=np.float32)
-
-        for n in range(n_lines):
-            (r1, c1, r2, c2) = np.random.randint(self.shapeSize, size=4)
-            rr, cc = draw.line(r1, c1, r2, c2)
-            patch[rr, cc] = 1
+    def drawCuboidsR(self, offset):
+        patch = self.drawCuboidsL(offset)
+        patch = np.fliplr(patch)
         return patch
 
+
+    def drawShuffledCuboidsL(self, offset=0):
+        patchHeight = self.patchHeight
+        height = self.shapeHeight
+        width = self.shapeWidth
+        depthW = self.depthW
+        depthH = self.depthH
+        barW = self.barWidth
+        patchWidth = width+depthW+2*offset
+        
+        patch = np.zeros([patchHeight, patchWidth], dtype=np.float32)
+        # The line close to the vernier should always stay the same:
+        patch[depthH:depthH+height, depthW+offset+width-barW:depthW+offset+width] = 1
+        # All others should be random
+        rnd1 = np.random.randint(0, patchHeight-height)
+        rnd2 = np.random.randint(offset, patchWidth-offset-barW)
+        patch[rnd1:rnd1+height, rnd2:rnd2+barW] = 1
+        
+        rnd1 = np.random.randint(0, patchHeight-barW)
+        rnd2 = np.random.randint(offset, patchWidth-offset-width)
+        patch[rnd1:rnd1+barW, rnd2:rnd2+width] = 1
+        
+        rnd1 = np.random.randint(0, patchHeight-barW)
+        rnd2 = np.random.randint(offset, patchWidth-offset-width)
+        patch[rnd1:rnd1+barW, rnd2:rnd2+width] = 1
+
+        rnd1 = np.random.randint(0, patchHeight-barW)
+        rnd2 = np.random.randint(offset, patchWidth-offset-width)
+        patch[rnd1:rnd1+barW, rnd2:rnd2+width] = 1
+        
+        rnd1 = np.random.randint(0, patchHeight-barW)
+        rnd2 = np.random.randint(offset, patchWidth-offset-width)
+        patch[rnd1:rnd1+barW, rnd2:rnd2+width] = 1
+        
+        rnd1 = np.random.randint(0, patchHeight-height)
+        rnd2 = np.random.randint(offset, patchWidth-offset-barW)
+        patch[rnd1:rnd1+height, rnd2:rnd2+barW] = 1
+        
+        rnd1 = np.random.randint(0, patchHeight-height)
+        rnd2 = np.random.randint(offset, patchWidth-offset-barW)
+        patch[rnd1:rnd1+height, rnd2:rnd2+barW] = 1
+        
+        rnd1 = np.random.randint(0, patchHeight-depthH)
+        rnd2 = np.random.randint(offset, patchWidth-offset-depthW)
+        row1, col1 = draw.line(rnd1, rnd2, rnd1+depthH, rnd2+depthW)
+        
+        rnd1 = np.random.randint(0, patchHeight-depthH)
+        rnd2 = np.random.randint(offset, patchWidth-offset-depthW)
+        row2, col2 = draw.line(rnd1, rnd2, rnd1+depthH, rnd2+depthW)
+        
+        rnd1 = np.random.randint(0, patchHeight-depthH)
+        rnd2 = np.random.randint(offset, patchWidth-offset-depthW)
+        row3, col3 = draw.line(rnd1, rnd2, rnd1+depthH, rnd2+depthW)
+        
+        rnd1 = np.random.randint(0, patchHeight-depthH)
+        rnd2 = np.random.randint(offset, patchWidth-offset-depthW)
+        row4, col4 = draw.line(rnd1, rnd2, rnd1+depthH, rnd2+depthW)
+
+        patch[row1, col1] = 1
+        patch[row2, col2] = 1
+        patch[row3, col3] = 1
+        patch[row4, col4] = 1        
+        return patch
+
+
+    def drawShuffledCuboidsR(self, offset=0):
+        patch = self.drawShuffledCuboidsL(offset)
+        patch = np.fliplr(patch)
+        return patch
+
     
-    def drawShape(self, shapeID, offset_direction=0):
+    def drawShape(self, shapeID, offset, offset_direction=0):
         if shapeID == 0:
-            patch = self.drawVernier(offset_direction, -2)
+            patch = self.drawVernier(offset, offset_direction)
         if shapeID == 1:
-            patch = self.drawSquare(-1)
+            patch = self.drawLines(offset)
         if shapeID == 2:
-            patch = self.drawCircle(-1)
+            patch = self.drawRectangles(offset)
         if shapeID == 3:
-            patch = self.drawPolygon(4, 0)
+            patch = self.drawCuboidsL(offset)
         if shapeID == 4:
-            patch = self.drawStar(4, np.pi/4, np.pi/2, 3., 5)
+            patch = self.drawCuboidsR(offset)
         if shapeID == 5:
-            patch = self.drawPolygon(6, 0)
+            patch = self.drawShuffledCuboidsL(offset)
         if shapeID == 6:
-            patch = self.drawStar(6, 0, np.pi/6, 3, 0)
-        if shapeID == 7:
-            patch = self.drawStuff(5)
+            patch = self.drawShuffledCuboidsR(offset)
         return patch
 
     
-    def plotStim(self, shape_types, noise=0.):
+    def plotStim(self, shape_types, offset=0, noise=0.):
         '''Visualize all chosen shape_types in one plot'''
-        image = np.zeros(self.imSize, dtype=np.float32) + np.random.normal(0, noise, size=self.imSize)
-        row = np.random.randint(0, self.imSize[0] - self.shapeSize)
-        col = np.random.randint(0, self.imSize[1] - self.shapeSize*(len(shape_types)))
+        imSize = self.imSize
+        patchHeight = self.patchHeight
+        patchesWidth = 0
+        
+        image = np.zeros(imSize, dtype=np.float32) + np.random.normal(0, noise, size=imSize)
+        row = np.random.randint(0, imSize[0] - patchHeight)
         for i in range(len(shape_types)):
-            ID = shape_types[i]
-            patch = self.drawShape(shapeID=ID)
-            image[row:row+self.shapeSize, col:col+self.shapeSize] += patch
-            col += self.shapeSize
+            shape = shape_types[i]
+            patch = self.drawShape(shape, offset)
+            patchesWidth += np.size(patch, 1)
+            
+        col = np.random.randint(0, imSize[1] - patchesWidth + 1)
+        for i in range(len(shape_types)):
+            shape = shape_types[i]
+            patch = self.drawShape(shape, offset)
+            patchWidth = np.size(patch, 1)
+            image[row:row+patchHeight, col:col+patchWidth] += patch
+            col += patchWidth
         plt.figure()
         plt.imshow(image)
         return
 
     
-    def makeTestBatch(self, selected_shape, n_shapes, batch_size, stim_idx=None, centralize=False, reduce_df=False):
+    def makeTestBatch(self, crowding_config, n_shapes, batch_size, stim_idx=None, centralize=True, reduce_df=False):
         '''Create one batch of test dataset according to stim_idx'''
         # Inputs:
         # selected_shape
@@ -192,9 +248,15 @@ class stim_maker_fn:
         
         # Outputs:
         # vernier_images, shape_images, shapelabels, nshapeslabels, vernierlabels
+        
+        imSize = self.imSize
+        patchHeight = self.patchHeight
+        selected_shape = crowding_config[0]
+        offset = self.offset
+        shape_repetitions = 2
 
-        vernier_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
-        shape_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
+        vernier_images = np.zeros(shape=[batch_size, imSize[0], imSize[1]], dtype=np.float32)
+        shape_images = np.zeros(shape=[batch_size, imSize[0], imSize[1]], dtype=np.float32)
         shapelabels_idx = np.zeros(shape=[batch_size, 2], dtype=np.float32)
         vernierlabels_idx = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         nshapeslabels = np.zeros(shape=[batch_size, 1], dtype=np.float32)
@@ -205,206 +267,83 @@ class stim_maker_fn:
         y_shape = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         
         for idx_batch in range(batch_size):
-            
-            vernier_image = np.zeros(self.imSize, dtype=np.float32)
-            shape_image = np.zeros(self.imSize, dtype=np.float32)
+            vernier_image = np.zeros(imSize, dtype=np.float32)
+            shape_image = np.zeros(imSize, dtype=np.float32)
+            row = np.random.randint(0, imSize[0] - patchHeight)
+
             if stim_idx is None:
-                idx = np.random.randint(0, 3)
+                idx = np.random.randint(0, 2)
             else:
                 idx = stim_idx
+    
             
-            if centralize:
-                # Put each shape in the center of the image:
-                row = int((self.imSize[0] - self.shapeSize) / 2)
-            else:
-                row = np.random.randint(0, self.imSize[0] - self.shapeSize)
+            # For the reduction of the dfs, we need to know all the widths:
+            # In this case, the cuboid patch width is biggest
             offset_direction = np.random.randint(0, 2)
-            vernier_patch = self.drawShape(shapeID=0, offset_direction=offset_direction)
+            vernier_patch = self.drawShape(0, offset, offset_direction)
+            vernierpatch_width = np.size(vernier_patch, 1)
+            maxWidth = 2* (self.shapeWidth + self.depthW + offset*2) + vernierpatch_width
 
-            # the 4XY-category is for creating X-Y configurations
-            if selected_shape==412:
-                shape_patch = self.drawShape(shapeID=1)
-                uncrowding_patch = self.drawShape(shapeID=2)
-            elif selected_shape==421:
-                shape_patch = self.drawShape(shapeID=2)
-                uncrowding_patch = self.drawShape(shapeID=1)
-            elif selected_shape==413:
-                shape_patch = self.drawShape(shapeID=1)
-                uncrowding_patch = self.drawShape(shapeID=3)
-            elif selected_shape==431:
-                shape_patch = self.drawShape(shapeID=3)
-                uncrowding_patch = self.drawShape(shapeID=1)
-            elif selected_shape==414:
-                shape_patch = self.drawShape(shapeID=1)
-                uncrowding_patch = self.drawShape(shapeID=4)
-            elif selected_shape==441:
-                shape_patch = self.drawShape(shapeID=4)
-                uncrowding_patch = self.drawShape(shapeID=1)
-            elif selected_shape==415:
-                shape_patch = self.drawShape(shapeID=1)
-                uncrowding_patch = self.drawShape(shapeID=5)
-            elif selected_shape==451:
-                shape_patch = self.drawShape(shapeID=5)
-                uncrowding_patch = self.drawShape(shapeID=1)
-            elif selected_shape==416:
-                shape_patch = self.drawShape(shapeID=1)
-                uncrowding_patch = self.drawShape(shapeID=6)
-            elif selected_shape==461:
-                shape_patch = self.drawShape(shapeID=6)
-                uncrowding_patch = self.drawShape(shapeID=1)
-            elif selected_shape==423:
-                shape_patch = self.drawShape(shapeID=2)
-                uncrowding_patch = self.drawShape(shapeID=3)
-            elif selected_shape==432:
-                shape_patch = self.drawShape(shapeID=3)
-                uncrowding_patch = self.drawShape(shapeID=2)
-            elif selected_shape==424:
-                shape_patch = self.drawShape(shapeID=2)
-                uncrowding_patch = self.drawShape(shapeID=4)
-            elif selected_shape==442:
-                shape_patch = self.drawShape(shapeID=4)
-                uncrowding_patch = self.drawShape(shapeID=2)
-            elif selected_shape==425:
-                shape_patch = self.drawShape(shapeID=2)
-                uncrowding_patch = self.drawShape(shapeID=5)
-            elif selected_shape==452:
-                shape_patch = self.drawShape(shapeID=5)
-                uncrowding_patch = self.drawShape(shapeID=2)
-            elif selected_shape==426:
-                shape_patch = self.drawShape(shapeID=2)
-                uncrowding_patch = self.drawShape(shapeID=6)
-            elif selected_shape==462:
-                shape_patch = self.drawShape(shapeID=6)
-                uncrowding_patch = self.drawShape(shapeID=2)
-            elif selected_shape==434:
-                shape_patch = self.drawShape(shapeID=3)
-                uncrowding_patch = self.drawShape(shapeID=4)
-            elif selected_shape==443:
-                shape_patch = self.drawShape(shapeID=4)
-                uncrowding_patch = self.drawShape(shapeID=3)
-            elif selected_shape==435:
-                shape_patch = self.drawShape(shapeID=3)
-                uncrowding_patch = self.drawShape(shapeID=5)
-            elif selected_shape==453:
-                shape_patch = self.drawShape(shapeID=5)
-                uncrowding_patch = self.drawShape(shapeID=3)
-            elif selected_shape==436:
-                shape_patch = self.drawShape(shapeID=3)
-                uncrowding_patch = self.drawShape(shapeID=6)
-            elif selected_shape==463:
-                shape_patch = self.drawShape(shapeID=6)
-                uncrowding_patch = self.drawShape(shapeID=3)
-            elif selected_shape==445:
-                shape_patch = self.drawShape(shapeID=4)
-                uncrowding_patch = self.drawShape(shapeID=5)
-            elif selected_shape==454:
-                shape_patch = self.drawShape(shapeID=5)
-                uncrowding_patch = self.drawShape(shapeID=4)
-            elif selected_shape==446:
-                shape_patch = self.drawShape(shapeID=4)
-                uncrowding_patch = self.drawShape(shapeID=6)
-            elif selected_shape==464:
-                shape_patch = self.drawShape(shapeID=6)
-                uncrowding_patch = self.drawShape(shapeID=4)
-            elif selected_shape==456:
-                shape_patch = self.drawShape(shapeID=5)
-                uncrowding_patch = self.drawShape(shapeID=6)
-            elif selected_shape==465:
-                shape_patch = self.drawShape(shapeID=6)
-                uncrowding_patch = self.drawShape(shapeID=5)
-            else:
-                shape_patch = self.drawShape(shapeID=selected_shape)
             
             if idx==0:
                 # Vernier test stimuli:
-                selected_repetitions = 0
+                selected_repetitions = 1
                 nshapes_label = 0
-                if centralize:
-                    # Put each shape in the center of the image:
-                    col = int((self.imSize[1] - self.shapeSize) / 2)
+                totalWidth = vernierpatch_width
+                
+                if reduce_df:
+                    # We want to make the degrees of freedom for position on the x axis fair.
+                    # For this condition, we have to reduce the image size depending on the actual patch width
+                    imSize_adapted = imSize[1] - maxWidth + totalWidth
+                    imStart = int((imSize[1] - imSize_adapted) / 2)
+                    col = np.random.randint(imStart, imStart+imSize_adapted - totalWidth + 1)
+
                 else:
-                    if reduce_df:
-                        # We want to make the degrees of freedom for position on the x axis fair:
-                        imSize_adapted = self.imSize[1] - (max(n_shapes)-1)*self.shapeSize
-                        imStart = int((self.imSize[1] - imSize_adapted) / 2)
-                        col = np.random.randint(imStart, imStart+imSize_adapted - self.shapeSize*1)
+                    col = np.random.randint(0, imSize[1] - totalWidth)
 
-                    else:
-                        col = np.random.randint(0, self.imSize[1] - self.shapeSize)
-
-                vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
+                vernier_image[row:row+patchHeight, col:col+vernierpatch_width] += vernier_patch
                 x_vernier_ind, y_vernier_ind = col, row
                 x_shape_ind, y_shape_ind = col, row
 
             elif idx==1:
                 # Crowded test stimuli:
-                selected_repetitions = 1
-                nshapes_label = n_shapes.index(selected_repetitions)
-                if centralize:
-                    # Put each shape in the center of the image:
-                    col = int((self.imSize[1] - self.shapeSize) / 2)
+                selected_repetitions = shape_repetitions
+                nshapes_label = 1
+                
+                totalWidth = 0
+                for i in range(len(crowding_config)):
+                        shape = crowding_config[i]
+                        shape_patch = self.drawShape(shape, offset)
+                        totalWidth += np.size(shape_patch, 1)
+                
+                if reduce_df:
+                    # We want to make the degrees of freedom for position on the x axis fair.
+                    # For this condition, we have to reduce the image size depending on the actual patch width
+                    imSize_adapted = imSize[1] - maxWidth + totalWidth
+                    imStart = int((imSize[1] - imSize_adapted) / 2)
+                    col = np.random.randint(imStart, imStart+imSize_adapted - totalWidth + 1)
+
                 else:
-                    if reduce_df:
-                        # We want to make the degrees of freedom for position on the x axis fair:
-                        imSize_adapted = self.imSize[1] - (max(n_shapes)-1)*self.shapeSize
-                        imStart = int((self.imSize[1] - imSize_adapted) / 2)
-                        col = np.random.randint(imStart, imStart+imSize_adapted - self.shapeSize*1)
-
-                    else:
-                        col = np.random.randint(0, self.imSize[1] - self.shapeSize)
-        
-                vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
-                shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
-                x_vernier_ind, y_vernier_ind = col, row
-                x_shape_ind, y_shape_ind = col, row
-
-            elif idx==2:
-                # Uncrowded test stimuli:
-                selected_repetitions = np.max(n_shapes)
-                nshapes_label = n_shapes.index(selected_repetitions)
-                if centralize:
-                    # Put each shape in the center of the image:
-                    col = int((self.imSize[1] - self.shapeSize*selected_repetitions) / 2)
-                else:
-                    if reduce_df:
-                        # We want to make the degrees of freedom for position on the x axis fair:
-                        imSize_adapted = self.imSize[1] - (max(n_shapes)-selected_repetitions)*self.shapeSize
-                        imStart = int((self.imSize[1] - imSize_adapted) / 2)
-                        col = np.random.randint(imStart, imStart+imSize_adapted - self.shapeSize*selected_repetitions)
-
-                    else:
-                        col = np.random.randint(0, self.imSize[1] - self.shapeSize*selected_repetitions)
-    
+                    col = np.random.randint(0, imSize[1] - totalWidth)
+                
+                # The shape is always first, thats y we can already take the coordinates:
                 x_shape_ind, y_shape_ind = col, row
                 
-                if (selected_repetitions-1)/2 % 2 == 0:
-                    trigger = 0
-                else:
-                    trigger = 1
-
-                for n_repetitions in range(selected_repetitions):
-                    if selected_shape>=400:
-                        if n_repetitions == (selected_repetitions-1)/2:
-                            vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
-                            x_vernier_ind, y_vernier_ind = col, row
-                        if trigger == 0:
-                            shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
-                            col += self.shapeSize
-                            trigger = 1
-                        else:
-                            shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += uncrowding_patch
-                            col += self.shapeSize
-                            trigger = 0
-
+                # Loop through the configuration for the crowding stimulus
+                for i in range(len(crowding_config)):
+                    shape = crowding_config[i]
+                    shape_patch = self.drawShape(shape, offset)
+                    patchWidth = np.size(shape_patch, 1)
+                    if shape==0:
+                        vernier_image[row:row+patchHeight, col:col+patchWidth] += vernier_patch
+                        x_vernier_ind, y_vernier_ind = col, row
                     else:
-                        shape_image[row:row+self.shapeSize, col:col+self.shapeSize] += shape_patch
-                        if n_repetitions == (selected_repetitions-1)/2:
-                            vernier_image[row:row+self.shapeSize, col:col+self.shapeSize] += vernier_patch
-                            x_vernier_ind, y_vernier_ind = col, row
-                        col += self.shapeSize
+                        shape_image[row:row+patchHeight, col:col+patchWidth] += shape_patch
+                    col += patchWidth
 
-            vernier_images[idx_batch, :, :] = vernier_image #+ np.random.normal(0, noise, size=self.imSize)
-            shape_images[idx_batch, :, :] = shape_image #+ np.random.normal(0, noise, size=self.imSize)
+
+            vernier_images[idx_batch, :, :] = vernier_image
+            shape_images[idx_batch, :, :] = shape_image
             shapelabels_idx[idx_batch, 0] = 0
             shapelabels_idx[idx_batch, 1] = selected_shape 
             nshapeslabels[idx_batch] = selected_repetitions
@@ -422,13 +361,19 @@ class stim_maker_fn:
                 nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape]
 
 
-    def makeTrainBatch(self, shape_types, n_shapes, batch_size, train_procedure='vernier_shape',
-                       overlap=False, centralize=False, reduce_df=False):
+    def makeTrainBatch(self, shape_types, n_shapes, batch_size, train_procedure, overlap,
+                       centralize, reduce_df=False):
         '''Create one batch of training dataset with each one vernier and
         one shape_type repeated n_shapes[random] times'''
+        
+        imSize = self.imSize
+        patchHeight = self.patchHeight
+        shape_repetitions = 2
+        offset = 0
+        maxPatchWidth = self.shapeWidth + self.depthW + offset*2
 
-        shape_1_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
-        shape_2_images = np.zeros(shape=[batch_size, self.imSize[0], self.imSize[1]], dtype=np.float32)
+        shape_1_images = np.zeros(shape=[batch_size, imSize[0], imSize[1]], dtype=np.float32)
+        shape_2_images = np.zeros(shape=[batch_size, imSize[0], imSize[1]], dtype=np.float32)
         shapelabels_idx = np.zeros(shape=[batch_size, 2], dtype=np.float32)
         vernierlabels_idx = np.zeros(shape=[batch_size, 1], dtype=np.float32)
         nshapeslabels = np.zeros(shape=[batch_size, 2], dtype=np.float32)
@@ -439,24 +384,16 @@ class stim_maker_fn:
         y_shape_2 = np.zeros(shape=[batch_size, 1], dtype=np.float32)
 
         for idx_batch in range(batch_size):
-            shape_1_image = np.zeros(self.imSize, dtype=np.float32)
-            shape_2_image = np.zeros(self.imSize, dtype=np.float32)
+            shape_1_image = np.zeros(imSize, dtype=np.float32)
+            shape_2_image = np.zeros(imSize, dtype=np.float32)
 
             try:
-                # choose shape_type(s) based on train_procedure
-                if train_procedure=='vernier_shape':
+                # I want every second image with a vernier:
+                if np.random.rand(1)<0.5:
                     selected_shape_1 = 0
-                    selected_shape_2 = np.random.randint(1, len(shape_types))
-                elif train_procedure=='random_random' or 'random':
-                    # I want every second image with a vernier:
-                    if np.random.rand(1)<0.5:
-                        selected_shape_1 = 0
-                    else:
-                        selected_shape_1 = np.random.randint(0, len(shape_types))
-                    selected_shape_2 = np.random.randint(1, len(shape_types))
                 else:
-                    raise SystemExit('\nThe chosen train_procedure is unknown!\n')
-
+                    selected_shape_1 = np.random.randint(0, len(shape_types))
+                selected_shape_2 = np.random.randint(1, len(shape_types))
             except:
                 # if len(shape_types)=1, then just use this given shape_type
                 selected_shape_1 = 0
@@ -466,76 +403,67 @@ class stim_maker_fn:
             # Create shape images:
             if selected_shape_1==0:
                 # if the first shape is a vernier, only repeat once and use offset_direction 0=r or 1=l
+                idx_n_shapes_1 = 0
                 selected_repetitions_1 = 1
-                idx_n_shapes_1 = n_shapes.index(selected_repetitions_1)
+                rd_offset = 0
                 offset_direction = np.random.randint(0, 2)
-                shape_1_patch = self.drawShape(shapeID=selected_shape_1, offset_direction=offset_direction)
+                shape_1_patch = self.drawShape(selected_shape_1, self.offset, offset_direction)
             else:
                 # if not, repeat shape random times but at least once and set offset_direction to 2=no vernier
-                idx_n_shapes_1 = np.random.randint(1, len(n_shapes))
-                selected_repetitions_1 = n_shapes[idx_n_shapes_1]
-#                offset_direction = 2
+                idx_n_shapes_1 = 1
+                selected_repetitions_1 = shape_repetitions
+                rd_offset = np.random.randint(self.offset, self.offset*6)
+#                rd_offset = np.random.randint(self.offset, imSize[1]-maxPatchWidth*shape_repetitions)
                 offset_direction = np.random.randint(0, 2)
-                shape_1_patch = self.drawShape(shapeID=selected_shape_1)
+                shape_1_patch = self.drawShape(selected_shape_1, offset)
 
-            idx_n_shapes_2 = np.random.randint(0, len(n_shapes))
-            selected_repetitions_2 = n_shapes[idx_n_shapes_2]
-            shape_2_patch = self.drawShape(shapeID=selected_shape_2)
+            # In our case, shape2 is super irrelevant, because we will work only with one shape per image
+            idx_n_shapes_2 = 0
+            selected_repetitions_2 = 1
+            shape_2_patch = self.drawShape(0, offset)
+            row_shape_2 = 0
+            col_shape_2_init = 0
+            col_shape_2 = col_shape_2_init
 
-            if centralize:
-                # Put each shape in the center of the image:
-                row_shape_1 = int((self.imSize[0] - self.shapeSize) / 2)
-                col_shape_1_init = int((self.imSize[1] - self.shapeSize*selected_repetitions_1) / 2)
-                col_shape_1 = col_shape_1_init
-                row_shape_2 = int((self.imSize[0] - self.shapeSize) / 2)
-                col_shape_2_init = int((self.imSize[1] - self.shapeSize*selected_repetitions_2) / 2)
-                col_shape_2 = col_shape_2_init
-            else:
-                row_shape_1 = np.random.randint(0, self.imSize[0] - self.shapeSize)
-                row_shape_2 = np.random.randint(0, self.imSize[0] - self.shapeSize)
 
-                if reduce_df:
-                    # We want to make the degrees of freedom for position on the x axis fair:
-                    imSize_adapted_1 = self.imSize[1] - (max(n_shapes)-selected_repetitions_1)*self.shapeSize
-                    imStart_1 = int((self.imSize[1] - imSize_adapted_1) / 2)
-                    col_shape_1_init = np.random.randint(imStart_1, imStart_1+imSize_adapted_1 - self.shapeSize*selected_repetitions_1)
-                    col_shape_1 = col_shape_1_init
-                    imSize_adapted_2 = self.imSize[1] - (max(n_shapes)-selected_repetitions_2)*self.shapeSize
-                    imStart_2 = int((self.imSize[1] - imSize_adapted_2) / 2)
-                    col_shape_2_init = np.random.randint(imStart_2, imStart_2+imSize_adapted_2 - self.shapeSize*selected_repetitions_2)
-                    col_shape_2 = col_shape_2_init
-                else:
-                    col_shape_1_init = np.random.randint(0, self.imSize[1] - self.shapeSize*selected_repetitions_1)
-                    col_shape_1 = col_shape_1_init
-                    col_shape_2_init = np.random.randint(0, self.imSize[1] - self.shapeSize*selected_repetitions_2)
-                    col_shape_2 = col_shape_2_init
+            # For the reduction of the dfs, we need to know the patch widths:
+            # In this case, the cuboid patch width is biggest
+            shape1patch_width = np.size(shape_1_patch, 1)
+            shape2patch_width = np.size(shape_2_patch, 1)
             
-            # Repeat shape_1 selected_repetitions times if not vernier:
-            if selected_shape_1!=0:
+            row_shape_1 = np.random.randint(0, imSize[0] - patchHeight)
+            if reduce_df:
+                # We want to make the degrees of freedom for position on the x axis fair.
+                # For this condition, we have to reduce the image size depending on the actual patch width
+                if idx_n_shapes_1==0:
+                    imSize_adapted = imSize[1] - maxPatchWidth*shape_repetitions + shape1patch_width*selected_repetitions_1 - 1
+                else:
+                    imSize_adapted = imSize[1] - maxPatchWidth*shape_repetitions + shape1patch_width*selected_repetitions_1
+                imStart = int((imSize[1] - imSize_adapted) / 2)
+                col_shape_1_init = np.random.randint(imStart, imStart+imSize_adapted - shape1patch_width*selected_repetitions_1 - rd_offset)
+                col_shape_1 = col_shape_1_init
+
+            else:
+                col_shape_1_init = np.random.randint(0, imSize[1] - shape1patch_width*selected_repetitions_1 - rd_offset)
+                col_shape_1 = col_shape_1_init
+
+
+            if selected_shape_1==0:
+                # If vernier, we only want one shape per image:
+                shape_1_image[row_shape_1:row_shape_1+patchHeight,
+                              col_shape_1:col_shape_1+shape1patch_width] += shape_1_patch
+            else:
+                # Repeat shape_1 selected_repetitions times if not vernier:
                 for i in range(selected_repetitions_1):
-                    shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
-                                  col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
-                    col_shape_1 += self.shapeSize
+                    shape_1_image[row_shape_1:row_shape_1+patchHeight,
+                                  col_shape_1:col_shape_1+shape1patch_width] += shape_1_patch
+                    col_shape_1 += shape1patch_width + rd_offset
             
             # Repeat shape_2 selected_repetitions times:
             for i in range(selected_repetitions_2):
-                shape_2_image[row_shape_2:row_shape_2+self.shapeSize,
-                              col_shape_2:col_shape_2+self.shapeSize] += shape_2_patch
-                col_shape_2 += self.shapeSize
-
-            # If vernier, do we allow for overlap between vernier and shape image?
-            if selected_shape_1==0:
-                if overlap or centralize:
-                        shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
-                                      col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
-                else:
-                    while np.sum(shape_2_image[row_shape_1:row_shape_1+self.shapeSize,
-                                               col_shape_1:col_shape_1+self.shapeSize] + shape_1_patch) > np.sum(shape_1_patch):
-                        row_shape_1 = np.random.randint(0, self.imSize[0] - self.shapeSize)
-                        col_shape_1 = np.random.randint(0, self.imSize[1] - self.shapeSize)
-                    shape_1_image[row_shape_1:row_shape_1+self.shapeSize,
-                                  col_shape_1:col_shape_1+self.shapeSize] += shape_1_patch
-                    col_shape_1_init = col_shape_1
+                shape_2_image[row_shape_2:row_shape_2+patchHeight,
+                              col_shape_2:col_shape_2+shape2patch_width] += shape_2_patch
+                col_shape_2 += shape1patch_width + rd_offset
             
 
             shape_1_images[idx_batch, :, :] = shape_1_image
@@ -562,41 +490,42 @@ class stim_maker_fn:
 #############################################################
 #          HAVE A LOOK AT WHAT THE CODE DOES                #
 #############################################################
-#from my_parameters import parameters
-#imSize = parameters.im_size
-##imSize = [20, 75]
-#shapeSize = parameters.shape_size
-##shapeSize = 14
-#barWidth = parameters.bar_width
-##n_shapes = parameters.n_shapes
-#n_shapes = [1, 3, 5]
-##batch_size = parameters.batch_size
-#batch_size = 10
-##shape_types = parameters.shape_types
-##shape_types = [0, 1, 2, 3, 4, 5, 6, 7]
-##train_procedure = parameters.train_procedure
-#train_procedure = 'vernier_shape'
-#overlap = parameters.overlapping_shapes
-##overlap = True
-##centralize = parameters.centralized_shapes
-#centralize = False
+from my_parameters import parameters
+imSize = parameters.im_size
+#imSize = [16, 48]
+shapeSize = parameters.shape_size
+#shapeSize = [14, 11, 6]
+barWidth = parameters.bar_width
+offset = parameters.offset
+n_shapes = parameters.n_shapes
+#batch_size = parameters.batch_size
+batch_size = 20
+shape_types = parameters.shape_types
+#shape_types = [0, 1, 2, 3, 4, 5, 6]
+crowding_config = [1, 1]
+train_procedure = parameters.train_procedure
+overlap = parameters.overlapping_shapes
+centralize = parameters.centralized_shapes
 #reduce_df = parameters.reduce_df
-#reduce_df = True
-#test = stim_maker_fn(imSize, shapeSize, barWidth)
+reduce_df = True
+test = stim_maker_fn(imSize, shapeSize, barWidth, offset)
 
-#plt.imshow(test.drawShape(5))
-#test.plotStim([1, 2, 3, 4], 0.01)
+#plt.imshow(test.drawShape(1))
+#test.plotStim([3, 0, 4], offset, 0.01)
 
-#[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
-# nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
-# shape_types, n_shapes, batch_size, train_procedure, overlap=overlap, centralize=centralize, reduce_df=reduce_df)
-#for i in range(batch_size):
-#    plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
-#    plt.pause(0.5)
+[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
+ nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
+ shape_types, n_shapes, batch_size, train_procedure, overlap, centralize, reduce_df)
+for i in range(batch_size):
+    if train_procedure=='random':
+        plt.imshow(np.squeeze(shape_1_images[i, :, :]))
+    else:
+        plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
+    plt.pause(0.5)
 
 #[vernier_images, shape_images,  shapelabels_idx, vernierlabels_idx,
 # nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(
-# 465, n_shapes, batch_size, None, centralize, reduce_df)
+# crowding_config, n_shapes, batch_size, None, centralize, reduce_df)
 #for i in range(batch_size):
 #    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
 #    plt.pause(0.5)

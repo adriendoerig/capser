@@ -7,15 +7,8 @@ This code is inspired by this youtube-vid and code:
 https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 
-Last update on 15.02.2019
--> added requirements for nshapes and location loss
--> added overlapping_shapes parameter
--> new validation and testing procedures
--> use train_procedures 'vernier_shape', 'random_random' or 'random'
--> implemented the possibility to have centralized shapes only
--> for the data augmentation, we need the real nshapelabels and not just the idx
--> you can reduce the df for the x position of all shapes to have a fairer comparison
--> correction of small bug
+Last update on 07.05.2019
+-> this my_make_tf was adapted for the new projects (temporal dynamics) that uses dicts for the test_configs
 """
 
 import sys
@@ -58,7 +51,7 @@ def print_progress(count, total):
 #      tfrecords function:       #
 ##################################
 def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples,
-                   train_procedure='vernier_shape', overlap=True, stim_idx=None, centralize=False, reduce_df=False):
+                   train_procedure='random', overlap=True, stim_idx=None, centralize=False, reduce_df=False):
     '''Function to create tfrecord files based on stim_maker class'''
     # Inputs:
     # stim_maker instance
@@ -86,14 +79,20 @@ def make_tfrecords(out_path, stim_maker, state, shape_types, n_shapes, n_samples
                  shape_types, n_shapes, 1, train_procedure, overlap, centralize, reduce_df)
 
             elif state=='testing':
-                try:
-                    chosen_shape_idx = np.random.randint(1, len(shape_types))
-                    chosen_shape = shape_types[chosen_shape_idx]
-                except:
-                    chosen_shape = shape_types
+                # In this case, the shape_types involve all configs in a dict
+                test_configs = shape_types
+                if len(test_configs) == 1:
+                    # Either use the single test_config that we are giving:
+                    config_idx = list(test_configs)[0]
+                    chosen_config = test_configs[config_idx]
+                else:
+                    # Or chose one config randomly from all configs we r giving for the validation set:
+                    config_idx = np.random.randint(0, len(test_configs))
+                    chosen_config = test_configs[str(config_idx)]
+
                 [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels,
                  nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = stim_maker.makeTestBatch(
-                 chosen_shape, n_shapes, 1, stim_idx, centralize, reduce_df)
+                 chosen_config, n_shapes, 1, stim_idx, centralize, reduce_df)
 
             # Convert the image to raw bytes.
             shape_1_images_bytes = shape_1_images.tostring()
@@ -150,8 +149,9 @@ if not os.path.exists(parameters.data_path):
 if training:
     mode = 'training'
     shape_types_train = parameters.shape_types
+    train_procedure = 'random'
     make_tfrecords(parameters.train_data_path, stim_maker, mode, shape_types_train, parameters.n_shapes,
-                   parameters.n_train_samples, parameters.train_procedure, parameters.overlapping_shapes,
+                   parameters.n_train_samples, train_procedure, parameters.overlapping_shapes,
                    centralize=parameters.centralized_shapes, reduce_df=parameters.reduce_df)
     print('\n-------------------------------------------------------')
     print('Finished creation of training set')
@@ -162,7 +162,7 @@ if training:
 if testing:
     mode = 'training'
     shape_types_train = parameters.shape_types
-    train_procedure = 'vernier_shape'
+    train_procedure = 'random'
 
     # Validation set with all possible training stimuli:
     make_tfrecords(parameters.val_data_path, stim_maker, mode, shape_types_train, parameters.n_shapes, 
@@ -185,21 +185,21 @@ if testing:
 # Create the validation and the test set that uses crowding/uncrowding stimuli:
 if testing_crowding:
     mode = 'testing'
-    shape_types_test = parameters.test_shape_types
+    test_configs = parameters.test_configs[0]
     
-    # Validation set with all possible stimuli:
-    make_tfrecords(parameters.val_crowding_data_path, stim_maker, mode, shape_types_test, parameters.n_shapes,
+#    # Validation set with all possible stimuli:
+    make_tfrecords(parameters.val_crowding_data_path, stim_maker, mode, test_configs, parameters.n_shapes,
                    parameters.n_test_samples, centralize=parameters.centralized_shapes, reduce_df=parameters.reduce_df)
 
     # Individual test sets:
-    for i in range(len(shape_types_test)):
-        chosen_shape = shape_types_test[i]
+    for i in range(len(test_configs)):
+        test_config = {str(i): test_configs[str(i)]}
         test_data_path = parameters.test_crowding_data_paths[i]
         if not os.path.exists(test_data_path):
             os.mkdir(test_data_path)
         for stim_idx in range(3):
             test_file_path = test_data_path + '/' + str(stim_idx) + '.tfrecords'
-            make_tfrecords(test_file_path, stim_maker, mode, chosen_shape, parameters.n_shapes,
+            make_tfrecords(test_file_path, stim_maker, mode, test_config, parameters.n_shapes,
                            parameters.n_test_samples, stim_idx=stim_idx, centralize=parameters.centralized_shapes,
                            reduce_df=parameters.reduce_df)
     print('\n-------------------------------------------------------')

@@ -4,13 +4,8 @@ My capsnet: Main script
 Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-Last update on 28.01.2019
--> insertion of eval_throttle_secs parameter
--> small change for save_params
--> new validation and testing procedures
--> implemented n_rounds to decide how often we evaluate the test sets
--> reconstructions for prediction mode
--> update and check to guarantee the similarity to the main_average script
+Last update on 07.05.2019
+-> adaptation new project: n_idx=2
 """
 
 import logging
@@ -122,8 +117,8 @@ for idx_execution in range(n_iterations):
             print('-------------------------------------------------------')
             print('Compute vernier offset for ' + category)
             
-            # Determine vernier_accuracy for our vernier/crowding/uncrowding stimuli
-            n_idx = 3
+            # Determine vernier_accuracy for our vernier/crowding stimuli
+            n_idx = 2
             results = np.zeros(shape=(n_idx,))
             
             for stim_idx in range(n_idx):

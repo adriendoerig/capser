@@ -9,21 +9,9 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 21.01.2019
--> added nshapes and location loss
--> network can be run with 2 or 3 conv layers now
--> you can choose now between xentropy of squared_diff as location or nshapes loss
--> it is possible now to use batch normalization for every type of loss, this involved some major changes in the code!
--> added save_path-variable in save_params
--> added distance to tensorboard for nshapes and location loss
--> changes for the reconstruction decoder, now using reuse=True
--> change in secondary_caps_layer()
--> parameters.txt cant be overwritten easily anymore
--> reconstruction layers get reused nicer now
--> you can choose between a reconstruction decoder with fc or conv layers (currently only with 3 conv layers)
--> use train_procedures 'vernier_shape', 'random_random' or 'random'
--> only if batch_norm set use_bias=False
--> last reconstruction decoder layer has sigmoid activation now and use_bias=True
+Last update on 07.05.2019
+-> adaption for new project: different iter_routing for training and testing
+-> adaptation of plot function for using only 2 conditions
 """
 
 import tensorflow as tf
@@ -50,18 +38,19 @@ def save_params(save_path, parameters):
 #     Helper plot function:    #
 ################################
 def plot_uncrowding_results(results, categories, save=None):
+    n_idx = 2
     results = np.array(results)*100
     
     # plot bar width & colors
     width = .3333  # the width of the bars
     color7 = (100. / 255, 170. / 255, 180. / 255)
 
-    N = len(results)/3
+    N = len(results)/n_idx
     ind = np.arange(N)  # the x locations for the groups
     fig, ax = plt.subplots()
-    ax.bar(ind - width / 3, results[0::3], width/3, color=color7, edgecolor='black')
-    ax.bar(ind            , results[1::3], width/3, color=color7, edgecolor='black')
-    ax.bar(ind + width / 3, results[2::3], width/3, color=color7, edgecolor='black')
+    ax.bar(ind - width / n_idx, results[0::n_idx], width/n_idx, color=color7, edgecolor='black')
+    ax.bar(ind            , results[1::n_idx], width/n_idx, color=color7, edgecolor='black')
+#    ax.bar(ind + width / n_idx, results[2::n_idx], width/n_idx, color=color7, edgecolor='black')
 
     # add some text for labels, title and axes ticks, and save figure
     ax.set_ylabel('Percent correct')
@@ -71,7 +60,7 @@ def plot_uncrowding_results(results, categories, save=None):
     plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right')
 
     chance_line, = ax.plot([-2 * width, N], [50, 50], '#8d8f8c')  # chance level dashed line
-    chance_line.set_dashes([1, 3, 1, 3])
+    chance_line.set_dashes([1, n_idx, 1, n_idx])
 
     if save is None:
         plt.show()
@@ -110,10 +99,10 @@ def safe_norm(s, axis=-1, epsilon=1e-7, keepdims=False, name=None):
 ################################
 #     Routing by agreement:    #
 ################################
-def routing_by_agreement(caps2_predicted, batch_size_tensor, parameters):
+def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, parameters):
     # How often we do the routing:
     def routing_condition(raw_weights, caps2_output, counter):
-        output = tf.less(counter, parameters.iter_routing)
+        output = tf.less(counter, iter_routing)
         return output
     
     # What the routing is:
@@ -186,7 +175,7 @@ def primary_caps_layer(conv_output, parameters):
         return caps1_output
 
 
-def secondary_caps_layer(caps1_output, batch_size, parameters, W_init=None):
+def secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters, W_init=None):
     with tf.name_scope('3_secondary_caps_layer'):
         # Initialize and repeat weights for further calculations:
         if W_init==None:
@@ -206,7 +195,7 @@ def secondary_caps_layer(caps1_output, batch_size, parameters, W_init=None):
         caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled, name='caps2_predicted')
         
         # Routing by agreement:
-        caps2_output = routing_by_agreement(caps2_predicted, batch_size, parameters)
+        caps2_output = routing_by_agreement(caps2_predicted, batch_size, iter_routing, parameters)
         
         # Compute the norm of the output for each output caps and each instance:
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')

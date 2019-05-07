@@ -4,14 +4,8 @@ My capsnet: Main script
 Execute the training, evaluation and prediction of the capsnet
 @author: Lynn
 
-Last update on 14.02.2019
--> insertion of eval_throttle_secs parameter
--> small change for save_params
--> new validation and testing procedures
--> implemented n_rounds to decide how often we evaluate the test sets
--> reconstructions for prediction mode
--> update and check to guarantee the similarity to the main script
--> added final stds
+Last update on 07.05.2019
+-> adaptation new project: n_idx=2
 """
 
 import logging
@@ -48,7 +42,7 @@ tf.set_random_seed(42)
 
 n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
-n_idx = 3
+n_idx = 2
 results = np.zeros(shape=(n_categories, n_idx, n_iterations))
 
 
