@@ -139,7 +139,7 @@ print('\n-------------------------------------------------------')
 print('Creating tfrecords files of type:', parameters.train_procedure)
 print('Overlap:', parameters.overlapping_shapes)
 
-stim_maker = stim_maker_fn(parameters.im_size, parameters.shape_size, parameters.bar_width)
+stim_maker = stim_maker_fn(parameters.im_size, parameters.shape_size, parameters.bar_width, parameters.offset)
 
 if not os.path.exists(parameters.data_path):
     os.mkdir(parameters.data_path)

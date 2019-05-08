@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v1'
+MODEL_NAME = '_logs_v3'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -106,9 +106,9 @@ caps1_ndims = 1
 
 
 # Case of 3 conv layers:
-kernel1 = 5
-kernel2 = 5
-kernel3 = 6
+kernel1 = 4
+kernel2 = 4
+kernel3 = 4
 stride1 = 1
 stride2 = 1
 stride3 = 2
@@ -157,7 +157,7 @@ flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 150, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('train_iter_routing', 5, 'number of iterations in routing algorithm during training')
-flags.DEFINE_integer('test_iter_routing', 1, 'number of iterations in routing algorithm during testing')
+flags.DEFINE_integer('test_iter_routing', 2, 'number of iterations in routing algorithm during testing')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 

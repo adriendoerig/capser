@@ -18,7 +18,7 @@ from skimage import draw
 ##################################
 class stim_maker_fn:
 
-    def __init__(self, imSize, shapeSize, barWidth, offset=0):
+    def __init__(self, imSize, shapeSize, barWidth, offset=1):
         shapeDepth = shapeSize[2]
         depthW = int(np.floor((np.tan(45/180 * np.pi) * shapeDepth)))
         depthH = int(np.floor((np.sin(45/180 * np.pi) * shapeDepth)))
