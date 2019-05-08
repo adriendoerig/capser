@@ -27,6 +27,7 @@ def model_fn(features, labels, mode, params):
     
     plot_n_images = 4
     log_dir = params['log_dir']
+    iter_routing = params['iter_routing']
     
     ##########################################
     #      Prepararing input variables:      #
@@ -55,10 +56,10 @@ def model_fn(features, labels, mode, params):
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         n_shapes  = shapelabels.shape[1]
-        iter_routing = parameters.test_iter_routing
+#        iter_routing = parameters.test_iter_routing
         
     else:
-        iter_routing = parameters.train_iter_routing
+#        iter_routing = parameters.train_iter_routing
         if parameters.train_procedure=='vernier_shape' or parameters.train_procedure=='random_random':
             n_shapes  = shapelabels.shape[1]
     

@@ -23,6 +23,8 @@ import os.path
 #    Small helper function:    #
 ################################
 def save_params(save_path, parameters):
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
     txt_file = save_path + '/parameters.txt'
     if os.path.exists(txt_file):
         raise SystemExit('\nPROBLEM: %s already exists!' % txt_file)

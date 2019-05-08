@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v3'
+MODEL_NAME = '_logs_v1'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -75,11 +75,11 @@ flags.DEFINE_integer('offset', 1, 'offset between shapes and vernier offset widt
 
 # shape_types for training have to have a range from 0 to max
 # the data_paths for the train and test have to match the chosen shape types 
-shape_types = [0, 1, 2, 3, 4, 5, 6]
+shape_types = [0, 1, 2, 3, 4]
 test_configs = {'0': [1, 0, 1],
                 '1': [2, 0, 2],
-                '2': [3, 0, 4],
-                '3': [5, 0, 6]}
+                '2': [3, 0, 5],
+                '3': [4, 0, 6]}
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('test_configs', [test_configs], 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('n_shapes', [1, 2], 'pool of shape repetitions per stimulus')
@@ -106,9 +106,9 @@ caps1_ndims = 1
 
 
 # Case of 3 conv layers:
-kernel1 = 4
-kernel2 = 4
-kernel3 = 4
+kernel1 = 5
+kernel2 = 5
+kernel3 = 6
 stride1 = 1
 stride2 = 1
 stride3 = 2
@@ -146,18 +146,18 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 200, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 5000, 'number of steps')
-flags.DEFINE_integer('n_rounds', 4, 'number of evaluations; full training steps is equal to n_steps times this number')
-flags.DEFINE_integer('n_iterations', 10, 'number of trained networks')
+flags.DEFINE_integer('n_steps', 1000, 'number of steps')
+flags.DEFINE_integer('n_rounds', 5, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_iterations', 5, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 150, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('train_iter_routing', 5, 'number of iterations in routing algorithm during training')
-flags.DEFINE_integer('test_iter_routing', 2, 'number of iterations in routing algorithm during testing')
+#flags.DEFINE_integer('test_iter_routing', 5, 'number of iterations in routing algorithm during testing')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 

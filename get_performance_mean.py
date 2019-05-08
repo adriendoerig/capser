@@ -26,16 +26,18 @@ print('-------------------------------------------------------')
 n_iterations = parameters.n_iterations
 n_rounds = parameters.n_rounds
 n_categories = len(parameters.test_crowding_data_paths)
-n_idx = 3
+n_idx = 2
 results = np.zeros(shape=(n_categories, n_idx, n_iterations))
 
+idx_routing = 2
 
 for idx_execution in range(n_iterations):
     log_dir = parameters.logdir + str(idx_execution) + '/'
+    log_dir_results = log_dir + 'iter_routing_' + str(idx_routing) + '/'
 
     for n_category in range(n_categories):
         # Getting data:
-        txt_file_name = log_dir + '/uncrowding_results_step_' + str(parameters.n_steps*n_rounds) + \
+        txt_file_name = log_dir_results + '/uncrowding_results_step_' + str(parameters.n_steps*n_rounds) + \
         '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
 
         with open(txt_file_name, 'r') as f:
@@ -45,7 +47,7 @@ for idx_execution in range(n_iterations):
             # Since the categories 4stars and 6stars involve numbers, we have to get rid of them
             numbers = numbers[numbers!=4]
             numbers = numbers[numbers!=6]
-            results[:, :, idx_execution] = np.reshape(numbers, [-1, 3])
+            results[:, :, idx_execution] = np.reshape(numbers, [-1, n_idx])
 
 
 # Saving:
