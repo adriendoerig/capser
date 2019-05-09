@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v6'
+MODEL_NAME = '_logs_v8'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -88,8 +88,8 @@ flags.DEFINE_list('n_shapes', [1, 2], 'pool of shape repetitions per stimulus')
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0., 0.05], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.05, 0.1], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.05, 0.1], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.1, 0.15], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
@@ -107,15 +107,15 @@ caps1_ndims = 1
 
 # Case of 3 conv layers:
 kernel1 = 4
-kernel2 = 4
+kernel2 = 5
 kernel3 = 5
 stride1 = 1
 stride2 = 1
-stride3 = 1
+stride3 = 2
 
 # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
-dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
+dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
+dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 
 conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1, 'padding': 'valid'}
 conv2_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel2, 'strides': stride2, 'padding': 'valid'}
@@ -150,7 +150,7 @@ flags.DEFINE_float('learning_rate_decay_steps', 300, 'decay for cosine decay res
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
 flags.DEFINE_integer('n_steps', 1500, 'number of steps')
-flags.DEFINE_integer('n_rounds', 3, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_rounds', 2, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 5, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
