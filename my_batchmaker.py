@@ -3,10 +3,11 @@
 Publishing results: my_batchmaker!
 @author: Lynn
 
-Last update on 08.05.2019
+Last update on 09.05.2019
 -> First draft of all stimuli is finished
 -> Everything should be set
 -> In training set, stimuli face each other now
+-> Multiple lines appear now in the training dataset
 """
 
 import numpy as np
@@ -36,6 +37,11 @@ class stim_maker_fn:
         #        self.vernierOffsetWidth = 1
         self.vernierOffsetHeight = 1
         self.offset = offset
+        
+        # Some parameters that I set manually for the new project:
+        self.shape_repetitions = 2
+        self.face_each_other = 1
+        self.line_repetitions = [2, 4, 8]
 
         if not np.mod(shapeSize[1] + self.vernierOffsetHeight, 2) == 0:
             raise SystemExit('\nshapeHeight + vernierOffsetHeight has to be even!')
@@ -245,7 +251,7 @@ class stim_maker_fn:
         patchHeight = self.patchHeight
         selected_shape = crowding_config[0]
         offset = self.offset
-        shape_repetitions = 2
+        shape_repetitions = self.shape_repetitions
 
         vernier_images = np.zeros(shape=[batch_size, imSize[0], imSize[1]], dtype=np.float32)
         shape_images = np.zeros(shape=[batch_size, imSize[0], imSize[1]], dtype=np.float32)
@@ -356,8 +362,14 @@ class stim_maker_fn:
 
         imSize = self.imSize
         patchHeight = self.patchHeight
-        shape_repetitions = 2
-        face_each_other = 1
+        shape_repetitions = self.shape_repetitions
+        face_each_other = self.face_each_other
+        line_reps = self.line_repetitions
+        # Set the max random offset between the stimuli:
+        max_offset_line = self.offset * 6
+        max_offset_stim = self.offset * 6
+        
+        # I am setting the offset to 0 here, since I want to introduce a rd_offset afterwards
         offset = 0
         maxPatchWidth = self.shapeWidth + self.depthW + offset * 2
 
@@ -396,11 +408,18 @@ class stim_maker_fn:
                 rd_offset = 0
                 offset_direction = np.random.randint(0, 2)
                 shape_1_patch = self.drawShape(selected_shape_1, self.offset, offset_direction)
+            elif selected_shape_1 == 1:
+                # the line stimulus should be the only one that can be repeated more often:
+                idx_n_shapes_1 = np.random.randint(0, len(line_reps)) + 1  # atm, idx_n_shapes_1=1 means 2 reps
+                selected_repetitions_1 = line_reps[np.random.randint(0, len(line_reps))]
+                rd_offset = np.random.randint(self.offset, max_offset_line + 1)
+                offset_direction = np.random.randint(0, 2)
+                shape_1_patch = self.drawShape(selected_shape_1, offset)
             else:
                 # if not, repeat shape random times but at least once and set offset_direction to 2=no vernier
                 idx_n_shapes_1 = 1
                 selected_repetitions_1 = shape_repetitions
-                rd_offset = np.random.randint(self.offset, self.offset * 6)
+                rd_offset = np.random.randint(self.offset, max_offset_stim + 1)
                 #                rd_offset = np.random.randint(self.offset, imSize[1]-maxPatchWidth*shape_repetitions)
                 offset_direction = np.random.randint(0, 2)
                 shape_1_patch = self.drawShape(selected_shape_1, offset)
@@ -423,19 +442,15 @@ class stim_maker_fn:
                 # We want to make the degrees of freedom for position on the x axis fair.
                 # For this condition, we have to reduce the image size depending on the actual patch width
                 if idx_n_shapes_1 == 0:
-                    imSize_adapted = imSize[
-                                         1] - maxPatchWidth * shape_repetitions + shape1patch_width * selected_repetitions_1 - 1
+                    imSize_adapted = imSize[1] - maxPatchWidth * shape_repetitions + shape1patch_width * selected_repetitions_1 - 1
                 else:
-                    imSize_adapted = imSize[
-                                         1] - maxPatchWidth * shape_repetitions + shape1patch_width * selected_repetitions_1
+                    imSize_adapted = imSize[1] - maxPatchWidth * shape_repetitions + shape1patch_width * selected_repetitions_1
                 imStart = int((imSize[1] - imSize_adapted) / 2)
-                col_shape_1_init = np.random.randint(imStart,
-                                                     imStart + imSize_adapted - shape1patch_width * selected_repetitions_1 - rd_offset)
+                col_shape_1_init = np.random.randint(imStart, imStart + imSize_adapted - shape1patch_width * selected_repetitions_1 - rd_offset)
                 col_shape_1 = col_shape_1_init
 
             else:
-                col_shape_1_init = np.random.randint(0,
-                                                     imSize[1] - shape1patch_width * selected_repetitions_1 - rd_offset)
+                col_shape_1_init = np.random.randint(0, imSize[1] - shape1patch_width * selected_repetitions_1 - rd_offset)
                 col_shape_1 = col_shape_1_init
 
             if selected_shape_1 == 0:
@@ -480,33 +495,33 @@ class stim_maker_fn:
 #############################################################
 #          HAVE A LOOK AT WHAT THE CODE DOES                #
 #############################################################
-# from my_parameters import parameters
-# imSize = parameters.im_size
+#from my_parameters import parameters
+#imSize = parameters.im_size
 ##imSize = [16, 48]
-# shapeSize = parameters.shape_size
+#shapeSize = parameters.shape_size
 ##shapeSize = [14, 11, 6]
-# barWidth = parameters.bar_width
-# offset = parameters.offset
-# n_shapes = parameters.n_shapes
+#barWidth = parameters.bar_width
+#offset = parameters.offset
+#n_shapes = parameters.n_shapes
 ##batch_size = parameters.batch_size
-# batch_size = 20
+#batch_size = 100
 ##shape_types = parameters.shape_types
-# shape_types = [0, 1, 2, 3, 4]
-# crowding_config = [3, 0, 5]
-# train_procedure = parameters.train_procedure
-# overlap = parameters.overlapping_shapes
-# centralize = parameters.centralized_shapes
+#shape_types = [0, 1, 2, 3, 4]
+#crowding_config = [3, 0, 5]
+#train_procedure = parameters.train_procedure
+#overlap = parameters.overlapping_shapes
+#centralize = parameters.centralized_shapes
 ##reduce_df = parameters.reduce_df
-# reduce_df = True
-# test = stim_maker_fn(imSize, shapeSize, barWidth, offset)
+#reduce_df = True
+#test = stim_maker_fn(imSize, shapeSize, barWidth, offset)
 
 # plt.imshow(test.drawShape(1))
 # test.plotStim([3, 0, 5], offset, 0.01)
 
-# [shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
-# nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
-# shape_types, n_shapes, batch_size, train_procedure, overlap, centralize, reduce_df)
-# for i in range(batch_size):
+#[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
+#nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
+#shape_types, n_shapes, batch_size, train_procedure, overlap, centralize, reduce_df)
+#for i in range(batch_size):
 #    if train_procedure=='random':
 #        plt.imshow(np.squeeze(shape_1_images[i, :, :]))
 #    else:
