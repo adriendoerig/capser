@@ -197,20 +197,22 @@ def model_fn(features, labels, mode, params):
     ##########################################
     #            Prediction mode:            #
     ##########################################
-    if mode == tf.estimator.ModeKeys.PREDICT:        
-        # If in prediction mode, we want to make sure to also have a reconstruction of the vernier:
-        vernier_decoder_input = create_masked_decoder_input(mask_with_labels, shapelabels[:, 0], shapelabels[:, 0], caps2_output, parameters)
-        vernier_output_reconstructed = compute_reconstruction(vernier_decoder_input, parameters, is_training, conv_output_sizes)
-        
-        vernier_img_reconstructed = tf.reshape(
-                vernier_output_reconstructed,
-                [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
-                name='vernier_img_reconstructed')
+    if mode == tf.estimator.ModeKeys.PREDICT:
           
         # If in prediction-mode use (one of) the following for predictions:
         # Since accuracy is calculated over whole batch, we have to repeat it
         # batch_size times (coz all prediction vectors must be same length)
         if params['get_reconstructions']:
+            # If in prediction mode, we want to make sure to also have a reconstruction of the vernier:
+            vernier_decoder_input = create_masked_decoder_input(mask_with_labels, shapelabels[:, 0], shapelabels[:, 0],
+                                                                caps2_output, parameters)
+            vernier_output_reconstructed = compute_reconstruction(vernier_decoder_input, parameters, is_training,
+                                                                  conv_output_sizes)
+
+            vernier_img_reconstructed = tf.reshape(
+                vernier_output_reconstructed,
+                [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth],
+                name='vernier_img_reconstructed')
             predictions = {'decoder_output_img1': shape_1_img_reconstructed,
                            'decoder_output_img2': shape_2_img_reconstructed,
                            'decoder_vernier_img': vernier_img_reconstructed}

@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v8'
+MODEL_NAME = '_logs_v1'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -26,7 +26,7 @@ flags.DEFINE_string('train_data_path', data_path+'/train.tfrecords', 'path for t
 flags.DEFINE_string('val_data_path', data_path+'/val.tfrecords', 'path for tfrecords with validation set')
 flags.DEFINE_list('test_data_paths',
                   [data_path+'/test_lines.tfrecords',
-                   data_path+'/test_rectangles.tfrecords',
+#                   data_path+'/test_rectangles.tfrecords',
                    data_path+'/test_cuboids.tfrecords',
                    data_path+'/test_shuffled_cuboids.tfrecords'
                    ], 'path for tfrecords with test set')
@@ -35,7 +35,7 @@ flags.DEFINE_list('test_data_paths',
 flags.DEFINE_string('val_crowding_data_path', data_path+'/val_crowding.tfrecords', 'path for tfrecords with validation crowding set')
 flags.DEFINE_list('test_crowding_data_paths',
                   [data_path+'/test_crowding_lines',
-                   data_path+'/test_crowding_rectangles',
+#                   data_path+'/test_crowding_rectangles',
                    data_path+'/test_crowding_cuboids',
                    data_path+'/test_crowding_shuffled_cuboids'
                    ], 'path for tfrecords with test crowding set')
@@ -75,11 +75,10 @@ flags.DEFINE_integer('offset', 1, 'offset between shapes and vernier offset widt
 
 # shape_types for training have to have a range from 0 to max
 # the data_paths for the train and test have to match the chosen shape types
-shape_types = [0, 1, 2, 3, 4]
+shape_types = [0, 1, 2, 3]
 test_configs = {'0': [1, 0, 1],
-                '1': [2, 0, 2],
-                '2': [3, 0, 5],
-                '3': [4, 0, 6]}
+                '1': [2, 0, 4],
+                '2': [3, 0, 5]}
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('test_configs', [test_configs], 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('n_shapes', [1, 2], 'pool of shape repetitions per stimulus')
@@ -88,8 +87,8 @@ flags.DEFINE_list('n_shapes', [1, 2], 'pool of shape repetitions per stimulus')
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.05, 0.1], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.1, 0.15], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.0, 0.00], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.0, 0.05], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
@@ -106,7 +105,7 @@ caps1_ndims = 1
 
 
 # Case of 3 conv layers:
-kernel1 = 4
+kernel1 = 5
 kernel2 = 5
 kernel3 = 5
 stride1 = 1
@@ -114,8 +113,8 @@ stride2 = 1
 stride3 = 2
 
 # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
-dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
+dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
+dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
 
 conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1, 'padding': 'valid'}
 conv2_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel2, 'strides': stride2, 'padding': 'valid'}
@@ -130,7 +129,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 5, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 6, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -150,13 +149,13 @@ flags.DEFINE_float('learning_rate_decay_steps', 300, 'decay for cosine decay res
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
 flags.DEFINE_integer('n_steps', 1500, 'number of steps')
-flags.DEFINE_integer('n_rounds', 2, 'number of evaluations; full training steps is equal to n_steps times this number')
-flags.DEFINE_integer('n_iterations', 5, 'number of trained networks')
+flags.DEFINE_integer('n_rounds', 3, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_iterations', 20, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 150, 'minimal seconds between evaluation passes')
-flags.DEFINE_integer('train_iter_routing', 5, 'number of iterations in routing algorithm during training')
+flags.DEFINE_integer('train_iter_routing', 8, 'number of iterations in routing algorithm during training')
 #flags.DEFINE_integer('test_iter_routing', 5, 'number of iterations in routing algorithm during testing')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
@@ -164,7 +163,7 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 ###########################
 #         Losses          #
 ###########################
-flags.DEFINE_boolean('decode_reconstruction', True, 'decode the reconstruction and use reconstruction loss')
+flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', False, 'decode the number of shapes and use nshapes loss')
 nshapes_loss = 'xentropy'

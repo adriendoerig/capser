@@ -41,7 +41,9 @@ class stim_maker_fn:
         # Some parameters that I set manually for the new project:
         self.shape_repetitions = 2
         self.face_each_other = 1
-        self.line_repetitions = [2, 4, 8]
+        self.line_repetitions = [2, 4, 6, 8]
+        self.max_offset_line = self.offset * 6
+        self.max_offset_stim = self.offset * 6
 
         if not np.mod(shapeSize[1] + self.vernierOffsetHeight, 2) == 0:
             raise SystemExit('\nshapeHeight + vernierOffsetHeight has to be even!')
@@ -199,15 +201,15 @@ class stim_maker_fn:
             patch = self.drawVernier(offset, offset_direction)
         if shapeID == 1:
             patch = self.drawLines(offset)
-        if shapeID == 2:
-            patch = self.drawRectangles(offset)
-        if shapeID == 3:
-            patch = self.drawCuboidsL(offset)
-        if shapeID == 4:
-            patch = self.drawShuffledCuboidsL(offset)
-        if shapeID == 5:
-            patch = self.drawCuboidsR(offset)
         if shapeID == 6:
+            patch = self.drawRectangles(offset)
+        if shapeID == 2:
+            patch = self.drawCuboidsL(offset)
+        if shapeID == 3:
+            patch = self.drawShuffledCuboidsL(offset)
+        if shapeID == 4:
+            patch = self.drawCuboidsR(offset)
+        if shapeID == 5:
             patch = self.drawShuffledCuboidsR(offset)
         return patch
 
@@ -366,8 +368,8 @@ class stim_maker_fn:
         face_each_other = self.face_each_other
         line_reps = self.line_repetitions
         # Set the max random offset between the stimuli:
-        max_offset_line = self.offset * 6
-        max_offset_stim = self.offset * 6
+        max_offset_line = self.max_offset_line
+        max_offset_stim = self.max_offset_stim
         
         # I am setting the offset to 0 here, since I want to introduce a rd_offset afterwards
         offset = 0

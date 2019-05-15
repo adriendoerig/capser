@@ -45,7 +45,7 @@ n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
 n_idx = 2
 routing_min = 1
-routing_max = 5
+routing_max = 12
 results = np.zeros(shape=(n_categories, n_idx, n_iterations))
 
 
@@ -194,4 +194,4 @@ print('-------------------------------------------------------')
 
 
 # Get reconstructions:
-os.system('python my_capser_get_reconstructions.py')
+#os.system('python my_capser_get_reconstructions.py')
