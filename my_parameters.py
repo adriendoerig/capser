@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v1'
+MODEL_NAME = '_logs_v8'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -87,7 +87,7 @@ flags.DEFINE_list('n_shapes', [1, 2], 'pool of shape repetitions per stimulus')
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.0, 0.00], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.0, 0.03], 'amount of added random Gaussian noise')
 flags.DEFINE_list('test_noise', [0.0, 0.05], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
@@ -129,7 +129,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 6, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 3, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -149,7 +149,7 @@ flags.DEFINE_float('learning_rate_decay_steps', 300, 'decay for cosine decay res
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
 flags.DEFINE_integer('n_steps', 1500, 'number of steps')
-flags.DEFINE_integer('n_rounds', 3, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_rounds', 2, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 20, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
@@ -163,7 +163,7 @@ flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 ###########################
 #         Losses          #
 ###########################
-flags.DEFINE_boolean('decode_reconstruction', False, 'decode the reconstruction and use reconstruction loss')
+flags.DEFINE_boolean('decode_reconstruction', True, 'decode the reconstruction and use reconstruction loss')
 
 flags.DEFINE_boolean('decode_nshapes', False, 'decode the number of shapes and use nshapes loss')
 nshapes_loss = 'xentropy'

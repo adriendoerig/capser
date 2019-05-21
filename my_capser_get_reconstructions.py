@@ -152,7 +152,7 @@ batch_size = 12
 n_rounds = parameters.n_rounds
 n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_shape_types)
-n_idx = 3
+n_idx = 2
 
 for idx_execution in range(n_iterations):
     log_dir = parameters.logdir + str(idx_execution) + '/'
