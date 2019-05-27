@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v8'
+MODEL_NAME = '_logs_v17'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -87,7 +87,7 @@ flags.DEFINE_list('n_shapes', [1, 2], 'pool of shape repetitions per stimulus')
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.0, 0.03], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.0, 0.02], 'amount of added random Gaussian noise')
 flags.DEFINE_list('test_noise', [0.0, 0.05], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
@@ -105,8 +105,8 @@ caps1_ndims = 1
 
 
 # Case of 3 conv layers:
-kernel1 = 5
-kernel2 = 5
+kernel1 = 4
+kernel2 = 4
 kernel3 = 5
 stride1 = 1
 stride2 = 1
@@ -145,11 +145,11 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 300, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 1500, 'number of steps')
-flags.DEFINE_integer('n_rounds', 2, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_steps', 4000, 'number of steps')
+flags.DEFINE_integer('n_rounds', 1, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 20, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
