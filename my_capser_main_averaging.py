@@ -53,7 +53,7 @@ n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
 n_idx = 2
 routing_min = 1
-routing_max = 12
+routing_max = 15
 results = np.zeros(shape=(n_categories, n_idx, n_iterations))
 
 
@@ -279,7 +279,7 @@ for idx_execution in range(n_iterations):
                                                                 'iter_routing': idx_routing})
                         feed_dict = create_batch(category_idx, stim_idx, reconstruction_batch_size, parameters)
                         
-                        capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict)))
+                        capser_out = list(capser.predict(lambda: predict_input_fn_2(feed_dict)))
                         rec_results1 = [p['decoder_output_img1'] for p in capser_out]
                         rec_results2 = [p['decoder_output_img2'] for p in capser_out]
                         rec_verniers = [p['decoder_vernier_img'] for p in capser_out]
