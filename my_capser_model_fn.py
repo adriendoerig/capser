@@ -5,8 +5,9 @@ My capsnet: model_fn needed for tf train_and_evaluate API
 All functions that are called in this script are described in more detail in
 my_capser_functions.py
 
-Last update on 07.05.2019
+Last update on 28.05.2019
 -> adaption for new project: different iter_routing for training and testing
+-> added variable priming input
 """
 
 import tensorflow as tf
@@ -52,6 +53,12 @@ def model_fn(features, labels, mode, params):
         batch_size = params['batch_size']
     except:
         batch_size = parameters.batch_size
+        
+    # Just a dirty solution:
+    try:
+        priming_input = params['priming_input']
+    except:
+        priming_input = tf.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=tf.float32)
 
 
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -83,7 +90,7 @@ def model_fn(features, labels, mode, params):
     caps1_output = primary_caps_layer(conv_output, parameters)
     
     # Create secondary caps and their output and also divide vernier caps activation and shape caps activation:
-    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters)
+    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, batch_size, iter_routing, priming_input, parameters)
     shape_1_caps_activation = caps2_output[:, :, 0, :, :]
     shape_1_caps_activation = tf.expand_dims(shape_1_caps_activation, 2)
 
@@ -219,7 +226,8 @@ def model_fn(features, labels, mode, params):
         else:
             predictions = {'vernier_accuracy': tf.ones(shape=batch_size) * vernieroffset_accuracy,
                            'rank_pred_shapes': rank_pred_shapes,
-                           'rank_pred_proba': rank_pred_proba}
+                           'rank_pred_proba': rank_pred_proba,
+                           'priming_input': caps2_output}
         
         spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 

@@ -9,9 +9,10 @@ Including:
     compute_vernieroffset_loss, compute_nshapes_loss, compute_location_loss
 @author: Lynn
 
-Last update on 07.05.2019
+Last update on 28.05.2019
 -> adaption for new project: different iter_routing for training and testing
 -> adaptation of plot function for using only 2 conditions
+-> added variable priming input for routing initialization
 """
 
 import tensorflow as tf
@@ -101,7 +102,7 @@ def safe_norm(s, axis=-1, epsilon=1e-7, keepdims=False, name=None):
 ################################
 #     Routing by agreement:    #
 ################################
-def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, parameters):
+def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, priming_input, parameters):
     # How often we do the routing:
     def routing_condition(raw_weights, caps2_output, counter):
         output = tf.less(counter, iter_routing)
@@ -124,7 +125,7 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, param
         raw_weights = tf.zeros([batch_size_tensor, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1],
                                dtype=tf.float32, name='raw_weights')
         caps2_output = tf.zeros([batch_size_tensor, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1],
-                                dtype=tf.float32, name='caps2_output_init')
+                                dtype=tf.float32, name='caps2_output_init') + priming_input
         # Counter for number of routing iterations:
         counter = tf.constant(1)
         raw_weights, caps2_output, counter = tf.while_loop(routing_condition, routing_body,
@@ -177,7 +178,7 @@ def primary_caps_layer(conv_output, parameters):
         return caps1_output
 
 
-def secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters, W_init=None):
+def secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters, priming_input, W_init=None):
     with tf.name_scope('3_secondary_caps_layer'):
         # Initialize and repeat weights for further calculations:
         if W_init==None:
@@ -197,7 +198,7 @@ def secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters, W_i
         caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled, name='caps2_predicted')
         
         # Routing by agreement:
-        caps2_output = routing_by_agreement(caps2_predicted, batch_size, iter_routing, parameters)
+        caps2_output = routing_by_agreement(caps2_predicted, batch_size, iter_routing, priming_input, parameters)
         
         # Compute the norm of the output for each output caps and each instance:
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')
