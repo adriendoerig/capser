@@ -43,7 +43,7 @@ print('-------------------------------------------------------')
 ###########################
 get_reconstructions = 0
 reconstruction_batch_size = 12
-batch_size = 800
+batch_size = 1200
 
 # For reproducibility:
 tf.reset_default_graph()
@@ -54,8 +54,8 @@ n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
 n_rounds = parameters.n_rounds
 n_idx = 2
-routing_min = 1
-routing_max = 15
+routing_min = parameters.routing_min
+routing_max = parameters.routing_max
 
 
 ###########################
@@ -198,11 +198,23 @@ for idx_execution in range(n_iterations):
         logging.getLogger().setLevel(logging.CRITICAL)
 
         for idx_routing in range(routing_min, routing_max+1):
-            log_dir_noprime = parameters.logdir + 'no_prime/' + str(idx_execution) + '/iter_routing_' + str(idx_routing)
+            log_dir_noprime_0 = parameters.logdir + 'no_prime/'
+            log_dir_noprime_1 = log_dir_noprime_0 + str(idx_execution) + '/'
+            log_dir_noprime =log_dir_noprime_1 + '/iter_routing_' + str(idx_routing) + '/'
+            if not os.path.exists(log_dir_noprime_0):
+                os.mkdir(log_dir_noprime_0)
+            if not os.path.exists(log_dir_noprime_1):
+                os.mkdir(log_dir_noprime_1)
             if not os.path.exists(log_dir_noprime):
                 os.mkdir(log_dir_noprime)
-                
-            log_dir_prime = parameters.logdir + 'prime/' + str(idx_execution) + '/iter_routing_' + str(idx_routing)
+
+            log_dir_prime_0 = parameters.logdir + 'prime/'
+            log_dir_prime_1 = log_dir_prime_0 + str(idx_execution) + '/'
+            log_dir_prime = log_dir_prime_1 + '/iter_routing_' + str(idx_routing) + '/'
+            if not os.path.exists(log_dir_prime_0):
+                os.mkdir(log_dir_prime_0)
+            if not os.path.exists(log_dir_prime_1):
+                os.mkdir(log_dir_prime_1)
             if not os.path.exists(log_dir_prime):
                 os.mkdir(log_dir_prime)
 
@@ -230,12 +242,12 @@ for idx_execution in range(n_iterations):
                     #     Performance no priming      #
                     ###################################
                     # Lets get all the results we need without the priming input:
-                    priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1],
-                                             dtype=np.float32)
+                    priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
 
                     capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
                                                     params={'log_dir': log_dir,
                                                             'get_reconstructions': False,
+                                                            'batch_size': batch_size,
                                                             'iter_routing': idx_routing,
                                                             'priming_input': priming_input})
                     feed_dict_1 = create_batch(category_idx, stim_idx, batch_size, parameters)
@@ -243,7 +255,7 @@ for idx_execution in range(n_iterations):
                     
                     # for the no priming case, we simply override the vernier stimulus
                     shape_1_images = np.zeros(shape=[batch_size, parameters.im_size[0],
-                                                     parameters.im_size[1]], dtype=np.float32)
+                                                     parameters.im_size[1], parameters.im_depth], dtype=np.float32)
                     noise1 = np.random.uniform(parameters.test_noise[0], parameters.test_noise[1], [1])
                     shape_1_images = shape_1_images + np.random.normal(0.0, noise1,
                                                                        [batch_size, parameters.im_size[0],
@@ -270,6 +282,7 @@ for idx_execution in range(n_iterations):
                     capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
                                                     params={'log_dir': log_dir,
                                                             'get_reconstructions': False,
+                                                            'batch_size': batch_size,
                                                             'iter_routing': idx_routing,
                                                             'priming_input': priming_input})
                     capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_2)))
@@ -426,7 +439,7 @@ for idx_routing in range(routing_min, routing_max+1):
         for n_category in range(n_categories):
             # Getting data:
             txt_file_name = log_dir_results + '/uncrowding_results_step_' + str(parameters.n_steps*n_rounds) + \
-            '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
+                            '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.txt'
 
             with open(txt_file_name, 'r') as f:
                 lines = f.read()

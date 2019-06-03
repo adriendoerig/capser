@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v17'
+MODEL_NAME = '_logs_v16_new'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -157,6 +157,8 @@ flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least
 flags.DEFINE_integer('eval_throttle_secs', 150, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('train_iter_routing', 8, 'number of iterations in routing algorithm during training')
 #flags.DEFINE_integer('test_iter_routing', 5, 'number of iterations in routing algorithm during testing')
+flags.DEFINE_integer('routing_min', 1, 'number of iterations in routing algorithm during testing')
+flags.DEFINE_integer('routing_max', 15, 'number of iterations in routing algorithm during testing')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 

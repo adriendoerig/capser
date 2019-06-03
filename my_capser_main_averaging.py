@@ -41,7 +41,7 @@ print('-------------------------------------------------------')
 ###########################
 #      Preparations:      #
 ###########################
-get_reconstructions = 1
+get_reconstructions = 0
 reconstruction_batch_size = 12
 
 # For reproducibility:
@@ -52,8 +52,8 @@ tf.set_random_seed(42)
 n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
 n_idx = 2
-routing_min = 1
-routing_max = 15
+routing_min = parameters.routing_min
+routing_max = parameters.routing_max
 results = np.zeros(shape=(n_categories, n_idx, n_iterations))
 
 
