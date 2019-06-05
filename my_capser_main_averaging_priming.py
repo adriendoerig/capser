@@ -43,7 +43,7 @@ print('-------------------------------------------------------')
 ###########################
 get_reconstructions = 0
 reconstruction_batch_size = 12
-batch_size = 1200
+batch_size = 48
 
 # For reproducibility:
 tf.reset_default_graph()
@@ -200,7 +200,7 @@ for idx_execution in range(n_iterations):
         for idx_routing in range(routing_min, routing_max+1):
             log_dir_noprime_0 = parameters.logdir + 'no_prime/'
             log_dir_noprime_1 = log_dir_noprime_0 + str(idx_execution) + '/'
-            log_dir_noprime =log_dir_noprime_1 + '/iter_routing_' + str(idx_routing) + '/'
+            log_dir_noprime = log_dir_noprime_1 + '/iter_routing_' + str(idx_routing) + '/'
             if not os.path.exists(log_dir_noprime_0):
                 os.mkdir(log_dir_noprime_0)
             if not os.path.exists(log_dir_noprime_1):
@@ -283,7 +283,7 @@ for idx_execution in range(n_iterations):
                                                     params={'log_dir': log_dir,
                                                             'get_reconstructions': False,
                                                             'batch_size': batch_size,
-                                                            'iter_routing': idx_routing,
+                                                            'iter_routing': 2,
                                                             'priming_input': priming_input})
                     capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_2)))
                     vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]

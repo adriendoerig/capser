@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v16_new'
+MODEL_NAME = '_logs_project3_v2'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -148,7 +148,7 @@ flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
 flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 4000, 'number of steps')
+flags.DEFINE_integer('n_steps', 6000, 'number of steps')
 flags.DEFINE_integer('n_rounds', 1, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 20, 'number of trained networks')
 
@@ -156,9 +156,8 @@ flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')
 flags.DEFINE_integer('eval_throttle_secs', 150, 'minimal seconds between evaluation passes')
 flags.DEFINE_integer('train_iter_routing', 8, 'number of iterations in routing algorithm during training')
-#flags.DEFINE_integer('test_iter_routing', 5, 'number of iterations in routing algorithm during testing')
-flags.DEFINE_integer('routing_min', 1, 'number of iterations in routing algorithm during testing')
-flags.DEFINE_integer('routing_max', 15, 'number of iterations in routing algorithm during testing')
+flags.DEFINE_integer('routing_min', 1, 'min number of iterations in routing algorithm during testing')
+flags.DEFINE_integer('routing_max', 15, 'max number of iterations in routing algorithm during testing')
 flags.DEFINE_float('init_sigma', 0.01, 'stddev for W initializer')
 
 
