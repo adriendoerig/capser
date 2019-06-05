@@ -338,6 +338,41 @@ class stim_maker_fn:
                     else:
                         shape_image[row:row + patchHeight, col:col + patchWidth] += shape_patch
                     col += patchWidth
+            
+            elif idx == 2:
+                # Only flankers:
+                selected_repetitions = shape_repetitions
+                nshapes_label = 1
+
+                totalWidth = 0
+                for i in range(len(crowding_config)):
+                    shape = crowding_config[i]
+                    shape_patch = self.drawShape(shape, offset)
+                    totalWidth += np.size(shape_patch, 1)
+
+                if reduce_df:
+                    # We want to make the degrees of freedom for position on the x axis fair.
+                    # For this condition, we have to reduce the image size depending on the actual patch width
+                    imSize_adapted = imSize[1] - maxWidth + totalWidth
+                    imStart = int((imSize[1] - imSize_adapted) / 2)
+                    col = np.random.randint(imStart, imStart + imSize_adapted - totalWidth + 1)
+
+                else:
+                    col = np.random.randint(0, imSize[1] - totalWidth)
+
+                # The shape is always first, thats y we can already take the coordinates:
+                x_shape_ind, y_shape_ind = col, row
+
+                # Loop through the configuration for the crowding stimulus
+                for i in range(len(crowding_config)):
+                    shape = crowding_config[i]
+                    shape_patch = self.drawShape(shape, offset)
+                    patchWidth = np.size(shape_patch, 1)
+                    if shape == 0:
+                        x_vernier_ind, y_vernier_ind = col, row
+                    else:
+                        shape_image[row:row + patchHeight, col:col + patchWidth] += shape_patch
+                    col += patchWidth
 
             vernier_images[idx_batch, :, :] = vernier_image
             shape_images[idx_batch, :, :] = shape_image
@@ -506,10 +541,10 @@ class stim_maker_fn:
 #offset = parameters.offset
 #n_shapes = parameters.n_shapes
 ##batch_size = parameters.batch_size
-#batch_size = 100
+#batch_size = 5
 ##shape_types = parameters.shape_types
 #shape_types = [0, 1, 2, 3, 4]
-#crowding_config = [3, 0, 5]
+#crowding_config = [2, 0, 4]
 #train_procedure = parameters.train_procedure
 #overlap = parameters.overlapping_shapes
 #centralize = parameters.centralized_shapes
@@ -530,9 +565,9 @@ class stim_maker_fn:
 #        plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
 #    plt.pause(0.5)
 
-# [vernier_images, shape_images,  shapelabels_idx, vernierlabels_idx,
-# nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(
-# crowding_config, n_shapes, batch_size, None, centralize, reduce_df)
-# for i in range(batch_size):
+#[vernier_images, shape_images,  shapelabels_idx, vernierlabels_idx,
+#nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(
+#crowding_config, n_shapes, batch_size, 2, centralize, reduce_df)
+#for i in range(batch_size):
 #    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
 #    plt.pause(0.5)

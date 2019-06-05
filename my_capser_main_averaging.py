@@ -49,9 +49,9 @@ tf.reset_default_graph()
 np.random.seed(42)
 tf.set_random_seed(42)
 
+n_idx = 3
 n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
-n_idx = 2
 routing_min = parameters.routing_min
 routing_max = parameters.routing_max
 results = np.zeros(shape=(n_categories, n_idx, n_iterations))
