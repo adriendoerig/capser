@@ -233,71 +233,75 @@ for idx_execution in range(n_iterations):
                 print('Compute vernier offset for ' + category)
 
                 # Determine vernier_accuracy for our vernier/crowding/uncrowding stimuli
-                results0_noprime = np.zeros(shape=(n_idx,))
-                results0_prime = np.zeros(shape=(n_idx,))
+                n_test_samples = int(parameters.n_test_samples - np.mod(parameters.n_test_samples, batch_size))
+                n_rep = int(n_test_samples / batch_size)
+                results0_noprime_temp = np.zeros(shape=(n_idx, n_rep))
+                results0_prime_temp = np.zeros(shape=(n_idx, n_rep))
+                results0_noprime = np.zeros(shape=(n_idx))
+                results0_prime = np.zeros(shape=(n_idx))
+
                 for stim_idx in range(n_idx):
                     test_filename = category + '/' + str(stim_idx) + '.tfrecords'
 
-                    ###################################
-                    #     Performance no priming      #
-                    ###################################
-                    # Lets get all the results we need without the priming input:
-                    priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
+                    for rep_idx in range(n_rep):
+                        ###################################
+                        #     Performance no priming      #
+                        ###################################
+                        # Lets get all the results we need without the priming input:
+                        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
 
-                    capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
-                                                    params={'log_dir': log_dir,
-                                                            'get_reconstructions': False,
-                                                            'batch_size': batch_size,
-                                                            'iter_routing': idx_routing,
-                                                            'priming_input': priming_input})
-                    feed_dict_1 = create_batch(category_idx, stim_idx, batch_size, parameters)
-                    feed_dict_2 = copy.deepcopy(feed_dict_1)
-                    
-                    # for the no priming case, we simply override the vernier stimulus
-                    shape_1_images = np.zeros(shape=[batch_size, parameters.im_size[0],
-                                                     parameters.im_size[1], parameters.im_depth], dtype=np.float32)
-                    noise1 = np.random.uniform(parameters.test_noise[0], parameters.test_noise[1], [1])
-                    shape_1_images = shape_1_images + np.random.normal(0.0, noise1,
-                                                                       [batch_size, parameters.im_size[0],
-                                                                        parameters.im_size[1], parameters.im_depth])
-                    feed_dict_1['shape_1_images'] = shape_1_images
-                    
-                    capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_1)))
-                    vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
-                    rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
-                    rank_pred_proba = [p['rank_pred_proba'] for p in capser_out]
-                    priming_input = [p['priming_input'] for p in capser_out]
+                        capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
+                                                        params={'log_dir': log_dir,
+                                                                'get_reconstructions': False,
+                                                                'batch_size': batch_size,
+                                                                'iter_routing': idx_routing,
+                                                                'priming_input': priming_input})
+                        feed_dict_1 = create_batch(category_idx, stim_idx, batch_size, parameters)
+                        feed_dict_2 = copy.deepcopy(feed_dict_1)
 
-                    # Get all the other results per round:
-                    results0_noprime[stim_idx] = np.mean(vernier_accuracy)
-                    results1_noprime = np.unique(rank_pred_shapes)
-                    results2_noprime = np.mean(rank_pred_proba, 0)
-                    res_noprime.append(np.mean(vernier_accuracy))
+                        # for the no priming case, we simply override the vernier stimulus
+                        shape_1_images = np.zeros(shape=[batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], dtype=np.float32)
+                        noise1 = np.random.uniform(parameters.test_noise[0], parameters.test_noise[1], [1])
+                        shape_1_images = shape_1_images + np.random.normal(0.0, noise1, [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+                        feed_dict_1['shape_1_images'] = shape_1_images
+
+                        capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_1)))
+                        vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
+#                        rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
+#                        rank_pred_proba = [p['rank_pred_proba'] for p in capser_out]
+                        priming_input = [p['priming_input'] for p in capser_out]
+
+                        # Get all the other results per round:
+                        results0_noprime_temp[stim_idx, rep_idx] = np.mean(vernier_accuracy)
+#                        results1_noprime = np.unique(rank_pred_shapes)
+#                        results2_noprime = np.mean(rank_pred_proba, 0)
 
 
-                    ###################################
-                    #    Performance with priming     #
-                    ###################################
-                    # Lets get all the results we need adding the priming input:
-                    capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
-                                                    params={'log_dir': log_dir,
-                                                            'get_reconstructions': False,
-                                                            'batch_size': batch_size,
-                                                            'iter_routing': 2,
-                                                            'priming_input': priming_input})
-                    capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_2)))
-                    vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
-                    rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
-                    rank_pred_proba = [p['rank_pred_proba'] for p in capser_out]
+                        ###################################
+                        #    Performance with priming     #
+                        ###################################
+                        # Lets get all the results we need adding the priming input:
+                        capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
+                                                        params={'log_dir': log_dir,
+                                                                'get_reconstructions': False,
+                                                                'batch_size': batch_size,
+                                                                'iter_routing': 1,
+                                                                'priming_input': priming_input})
+                        capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_2)))
+                        vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
+#                        rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
+#                        rank_pred_proba = [p['rank_pred_proba'] for p in capser_out]
 
-                    # Get all the other results per round:
-                    results0_prime[stim_idx] = np.mean(vernier_accuracy)
-                    results1_prime = np.unique(rank_pred_shapes)
-                    results2_prime = np.mean(rank_pred_proba, 0)
-                    res_prime.append(np.mean(vernier_accuracy))
+                        # Get all the other results per round:
+                        results0_prime_temp[stim_idx, rep_idx] = np.mean(vernier_accuracy)
+#                        results1_prime = np.unique(rank_pred_shapes)
+#                        results2_prime = np.mean(rank_pred_proba, 0)
+
+                    results0_noprime = np.mean(results0_noprime_temp, 1)
+                    results0_prime = np.mean(results0_prime_temp, 1)
 
                     print('Finished calculations for stimulus type ' + str(stim_idx))
-                    print('Result: ' + str(results0_noprime[stim_idx]) + '; test_samples used: ' + str(len(vernier_accuracy)))
+                    print('Result: ' + str(results0_noprime[stim_idx]))
                     
                     
                     ###################################
@@ -326,27 +330,31 @@ for idx_execution in range(n_iterations):
 
 
                     # Saving ranking results without priming:
-                    txt_ranking_file_name = log_dir_noprime + '/ranking_step_' + str(parameters.n_steps*idx_round) + '.txt'
-                    if not os.path.exists(txt_ranking_file_name):
-                        with open(txt_ranking_file_name, 'w') as f:
-                            f.write(category + str(stim_idx) + ' : \t' +
-                                    str(results1_noprime) + ' : \t' + str(results2_noprime) + '\n')
-                    else:
-                        with open(txt_ranking_file_name, 'a') as f:
-                            f.write(category + str(stim_idx) + ' : \t' +
-                                    str(results1_noprime) + ' : \t' + str(results2_noprime) + '\n')
-                    
-                    # Saving ranking results with priming:
-                    txt_ranking_file_name = log_dir_prime + '/ranking_step_' + str(parameters.n_steps*idx_round) + '.txt'
-                    if not os.path.exists(txt_ranking_file_name):
-                        with open(txt_ranking_file_name, 'w') as f:
-                            f.write(category + str(stim_idx) + ' : \t' +
-                                    str(results1_prime) + ' : \t' + str(results2_prime) + '\n')
-                    else:
-                        with open(txt_ranking_file_name, 'a') as f:
-                            f.write(category + str(stim_idx) + ' : \t' +
-                                    str(results1_prime) + ' : \t' + str(results2_prime) + '\n')
+                    # txt_ranking_file_name = log_dir_noprime + '/ranking_step_' + str(parameters.n_steps*idx_round) + '.txt'
+                    # if not os.path.exists(txt_ranking_file_name):
+                    #     with open(txt_ranking_file_name, 'w') as f:
+                    #         f.write(category + str(stim_idx) + ' : \t' +
+                    #                 str(results1_noprime) + ' : \t' + str(results2_noprime) + '\n')
+                    # else:
+                    #     with open(txt_ranking_file_name, 'a') as f:
+                    #         f.write(category + str(stim_idx) + ' : \t' +
+                    #                 str(results1_noprime) + ' : \t' + str(results2_noprime) + '\n')
+                    #
+                    # # Saving ranking results with priming:
+                    # txt_ranking_file_name = log_dir_prime + '/ranking_step_' + str(parameters.n_steps*idx_round) + '.txt'
+                    # if not os.path.exists(txt_ranking_file_name):
+                    #     with open(txt_ranking_file_name, 'w') as f:
+                    #         f.write(category + str(stim_idx) + ' : \t' +
+                    #                 str(results1_prime) + ' : \t' + str(results2_prime) + '\n')
+                    # else:
+                    #     with open(txt_ranking_file_name, 'a') as f:
+                    #         f.write(category + str(stim_idx) + ' : \t' +
+                    #                 str(results1_prime) + ' : \t' + str(results2_prime) + '\n')
 
+                res_noprime.append(results0_noprime[0])
+                res_noprime.append(results0_noprime[1])
+                res_prime.append(results0_prime[0])
+                res_prime.append(results0_prime[1])
 
                 # Saving performance results without priming:
                 txt_file_name = log_dir_noprime + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) + \
@@ -369,12 +377,14 @@ for idx_execution in range(n_iterations):
                         f.write(category + ' : \t' + str(results0_prime) + '\n')
 
             # Plotting without priming:
-            plot_uncrowding_results(res_noprime, cats,
+            print(res_noprime)
+            print(np.size(res_noprime))
+            plot_uncrowding_results(res_noprime, cats, n_idx,
                                     save=log_dir_noprime + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) +
                                     '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
             
             # Plotting with priming:
-            plot_uncrowding_results(res_prime, cats,
+            plot_uncrowding_results(res_prime, cats, n_idx,
                                     save=log_dir_prime + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) +
                                     '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
 

@@ -7,8 +7,9 @@ This code is inspired by this youtube-vid and code:
 https://www.youtube.com/watch?v=oxrcZ9uUblI
 https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Dataset_API.ipynb
 
-Last update on 07.05.2019
+Last update on 05.06.2019
 -> this my_make_tf was adapted for the new projects (temporal dynamics) that uses dicts for the test_configs
+-> u can say how many conditions r used during training (n_idx)
 """
 
 import sys
@@ -28,7 +29,6 @@ testing = 1
 testing_crowding = 1
 
 n_idx = 3
-
 
 ##################################
 #       Helper functions:        #

@@ -3,11 +3,12 @@
 Publishing results: my_batchmaker!
 @author: Lynn
 
-Last update on 09.05.2019
+Last update on 05.06.2019
 -> First draft of all stimuli is finished
 -> Everything should be set
 -> In training set, stimuli face each other now
 -> Multiple lines appear now in the training dataset
+-> Flankers alone condition during training
 """
 
 import numpy as np
@@ -201,8 +202,8 @@ class stim_maker_fn:
             patch = self.drawVernier(offset, offset_direction)
         if shapeID == 1:
             patch = self.drawLines(offset)
-        if shapeID == 6:
-            patch = self.drawRectangles(offset)
+#        if shapeID == 2:
+#            patch = self.drawRectangles(offset)
         if shapeID == 2:
             patch = self.drawCuboidsL(offset)
         if shapeID == 3:
@@ -497,8 +498,7 @@ class stim_maker_fn:
             else:
                 # Repeat shape_1 selected_repetitions times if not vernier:
                 for i in range(selected_repetitions_1):
-                    shape_1_image[row_shape_1:row_shape_1 + patchHeight,
-                    col_shape_1:col_shape_1 + shape1patch_width] += shape_1_patch
+                    shape_1_image[row_shape_1:row_shape_1 + patchHeight, col_shape_1:col_shape_1 + shape1patch_width] += shape_1_patch
                     col_shape_1 += shape1patch_width + rd_offset
                     if face_each_other == 1:
                         shape_1_patch = np.fliplr(shape_1_patch)

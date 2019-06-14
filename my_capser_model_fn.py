@@ -61,7 +61,7 @@ def model_fn(features, labels, mode, params):
         priming_input = np.asarray(params['priming_input'], np.float32)
     except:
         priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
-    priming_input = tf.Variable(priming_input, dtype=tf.float32, trainable=False)
+    priming_input = tf.convert_to_tensor(priming_input, dtype=tf.float32)
 
 
     if mode == tf.estimator.ModeKeys.PREDICT:

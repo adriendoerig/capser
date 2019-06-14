@@ -18,7 +18,7 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_project3_v2'
+MODEL_NAME = '_logs_v2'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
@@ -148,7 +148,7 @@ flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
 flags.DEFINE_float('learning_rate_decay_steps', 500, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 6000, 'number of steps')
+flags.DEFINE_integer('n_steps', 4000, 'number of steps')
 flags.DEFINE_integer('n_rounds', 1, 'number of evaluations; full training steps is equal to n_steps times this number')
 flags.DEFINE_integer('n_iterations', 20, 'number of trained networks')
 

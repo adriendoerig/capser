@@ -239,6 +239,8 @@ for idx_execution in range(n_iterations):
                 # Determine vernier_accuracy for our vernier/crowding/uncrowding stimuli
                 results0 = np.zeros(shape=(n_idx,))
                 for stim_idx in range(n_idx):
+                    priming_input = np.zeros([parameters.batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1],
+                                             dtype=np.float32)
                     test_filename = category + '/' + str(stim_idx) + '.tfrecords'
 
                     ###################################
@@ -248,7 +250,8 @@ for idx_execution in range(n_iterations):
                     capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
                                                     params={'log_dir': log_dir,
                                                             'get_reconstructions': False,
-                                                            'iter_routing': idx_routing})
+                                                            'iter_routing': idx_routing,
+                                                            'priming_input': priming_input})
                     capser_out = list(capser.predict(lambda: predict_input_fn(test_filename)))
                     vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
                     rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
@@ -314,8 +317,8 @@ for idx_execution in range(n_iterations):
                         f.write(category + ' : \t' + str(results0) + '\n')
 
             # Plotting:
-            plot_uncrowding_results(res, cats, save=log_dir_results + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) +
-                                                    '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
+            plot_uncrowding_results(res, cats, n_idx, save=log_dir_results + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) +
+                                                           '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
 
 
 

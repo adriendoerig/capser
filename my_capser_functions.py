@@ -41,8 +41,7 @@ def save_params(save_path, parameters):
 ################################
 #     Helper plot function:    #
 ################################
-def plot_uncrowding_results(results, categories, save=None):
-    n_idx = 2
+def plot_uncrowding_results(results, categories, n_idx, save=None):
     results = np.array(results)*100
     
     # plot bar width & colors
@@ -53,8 +52,9 @@ def plot_uncrowding_results(results, categories, save=None):
     ind = np.arange(N)  # the x locations for the groups
     fig, ax = plt.subplots()
     ax.bar(ind - width / n_idx, results[0::n_idx], width/n_idx, color=color7, edgecolor='black')
-    ax.bar(ind            , results[1::n_idx], width/n_idx, color=color7, edgecolor='black')
-#    ax.bar(ind + width / n_idx, results[2::n_idx], width/n_idx, color=color7, edgecolor='black')
+    ax.bar(ind, results[1::n_idx], width/n_idx, color=color7, edgecolor='black')
+    if n_idx==3:
+        ax.bar(ind + width / n_idx, results[2::n_idx], width/n_idx, color=color7, edgecolor='black')
 
     # add some text for labels, title and axes ticks, and save figure
     ax.set_ylabel('Percent correct')
@@ -123,13 +123,11 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, primi
     # Execution of routing via while-loop:
     with tf.name_scope('Routing_by_agreement'):
         # Initialize weights and caps2-output-array
-        raw_weights = tf.zeros([batch_size_tensor, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1],
-                               dtype=tf.float32, name='raw_weights')
+        raw_weights = tf.zeros([batch_size_tensor, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1], dtype=tf.float32, name='raw_weights')
         caps2_output = tf.add(tf.zeros([batch_size_tensor, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=tf.float32, name='caps2_output_init'), priming_input)
         # Counter for number of routing iterations:
-        counter = tf.constant(1)
-        raw_weights, caps2_output, counter = tf.while_loop(routing_condition, routing_body,
-                                                           [raw_weights, caps2_output, counter])
+        counter = tf.constant(0)
+        raw_weights, caps2_output, counter = tf.while_loop(routing_condition, routing_body, [raw_weights, caps2_output, counter])
         return caps2_output
 
 
