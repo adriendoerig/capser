@@ -108,12 +108,12 @@ def predict_input_fn(feed_dict):
     shape_2_images = feed_dict['shape_2_images']
     shapelabels = feed_dict['shapelabels']
     nshapeslabels = feed_dict['nshapeslabels']
-    vernier_offsets = feed_dict['vernier_offsets']
+    vernier_offsets = np.squeeze(feed_dict['vernier_offsets'])
     x_shape_1 = feed_dict['x_shape_1']
     y_shape_1 = feed_dict['y_shape_1']
     x_shape_2 = feed_dict['x_shape_2']
     y_shape_2 = feed_dict['y_shape_2']
-    
+
     dataset_test = tf.data.Dataset.from_tensor_slices((shape_1_images,
                                                        shape_2_images,
                                                        shapelabels,
@@ -132,14 +132,14 @@ def predict_input_fn(feed_dict):
     iterator = dataset_test.make_one_shot_iterator()
     
     # Get the next batch of images and labels.
-    [shape_1_images, shape_2_images, shapelabels, vernierlabels, nshapeslabels,
+    [shape_1_images, shape_2_images, shapelabels, nshapeslabels, vernierlabels,
      x_shape_1, y_shape_1, x_shape_2, y_shape_2] = iterator.get_next()
     
     feed_dict = {'shape_1_images': shape_1_images,
                  'shape_2_images': shape_2_images,
                  'shapelabels': shapelabels,
                  'nshapeslabels': nshapeslabels,
-                 'vernier_offsets': vernierlabels,
+                 'vernier_offsets': tf.squeeze(vernierlabels),  # we probably should squeeze the other labels too, but since we are not using them...
                  'x_shape_1': x_shape_1,
                  'y_shape_1': y_shape_1,
                  'x_shape_2': x_shape_2,
@@ -147,7 +147,7 @@ def predict_input_fn(feed_dict):
                  'mask_with_labels': False,
                  'is_training': False}
 
-    return feed_dict
+    return feed_dict, vernierlabels
 
 
 def plot_results(originals, results1, results2, verniers, save=None):
@@ -241,7 +241,6 @@ for idx_execution in range(n_iterations):
                 results0_prime = np.zeros(shape=(n_idx))
 
                 for stim_idx in range(n_idx):
-                    test_filename = category + '/' + str(stim_idx) + '.tfrecords'
 
                     for rep_idx in range(n_rep):
                         ###################################
@@ -265,11 +264,33 @@ for idx_execution in range(n_iterations):
                         shape_1_images = shape_1_images + np.random.normal(0.0, noise1, [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
                         feed_dict_1['shape_1_images'] = shape_1_images
 
+                        check_inputs = 0
+                        if check_inputs and rep_idx == 0:
+                            for sample in range(5):
+                                f, ax = plt.subplots(2, 3)
+                                ax[0,0].imshow(feed_dict_1['shape_1_images'][sample,:,:,0])
+                                ax[0,0].set_title(str(stim_idx) + "feed_dict1 shape 1 -- Vernier_label: " + str(feed_dict_1['vernier_offsets'][sample]))
+                                ax[0,1].imshow(feed_dict_1['shape_2_images'][sample,:,:,0])
+                                ax[0,1].set_title("feed_dict1 shape 2 -- Vernier_label: " + str(feed_dict_1['vernier_offsets'][sample]))
+                                ax[0,2].imshow(feed_dict_1['shape_1_images'][sample,:,:,0]+feed_dict_1['shape_2_images'][sample,:,:,0])
+                                ax[0,2].set_title("feed_dict1 sum -- Vernier_label: " + str(feed_dict_1['vernier_offsets'][sample]))
+                                ax[1,0].imshow(feed_dict_2['shape_1_images'][sample,:,:,0])
+                                ax[1,0].set_title("feed_dict2 shape 1 -- Vernier_label: " + str(feed_dict_2['vernier_offsets'][sample]))
+                                ax[1,1].imshow(feed_dict_2['shape_2_images'][sample,:,:,0])
+                                ax[1,1].set_title("feed_dict2 shape 2 -- Vernier_label: " + str(feed_dict_2['vernier_offsets'][sample]))
+                                ax[1,2].imshow(feed_dict_2['shape_1_images'][sample, :, :, 0] + feed_dict_2['shape_2_images'][sample, :, :, 0])
+                                ax[1,2].set_title("feed_dict2 sum -- Vernier_label: " + str(feed_dict_2['vernier_offsets'][sample]))
+                                plt.show()
+
                         capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_1)))
                         vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
 #                        rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
 #                        rank_pred_proba = [p['rank_pred_proba'] for p in capser_out]
                         priming_input = [p['priming_input'] for p in capser_out]
+
+                        pred_vernier = [p['pred_vernier'] for p in capser_out]
+                        real_vernier = [p['real_vernier'] for p in capser_out]
+                        input_images = [p['input_images'] for p in capser_out]
 
                         # Get all the other results per round:
                         results0_noprime_temp[stim_idx, rep_idx] = np.mean(vernier_accuracy)
@@ -292,17 +313,23 @@ for idx_execution in range(n_iterations):
 #                        rank_pred_shapes = [p['rank_pred_shapes'] for p in capser_out]
 #                        rank_pred_proba = [p['rank_pred_proba'] for p in capser_out]
 
+                        pred_vernier = [p['pred_vernier'] for p in capser_out]
+                        real_vernier = [p['real_vernier'] for p in capser_out]
+                        input_images = [p['input_images'] for p in capser_out]
+
                         # Get all the other results per round:
                         results0_prime_temp[stim_idx, rep_idx] = np.mean(vernier_accuracy)
 #                        results1_prime = np.unique(rank_pred_shapes)
 #                        results2_prime = np.mean(rank_pred_proba, 0)
 
-                    results0_noprime = np.mean(results0_noprime_temp, 1)
-                    results0_prime = np.mean(results0_prime_temp, 1)
+                    results0_noprime[stim_idx] = np.mean(results0_noprime_temp[stim_idx, :])
+                    results0_prime[stim_idx] = np.mean(results0_prime_temp[stim_idx, :])
+
 
                     print('Finished calculations for stimulus type ' + str(stim_idx))
-                    print('Result: ' + str(results0_noprime[stim_idx]))
-                    
+                    print('Result - noprime: ' + str(results0_noprime[stim_idx]))
+                    print('Result - prime: ' + str(results0_prime[stim_idx]))
+
                     
                     ###################################
                     #         Reconstructions         #

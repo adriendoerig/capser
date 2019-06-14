@@ -39,6 +39,7 @@ def model_fn(features, labels, mode, params):
     shape_2_images = tf.cast(features['shape_2_images'], tf.float32)
     shapelabels = tf.cast(features['shapelabels'], tf.int64)
     nshapeslabels = tf.cast(features['nshapeslabels'], tf.int64)
+    # vernierlabels = tf.cast(features['vernier_offsets'], tf.int64)
     vernierlabels = tf.cast(features['vernier_offsets'], tf.int64)
     x_shape_1 = features['x_shape_1']
     y_shape_1 = features['y_shape_1']
@@ -230,8 +231,11 @@ def model_fn(features, labels, mode, params):
             predictions = {'vernier_accuracy': tf.ones(shape=batch_size) * vernieroffset_accuracy,
                            'rank_pred_shapes': rank_pred_shapes,
                            'rank_pred_proba': rank_pred_proba,
-                           'priming_input': caps2_output}
-        
+                           'priming_input': caps2_output,
+                           'pred_vernier': vernierlabels_pred,
+                           'real_vernier': vernierlabels,
+                           'input_images': input_images}
+
         spec = tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
 

@@ -339,7 +339,7 @@ class stim_maker_fn:
                     else:
                         shape_image[row:row + patchHeight, col:col + patchWidth] += shape_patch
                     col += patchWidth
-            
+
             elif idx == 2:
                 # Only flankers:
                 selected_repetitions = shape_repetitions
@@ -390,6 +390,13 @@ class stim_maker_fn:
         # add the color channel for tensorflow:
         vernier_images = np.expand_dims(vernier_images, -1)
         shape_images = np.expand_dims(shape_images, -1)
+
+        # for sample in range(5):
+        #     f, (ax1, ax2) = plt.subplots(1, 2)
+        #     ax1.imshow(vernier_images[sample, :, :, 0])
+        #     ax2.imshow(shape_images[sample, :, :, 0])
+        #     plt.show()
+
         return [vernier_images, shape_images, shapelabels_idx, vernierlabels_idx,
                 nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape]
 
