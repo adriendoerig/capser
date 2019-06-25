@@ -108,14 +108,27 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, primi
     def routing_condition(raw_weights, caps2_output, counter, priming_input):
         output = tf.less(counter, iter_routing)
         return output
-    
+
     # What the routing is:
     def routing_body(raw_weights, caps2_output, counter, priming_input):
-        routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
+        # use priming values if non zero for the first iteration:
+        prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
+        routing_weights = tf.cond(tf.equal(counter, tf.constant(0)),
+                                  true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
+                                                          true_fn=lambda: tf.nn.softmax(raw_weights, axis=2, name='routing_weights'),
+                                                          false_fn=lambda: tf.nn.softmax(priming_input, axis=2, name='routing_weights')),
+                                  false_fn=lambda: tf.nn.softmax(raw_weights, axis=2, name='routing_weights'))
+#        routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
         weighted_predictions = tf.multiply(routing_weights, caps2_predicted, name='weighted_predictions')
         weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True, name='weighted_sum')
-        # add priming values to caps2_output if it is the first iteration
-        caps2_output = tf.cond(tf.equal(counter, tf.constant(0)), true_fn=lambda: tf.add(squash(weighted_sum, axis=-2, name='caps2_output'), priming_input), false_fn=lambda: squash(weighted_sum, axis=-2, name='caps2_output'))
+        # use priming values if non zero for the first iteration:
+#        prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
+#        caps2_output = tf.cond(tf.equal(counter, tf.constant(0)),
+#                               true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
+#                                                       true_fn=lambda: squash(weighted_sum, axis=-2, name='caps2_output'),
+#                                                       false_fn=lambda: priming_input),
+#                               false_fn=lambda: squash(weighted_sum, axis=-2, name='caps2_output'))
+        caps2_output = squash(weighted_sum, axis=-2, name='caps2_output')
         caps2_output_tiled = tf.tile(caps2_output, [1, parameters.caps1_ncaps, 1, 1, 1], name='caps2_output_tiled')
         agreement = tf.matmul(caps2_predicted, caps2_output_tiled, transpose_a=True, name='agreement')
         raw_weights = tf.add(raw_weights, agreement, name='raw_weights')
@@ -129,7 +142,7 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, primi
         # Counter for number of routing iterations:
         counter = tf.constant(0)
         raw_weights, caps2_output, counter, priming_input = tf.while_loop(routing_condition, routing_body, [raw_weights, caps2_output, counter, priming_input])
-        return caps2_output
+        return caps2_output, raw_weights
 
 
 ###################################
@@ -197,12 +210,12 @@ def secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters, pri
         caps2_predicted = tf.matmul(W_tiled, caps1_output_tiled, name='caps2_predicted')
         
         # Routing by agreement:
-        caps2_output = routing_by_agreement(caps2_predicted, batch_size, iter_routing, priming_input, parameters)
+        caps2_output, raw_weights = routing_by_agreement(caps2_predicted, batch_size, iter_routing, priming_input, parameters)
         
         # Compute the norm of the output for each output caps and each instance:
         caps2_output_norm = safe_norm(caps2_output, axis=-2, keepdims=True, name='caps2_output_norm')
         tf.summary.histogram('caps2_output_norm', caps2_output_norm[0, :, :, :])
-        return caps2_output, caps2_output_norm
+        return caps2_output, caps2_output_norm, raw_weights
 
 
 ################################

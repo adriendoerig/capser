@@ -12,7 +12,7 @@ print('Starting performance script...')
 ###########################
 n_idx = 3
 #n_iterations = parameters.n_iterations
-n_iterations = 7
+n_iterations = 30
 n_rounds = parameters.n_rounds
 n_categories = len(parameters.test_crowding_data_paths)
 routing_min = parameters.routing_min

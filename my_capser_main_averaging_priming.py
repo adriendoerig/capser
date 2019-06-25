@@ -247,7 +247,8 @@ for idx_execution in range(n_iterations):
                         #     Performance no priming      #
                         ###################################
                         # Lets get all the results we need without the priming input:
-                        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
+#                        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
+                        priming_input = np.zeros([batch_size, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1], dtype=np.float32)
 
                         capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
                                                         params={'log_dir': log_dir,
@@ -259,10 +260,10 @@ for idx_execution in range(n_iterations):
                         feed_dict_2 = copy.deepcopy(feed_dict_1)
 
                         # for the no priming case, we simply override the vernier stimulus
-                        shape_1_images = np.zeros(shape=[batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], dtype=np.float32)
-                        noise1 = np.random.uniform(parameters.test_noise[0], parameters.test_noise[1], [1])
-                        shape_1_images = shape_1_images + np.random.normal(0.0, noise1, [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
-                        feed_dict_1['shape_1_images'] = shape_1_images
+#                        shape_1_images = np.zeros(shape=[batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], dtype=np.float32)
+#                        noise1 = np.random.uniform(parameters.test_noise[0], parameters.test_noise[1], [1])
+#                        shape_1_images = shape_1_images + np.random.normal(0.0, noise1, [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+#                        feed_dict_1['shape_1_images'] = shape_1_images
 
                         check_inputs = 0
                         if check_inputs and rep_idx == 0:
@@ -306,7 +307,7 @@ for idx_execution in range(n_iterations):
                                                         params={'log_dir': log_dir,
                                                                 'get_reconstructions': False,
                                                                 'batch_size': batch_size,
-                                                                'iter_routing': 1,
+                                                                'iter_routing': 2,
                                                                 'priming_input': priming_input})
                         capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_2)))
                         vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]

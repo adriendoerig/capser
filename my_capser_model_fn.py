@@ -61,7 +61,8 @@ def model_fn(features, labels, mode, params):
     try:
         priming_input = np.asarray(params['priming_input'], np.float32)
     except:
-        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
+#        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32
+        priming_input = np.zeros([batch_size, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1], dtype=np.float32)
     priming_input = tf.convert_to_tensor(priming_input, dtype=tf.float32)
 
 
@@ -94,7 +95,7 @@ def model_fn(features, labels, mode, params):
     caps1_output = primary_caps_layer(conv_output, parameters)
     
     # Create secondary caps and their output and also divide vernier caps activation and shape caps activation:
-    caps2_output, caps2_output_norm = secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters, priming_input)
+    caps2_output, caps2_output_norm, raw_weights = secondary_caps_layer(caps1_output, batch_size, iter_routing, parameters, priming_input)
     shape_1_caps_activation = caps2_output[:, :, 0, :, :]
     shape_1_caps_activation = tf.expand_dims(shape_1_caps_activation, 2)
 
@@ -231,7 +232,7 @@ def model_fn(features, labels, mode, params):
             predictions = {'vernier_accuracy': tf.ones(shape=batch_size) * vernieroffset_accuracy,
                            'rank_pred_shapes': rank_pred_shapes,
                            'rank_pred_proba': rank_pred_proba,
-                           'priming_input': caps2_output,
+                           'priming_input': raw_weights,
                            'pred_vernier': vernierlabels_pred,
                            'real_vernier': vernierlabels,
                            'input_images': input_images}
