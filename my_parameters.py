@@ -39,58 +39,58 @@ flags = tf.app.flags
 ###########################
 # In general:
 data_path = './data'
-MODEL_NAME = '_logs_v108'
+MODEL_NAME = '_logs_project1_1'
 flags.DEFINE_string('data_path', data_path, 'path where all data files are located')
 
 # For training stimuli:
 flags.DEFINE_string('train_data_path', data_path+'/train.tfrecords', 'path for tfrecords with training set')
 flags.DEFINE_string('val_data_path', data_path+'/val.tfrecords', 'path for tfrecords with validation set')
 flags.DEFINE_list('test_data_paths',
-                  [data_path+'/test_squares.tfrecords',
-#                  data_path+'/test_circles.tfrecords',
-#                   data_path+'/test_rhombus.tfrecords',
-                   data_path+'/test_4stars.tfrecords',
+#                  [data_path+'/test_squares.tfrecords',
+                   [data_path+'/test_circles.tfrecords',
+                   data_path+'/test_rhombus.tfrecords',
+                   data_path+'/test_4stars.tfrecords'
 #                   data_path+'/test_hexagons.tfrecords',
-                   data_path+'/test_6stars.tfrecords'
+#                   data_path+'/test_6stars.tfrecords'
                    ], 'path for tfrecords with test set')
 
 # For crowding/uncrowding stimuli:
 flags.DEFINE_string('val_crowding_data_path', data_path+'/val_crowding.tfrecords', 'path for tfrecords with validation crowding set')
 flags.DEFINE_list('test_crowding_data_paths',
-                  [data_path+'/test_crowding_squares',
-#                  data_path+'/test_crowding_circles',
-#                   data_path+'/test_crowding_rhombus',
+#                  [data_path+'/test_crowding_squares',
+                   [data_path+'/test_crowding_circles',
+                   data_path+'/test_crowding_rhombus',
                    data_path+'/test_crowding_4stars',
 #                   data_path+'/test_crowding_hexagons',
-                   data_path+'/test_crowding_6stars',
+#                   data_path+'/test_crowding_6stars',
 #                   data_path+'/test_crowding_squares_circles',
 #                   data_path+'/test_crowding_circles_squares',
 #                   data_path+'/test_crowding_squares_rhombus',
 #                   data_path+'/test_crowding_rhombus_squares',
-                   data_path+'/test_crowding_squares_4stars',
-                   data_path+'/test_crowding_4stars_squares',
+#                   data_path+'/test_crowding_squares_4stars',
+#                   data_path+'/test_crowding_4stars_squares',
 #                   data_path+'/test_crowding_squares_hexagons',
 #                   data_path+'/test_crowding_hexagons_squares',
-                   data_path+'/test_crowding_squares_6stars',
-                   data_path+'/test_crowding_6stars_squares',
-#                   data_path+'/test_crowding_circles_rhombus',
-#                   data_path+'/test_crowding_rhombus_circles',
-#                   data_path+'/test_crowding_circles_4stars',
-#                   data_path+'/test_crowding_4stars_circles'
+#                   data_path+'/test_crowding_squares_6stars',
+#                   data_path+'/test_crowding_6stars_squares',
+                   data_path+'/test_crowding_circles_rhombus',
+                   data_path+'/test_crowding_rhombus_circles',
+                   data_path+'/test_crowding_circles_4stars',
+                   data_path+'/test_crowding_4stars_circles',
 #                   data_path+'/test_crowding_circles_hexagons',
 #                   data_path+'/test_crowding_hexagons_circles',
 #                   data_path+'/test_crowding_circles_6stars',
 #                   data_path+'/test_crowding_6stars_circles',
-#                   data_path+'/test_crowding_rhombus_4stars',
-#                   data_path+'/test_crowding_4stars_rhombus',
+                   data_path+'/test_crowding_rhombus_4stars',
+                   data_path+'/test_crowding_4stars_rhombus'
 #                   data_path+'/test_crowding_rhombus_hexagons',
 #                   data_path+'/test_crowding_hexagons_rhombus',
 #                   data_path+'/test_crowding_rhombus_6stars',
 #                   data_path+'/test_crowding_6stars_rhombus',
 #                   data_path+'/test_crowding_4stars_hexagons',
 #                   data_path+'/test_crowding_hexagons_4stars',
-                   data_path+'/test_crowding_4stars_6stars',
-                   data_path+'/test_crowding_6stars_4stars'
+#                   data_path+'/test_crowding_4stars_6stars',
+#                   data_path+'/test_crowding_6stars_4stars',
 #                   data_path+'/test_crowding_hexagons_6stars',
 #                   data_path+'/test_crowding_6stars_hexagons'
                    ], 'path for tfrecords with test crowding set')
@@ -121,14 +121,14 @@ flags.DEFINE_boolean('reduce_df', True,  'if true, the degrees of freedom for po
 flags.DEFINE_integer('n_train_samples', 100000, 'number of samples in the training set')
 flags.DEFINE_integer('n_test_samples', 2400, 'number of samples in the test set')
 
-im_size = [30, 72]
+im_size = [16, 72]
 flags.DEFINE_list('im_size', im_size, 'image size of datasets')
 flags.DEFINE_integer('im_depth', 1, 'number of colour channels')
 flags.DEFINE_integer('shape_size', 14, 'size of the shapes')
 flags.DEFINE_integer('bar_width', 1, 'thickness of shape lines')
 
 # shape_types for training have to have a range from 0 to max
-# the data_paths for the train and test have to match the chosen shape types 
+# the data_paths for the train and test have to match the chosen shape types
 shape_types = [0, 1, 2, 3]
 #test_shape_types = [1, 2, 3, 4, 5, 6,
 #                    412, 421, 413, 431, 414, 441, 415, 451, 416, 461,
@@ -142,14 +142,14 @@ test_shape_types = [1, 2, 3,
 
 flags.DEFINE_list('shape_types', shape_types, 'pool of shapes (see batchmaker)')
 flags.DEFINE_list('test_shape_types', test_shape_types, 'pool of shapes (see batchmaker)')
-flags.DEFINE_list('n_shapes', [0, 1, 3, 5], 'pool of shape repetitions per stimulus')
+flags.DEFINE_list('n_shapes', [1, 3, 5], 'pool of shape repetitions per stimulus')
 
 
 ###########################
 #    Data augmentation    #
 ###########################
-flags.DEFINE_list('train_noise', [0.0, 0.0], 'amount of added random Gaussian noise')
-flags.DEFINE_list('test_noise', [0.0, 0.0], 'amount of added random Gaussian noise')
+flags.DEFINE_list('train_noise', [0.0, 0.00], 'amount of added random Gaussian noise')
+flags.DEFINE_list('test_noise', [0.01, 0.01], 'amount of added random Gaussian noise')
 flags.DEFINE_list('clip_values', [0., 1.], 'min and max pixel value for every image')
 flags.DEFINE_boolean('allow_flip_augmentation', False, 'augment by flipping the image up/down or left/right')
 flags.DEFINE_boolean('allow_contrast_augmentation', True, 'augment by changing contrast and brightness')
@@ -161,20 +161,20 @@ flags.DEFINE_list('delta_contrast', [0.6, 1.2], 'min and max factor to adjust co
 #   Network parameters    #
 ###########################
 # Conv and primary caps:
-caps1_nmaps = len(shape_types)*5
+caps1_nmaps = len(shape_types)
 caps1_ndims = 1
 
 
 # Case of 3 conv layers:
 kernel1 = 5
 kernel2 = 5
-kernel3 = 4
+kernel3 = 6
 stride1 = 1
-stride2 = 2
+stride2 = 1
 stride3 = 2
 
 # For some reason (rounding/padding?), the following calculation is not always 100% precise, so u might have to add +1:
-dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 0
+dim1 = int((((((im_size[0] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 dim2 = int((((((im_size[1] - kernel1+1) / stride1) - kernel2+1) / stride2) - kernel3+1) / stride3) + 1
 
 conv1_params = {'filters': caps1_nmaps*caps1_ndims, 'kernel_size': kernel1, 'strides': stride1, 'padding': 'valid'}
@@ -190,7 +190,7 @@ flags.DEFINE_integer('caps1_ndims', caps1_ndims, 'primary caps, number of dims')
 
 # Output caps:
 flags.DEFINE_integer('caps2_ncaps', len(shape_types), 'second caps layer, number of caps')
-flags.DEFINE_integer('caps2_ndims', 11, 'second caps layer, number of dims')
+flags.DEFINE_integer('caps2_ndims', 4, 'second caps layer, number of dims')
 
 
 # Decoder reconstruction:
@@ -206,12 +206,12 @@ flags.DEFINE_integer('n_output', im_size[0]*im_size[1], 'output size of the deco
 # For training
 flags.DEFINE_integer('batch_size', 48, 'batch size')
 flags.DEFINE_float('learning_rate', 0.0004, 'chosen learning rate for training')
-flags.DEFINE_float('learning_rate_decay_steps', 250, 'decay for cosine decay restart')
+flags.DEFINE_float('learning_rate_decay_steps', 400, 'decay for cosine decay restart')
 
 flags.DEFINE_integer('n_epochs', None, 'number of epochs, if None allow for indifinite readings')
-flags.DEFINE_integer('n_steps', 1250, 'number of steps')
-flags.DEFINE_integer('n_rounds', 4, 'number of evaluations; full training steps is equal to n_steps times this number')
-flags.DEFINE_integer('n_iterations', 15, 'number of trained networks')
+flags.DEFINE_integer('n_steps', 4800, 'number of steps')
+flags.DEFINE_integer('n_rounds', 1, 'number of evaluations; full training steps is equal to n_steps times this number')
+flags.DEFINE_integer('n_iterations', 20, 'number of trained networks')
 
 flags.DEFINE_integer('buffer_size', 1024, 'buffer size')
 flags.DEFINE_integer('eval_steps', 50, 'frequency for eval spec; u need at least eval_steps*batch_size stimuli in the validation set')

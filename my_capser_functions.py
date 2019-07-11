@@ -49,19 +49,23 @@ def save_params(save_path, parameters):
 ################################
 #     Helper plot function:    #
 ################################
-def plot_uncrowding_results(results, categories, save=None):
-    results = np.array(results)*100
-    
+def plot_uncrowding_results(results, categories, n_idx, save=None):
+    results = np.array(results) * 100
+
     # plot bar width & colors
     width = .3333  # the width of the bars
     color7 = (100. / 255, 170. / 255, 180. / 255)
 
-    N = len(results)/3
+    N = len(results) / n_idx
     ind = np.arange(N)  # the x locations for the groups
     fig, ax = plt.subplots()
-    ax.bar(ind - width / 3, results[0::3], width/3, color=color7, edgecolor='black')
-    ax.bar(ind            , results[1::3], width/3, color=color7, edgecolor='black')
-    ax.bar(ind + width / 3, results[2::3], width/3, color=color7, edgecolor='black')
+    ax.bar(ind - width / n_idx, results[0::n_idx], width / n_idx, color=color7, edgecolor='black')
+    ax.bar(ind, results[1::n_idx], width / n_idx, color=color7, edgecolor='black')
+    if n_idx == 3:
+        ax.bar(ind + width / n_idx, results[2::n_idx], width / n_idx, color=color7, edgecolor='black')
+    if n_idx == 4:
+        ax.bar(ind + width / n_idx, results[2::n_idx], width / n_idx, color=color7, edgecolor='black')
+        ax.bar(ind + width / n_idx, results[3::n_idx], width / n_idx, color=color7, edgecolor='black')
 
     # add some text for labels, title and axes ticks, and save figure
     ax.set_ylabel('Percent correct')
@@ -71,7 +75,7 @@ def plot_uncrowding_results(results, categories, save=None):
     plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right')
 
     chance_line, = ax.plot([-2 * width, N], [50, 50], '#8d8f8c')  # chance level dashed line
-    chance_line.set_dashes([1, 3, 1, 3])
+    chance_line.set_dashes([1, n_idx, 1, n_idx])
 
     if save is None:
         plt.show()
@@ -79,7 +83,6 @@ def plot_uncrowding_results(results, categories, save=None):
     else:
         plt.savefig(save)
         plt.close()
-
 
 ################################
 #      Squash function:        #

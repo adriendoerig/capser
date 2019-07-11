@@ -48,7 +48,7 @@ tf.set_random_seed(42)
 
 n_iterations = parameters.n_iterations
 n_categories = len(parameters.test_crowding_data_paths)
-n_idx = 3
+n_idx = 4
 results = np.zeros(shape=(n_categories, n_idx, n_iterations))
 
 
@@ -142,7 +142,7 @@ for idx_execution in range(n_iterations):
                     f.write(category + ' : \t' + str(results0) + '\n')
         
         # Plotting:
-        plot_uncrowding_results(res, cats, save=log_dir + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) +
+        plot_uncrowding_results(res, cats, n_idx, save=log_dir + '/uncrowding_results_step_' + str(parameters.n_steps*idx_round) +
                                 '_noise_' + str(parameters.test_noise[0]) + '_' + str(parameters.test_noise[1]) + '.png')
 
 

@@ -403,6 +403,27 @@ class stim_maker_fn:
                             x_vernier_ind, y_vernier_ind = col, row
                         col += self.shapeSize
 
+            elif idx == 3:
+                # New stimuli that should not uncrowd (dont rely on nshape label!):
+                selected_repetitions = 2
+                nshapes_label = 0
+                distance = 0 * int(self.shapeSize / 2)
+                
+                if reduce_df:
+                    # We want to make the degrees of freedom for position on the x axis fair:
+                    imSize_adapted = self.imSize[1] - (max(n_shapes) - 1) * self.shapeSize
+                    imStart = int((self.imSize[1] - imSize_adapted) / 2)
+                    col = np.random.randint(imStart, imStart + imSize_adapted - self.shapeSize)
+
+                else:
+                    col = np.random.randint(0, self.imSize[1] - self.shapeSize*2)
+
+                vernier_image[row:row + self.shapeSize, col:col + self.shapeSize] += vernier_patch
+                shape_image[row:row + self.shapeSize, col-distance-self.shapeSize:col-distance] += shape_patch
+                shape_image[row:row + self.shapeSize, col+distance+self.shapeSize:col+distance+self.shapeSize*2] += shape_patch
+                x_vernier_ind, y_vernier_ind = col, row
+                x_shape_ind, y_shape_ind = col, row
+
             vernier_images[idx_batch, :, :] = vernier_image #+ np.random.normal(0, noise, size=self.imSize)
             shape_images[idx_batch, :, :] = shape_image #+ np.random.normal(0, noise, size=self.imSize)
             shapelabels_idx[idx_batch, 0] = 0
@@ -605,20 +626,20 @@ class stim_maker_fn:
 #reduce_df = parameters.reduce_df
 ##reduce_df = True
 #test = stim_maker_fn(imSize, shapeSize, barWidth)
-#
+
 ##plt.imshow(test.drawShape(5))
 ##test.plotStim([1, 2, 3, 4], 0.01)
-#
+
 ##[shape_1_images, shape_2_images, shapelabels_idx, vernierlabels_idx,
 ## nshapeslabels, nshapeslabels_idx, x_shape_1, y_shape_1, x_shape_2, y_shape_2] = test.makeTrainBatch(
 ## shape_types, n_shapes, batch_size, train_procedure, overlap=overlap, centralize=centralize, reduce_df=reduce_df)
 ##for i in range(batch_size):
 ##    plt.imshow(np.squeeze(shape_1_images[i, :, :] + shape_2_images[i, :, :]))
 ##    plt.pause(0.5)
-#
+
 #[vernier_images, shape_images,  shapelabels_idx, vernierlabels_idx,
 # nshapeslabels, nshapeslabels_idx, x_vernier, y_vernier, x_shape, y_shape] = test.makeTestBatch(
-# 3, n_shapes, batch_size, None, centralize, reduce_df)
+# 3, n_shapes, batch_size, 3, centralize, reduce_df)
 #for i in range(batch_size):
 #    plt.imshow(np.squeeze(vernier_images[i, :, :] + shape_images[i, :, :]))
 #    plt.pause(0.5)
