@@ -113,12 +113,12 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, primi
     def routing_body(raw_weights, caps2_output, counter, priming_input):
         # use priming values if non zero for the first iteration:
         prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
-        routing_weights = tf.cond(tf.equal(counter, tf.constant(0)),
-                                  true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
-                                                          true_fn=lambda: tf.nn.softmax(raw_weights, axis=2, name='routing_weights'),
-                                                          false_fn=lambda: tf.nn.softmax(priming_input, axis=2, name='routing_weights')),
-                                  false_fn=lambda: tf.nn.softmax(raw_weights, axis=2, name='routing_weights'))
-#        routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
+        raw_weights = tf.cond(tf.equal(counter, tf.constant(0)),
+                              true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
+                                                          true_fn=lambda: raw_weights,
+                                                          false_fn=lambda: priming_input),
+                              false_fn=lambda: raw_weights)
+        routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
         weighted_predictions = tf.multiply(routing_weights, caps2_predicted, name='weighted_predictions')
         weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True, name='weighted_sum')
         # use priming values if non zero for the first iteration:

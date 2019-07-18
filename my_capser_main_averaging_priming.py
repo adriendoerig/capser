@@ -80,9 +80,9 @@ def create_batch(test_config, stim_idx, batch_size, parameters):
     
     # For the test and validation set, we dont really need data augmentation,
     # but we'd still like some TEST noise
-    noise1 = np.random.uniform(test_noise[0], test_noise[1], [1])
+#    noise1 = np.random.uniform(test_noise[0], test_noise[1], [1])
     noise2 = np.random.uniform(test_noise[0], test_noise[1], [1])
-    shape_1_images = shape_1_images + np.random.normal(0.0, noise1, [batch_size, im_size[0], im_size[1], parameters.im_depth])
+#    shape_1_images = shape_1_images + np.random.normal(0.0, noise1, [batch_size, im_size[0], im_size[1], parameters.im_depth])
     shape_2_images = shape_2_images + np.random.normal(0.0, noise2, [batch_size, im_size[0], im_size[1], parameters.im_depth])
     
     # Lets clip the pixel values, so that if we add them the maximum pixel intensity will be 1:
@@ -260,10 +260,11 @@ for idx_execution in range(n_iterations):
                         feed_dict_2 = copy.deepcopy(feed_dict_1)
 
                         # for the no priming case, we simply override the vernier stimulus
-#                        shape_1_images = np.zeros(shape=[batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], dtype=np.float32)
-#                        noise1 = np.random.uniform(parameters.test_noise[0], parameters.test_noise[1], [1])
-#                        shape_1_images = shape_1_images + np.random.normal(0.0, noise1, [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
-#                        feed_dict_1['shape_1_images'] = shape_1_images
+                        shape_1_images = np.zeros(shape=[batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth], dtype=np.float32)
+                        noise1 = np.random.uniform(parameters.test_noise[0], parameters.test_noise[1], [1])
+                        full_noise1 = np.random.normal(0.0, noise1, [batch_size, parameters.im_size[0], parameters.im_size[1], parameters.im_depth])
+                        feed_dict_1['shape_1_images'] = shape_1_images + full_noise1
+                        feed_dict_2['shape_1_images'] = feed_dict_2['shape_1_images'] + full_noise1
 
                         check_inputs = 0
                         if check_inputs and rep_idx == 0:
@@ -307,7 +308,7 @@ for idx_execution in range(n_iterations):
                                                         params={'log_dir': log_dir,
                                                                 'get_reconstructions': False,
                                                                 'batch_size': batch_size,
-                                                                'iter_routing': 2,
+                                                                'iter_routing': 1,
                                                                 'priming_input': priming_input})
                         capser_out = list(capser.predict(lambda: predict_input_fn(feed_dict_2)))
                         vernier_accuracy = [p['vernier_accuracy'] for p in capser_out]
