@@ -12,7 +12,7 @@ Last update on 28.05.2019
 
 import tensorflow as tf
 import numpy as np
-import pdb
+#import pdb
 
 from my_parameters import parameters
 from my_capser_functions import \
@@ -61,8 +61,10 @@ def model_fn(features, labels, mode, params):
     try:
         priming_input = np.asarray(params['priming_input'], np.float32)
     except:
-#        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32
-        priming_input = np.zeros([batch_size, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1], dtype=np.float32)
+        # Prime the caps2outputs:
+        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
+        # Prime the routing weights:
+#        priming_input = np.zeros([batch_size, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1], dtype=np.float32)
     priming_input = tf.convert_to_tensor(priming_input, dtype=tf.float32)
 
 
