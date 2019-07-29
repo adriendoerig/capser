@@ -110,25 +110,62 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, primi
         return output
 
     # What the routing is:
-    # Version 1: Priming by replacing all routing weights
-#    def routing_body(raw_weights, caps2_output, counter, priming_input):
-#        # use priming values if non zero for the first iteration:
-#        prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
-#        raw_weights = tf.cond(tf.equal(counter, tf.constant(0)),
-#                              true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
-#                                                          true_fn=lambda: raw_weights,
-#                                                          false_fn=lambda: priming_input),
-#                              false_fn=lambda: raw_weights)
-#        routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
-#        weighted_predictions = tf.multiply(routing_weights, caps2_predicted, name='weighted_predictions')
-#        weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True, name='weighted_sum')
-#        caps2_output = squash(weighted_sum, axis=-2, name='caps2_output')
-#        caps2_output_tiled = tf.tile(caps2_output, [1, parameters.caps1_ncaps, 1, 1, 1], name='caps2_output_tiled')
-#        agreement = tf.matmul(caps2_predicted, caps2_output_tiled, transpose_a=True, name='agreement')
-#        raw_weights = tf.add(raw_weights, agreement, name='raw_weights')
-#        return raw_weights, caps2_output, tf.add(counter, 1), priming_input
-    
-        
+    # Version 1: Priming by adding primed to "native" routing weights
+    # def routing_body(raw_weights, caps2_output, counter, priming_input):
+    #    # use priming values if non zero for the first iteration:
+    #    prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
+    #    raw_weights = tf.cond(tf.equal(counter, tf.constant(0)),
+    #                          true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
+    #                                                      true_fn=lambda: raw_weights,
+    #                                                      false_fn=lambda: priming_input+raw_weights),
+    #                          false_fn=lambda: raw_weights)
+    #    routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
+    #    weighted_predictions = tf.multiply(routing_weights, caps2_predicted, name='weighted_predictions')
+    #    weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True, name='weighted_sum')
+    #    caps2_output = squash(weighted_sum, axis=-2, name='caps2_output')
+    #    caps2_output_tiled = tf.tile(caps2_output, [1, parameters.caps1_ncaps, 1, 1, 1], name='caps2_output_tiled')
+    #    agreement = tf.matmul(caps2_predicted, caps2_output_tiled, transpose_a=True, name='agreement')
+    #    raw_weights = tf.add(raw_weights, agreement, name='raw_weights')
+    #    return raw_weights, caps2_output, tf.add(counter, 1), priming_input
+
+   # Version 1b: Priming by adding WINNING primed to "native" routing weights
+    def routing_body(raw_weights, caps2_output, counter, priming_input):
+       # use priming values if non zero for the first iteration:
+
+       # this segment produces a tensor of shape=raw_weights.shape, with zeros everywhere apart for the winning capsule
+       # note that the winning capsule is the one with highest sum of primed weights (we don't directly compute the
+       # primed caps2output norm, but this should be equivalent).
+       prime_input_sum = tf.reduce_sum(priming_input, axis=1, name='prime_sum')
+       prime_argmax = tf.argmax(prime_input_sum, axis=1, name='prime_argmax')
+       prime_winner_arg = tf.squeeze(prime_argmax, name='prime_winner_arg')
+       prime_winner_one_hot = tf.one_hot(prime_winner_arg, parameters.caps2_ncaps, name='prime_onehot')
+       prime_winner_one_hot_expanded = tf.expand_dims(tf.expand_dims(tf.expand_dims(prime_winner_one_hot, dim=1), dim=-1), dim=-1, name='prime_onehot_expanded')
+       prime_winner_one_hot_tiled = tf.tile(prime_winner_one_hot_expanded, [1, 228, 1, 1, 1])  # 228 is ncaps1, it is the first dimension of priming_input in case you want to see it
+       what_we_use_for_priming = priming_input * prime_winner_one_hot_tiled
+       # print(priming_input)
+       # print(prime_input_sum)
+       # print(prime_argmax)
+       # print(prime_winner_arg)
+       # print(prime_winner_one_hot)
+       # print(prime_winner_one_hot_expanded)
+       # print(prime_winner_one_hot_tiled)
+       # print(what_we_use_for_priming)
+
+       prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
+       raw_weights = tf.cond(tf.equal(counter, tf.constant(0)),
+                             true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
+                                                     true_fn=lambda: raw_weights,
+                                                     false_fn=lambda: what_we_use_for_priming + raw_weights),
+                             false_fn=lambda: raw_weights)
+       routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
+       weighted_predictions = tf.multiply(routing_weights, caps2_predicted, name='weighted_predictions')
+       weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True, name='weighted_sum')
+       caps2_output = squash(weighted_sum, axis=-2, name='caps2_output')
+       caps2_output_tiled = tf.tile(caps2_output, [1, parameters.caps1_ncaps, 1, 1, 1], name='caps2_output_tiled')
+       agreement = tf.matmul(caps2_predicted, caps2_output_tiled, transpose_a=True, name='agreement')
+       raw_weights = tf.add(raw_weights, agreement, name='raw_weights')
+       return raw_weights, caps2_output, tf.add(counter, 1), priming_input
+
     # Version 2: Priming by replacing all caps2outputs
 #    def routing_body(raw_weights, caps2_output, counter, priming_input):
 #        routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
@@ -147,22 +184,39 @@ def routing_by_agreement(caps2_predicted, batch_size_tensor, iter_routing, primi
 #        return raw_weights, caps2_output, tf.add(counter, 1), priming_input
     
     # Version 3: Priming by adding (only winning) caps2outputs
-    def routing_body(raw_weights, caps2_output, counter, priming_input):
-        routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
-        weighted_predictions = tf.multiply(routing_weights, caps2_predicted, name='weighted_predictions')
-        weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True, name='weighted_sum')
-        # use priming values if non zero for the first iteration:
-        prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
-        caps2_output = tf.cond(tf.equal(counter, tf.constant(0)),
-                               true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
-                                                       true_fn=lambda: weighted_sum,
-                                                       false_fn=lambda: tf.add(weighted_sum, priming_input)),
-                               false_fn=lambda: weighted_sum)
-        caps2_output = squash(weighted_sum, axis=-2, name='caps2_output')
-        caps2_output_tiled = tf.tile(caps2_output, [1, parameters.caps1_ncaps, 1, 1, 1], name='caps2_output_tiled')
-        agreement = tf.matmul(caps2_predicted, caps2_output_tiled, transpose_a=True, name='agreement')
-        raw_weights = tf.add(raw_weights, agreement, name='raw_weights')
-        return raw_weights, caps2_output, tf.add(counter, 1), priming_input
+    # def routing_body(raw_weights, caps2_output, counter, priming_input):
+    #     routing_weights = tf.nn.softmax(raw_weights, axis=2, name='routing_weights')
+    #     weighted_predictions = tf.multiply(routing_weights, caps2_predicted, name='weighted_predictions')
+    #     weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True, name='weighted_sum')
+    #     # use priming values if non zero for the first iteration:
+    #     prime_cond = tf.cast(tf.reduce_sum(priming_input), tf.int32)
+    #
+    #     # this segment produces a tensor of shape=caps2.shape, with zeros everywhere apart for the winning capsule
+    #     prime_caps2_output_norm = safe_norm(priming_input, axis=-2, keepdims=True, name='prime_caps2_output_norm')
+    #     prime_argmax = tf.argmax(prime_caps2_output_norm, axis=2, name='prime_argmax')
+    #     prime_winner_arg = tf.squeeze(prime_argmax, name='prime_winner_arg')
+    #     prime_winner_one_hot = tf.one_hot(prime_winner_arg, parameters.caps2_ncaps)
+    #     prime_winner_one_hot_expanded = tf.expand_dims(tf.expand_dims(tf.expand_dims(prime_winner_one_hot, dim=1), dim=-1), dim=-1)
+    #     prime_winner_one_hot_tiled = tf.tile(prime_winner_one_hot_expanded, [1,1,1,3,1])
+    #     what_we_use_for_priming = priming_input*prime_winner_one_hot_tiled
+    #     # print(prime_caps2_output_norm)
+    #     # print(prime_argmax)
+    #     # print(prime_winner_arg)
+    #     # print(prime_winner_one_hot)
+    #     # print(prime_winner_one_hot_expanded)
+    #     # print(prime_winner_one_hot_tiled)
+    #     # print(what_we_use_for_priming)
+    #
+    #     caps2_output = tf.cond(tf.equal(counter, tf.constant(0)),
+    #                            true_fn=lambda: tf.cond(tf.equal(prime_cond, tf.constant(0)),
+    #                                                    true_fn=lambda: weighted_sum,
+    #                                                    false_fn=lambda: tf.add(weighted_sum, what_we_use_for_priming)),
+    #                            false_fn=lambda: weighted_sum)
+    #     caps2_output = squash(caps2_output, axis=-2, name='caps2_output')
+    #     caps2_output_tiled = tf.tile(caps2_output, [1, parameters.caps1_ncaps, 1, 1, 1], name='caps2_output_tiled')
+    #     agreement = tf.matmul(caps2_predicted, caps2_output_tiled, transpose_a=True, name='agreement')
+    #     raw_weights = tf.add(raw_weights, agreement, name='raw_weights')
+    #     return raw_weights, caps2_output, tf.add(counter, 1), priming_input
     
     # Execution of routing via while-loop:
     with tf.name_scope('Routing_by_agreement'):

@@ -248,9 +248,9 @@ for idx_execution in range(n_iterations):
                         ###################################
                         # Lets get all the results we need without the priming input:
                         # Version 1: priming the caps2outputs
-                        priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
+                        # priming_input = np.zeros([batch_size, 1, parameters.caps2_ncaps, parameters.caps2_ndims, 1], dtype=np.float32)
                         # Version 2: priming the routing weights
-#                        priming_input = np.zeros([batch_size, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1], dtype=np.float32)
+                        priming_input = np.zeros([batch_size, parameters.caps1_ncaps, parameters.caps2_ncaps, 1, 1], dtype=np.float32)
 
                         capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=log_dir,
                                                         params={'log_dir': log_dir,
